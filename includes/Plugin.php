@@ -88,6 +88,13 @@ class Plugin {
 	private $scheduler;
 
 	/**
+	 * Settings class instance.
+	 *
+	 * @var Settings|null
+	 */
+	private $settings;
+
+	/**
 	 * Private constructor to prevent direct instantiation.
 	 */
 	private function __construct() {
@@ -147,6 +154,9 @@ class Plugin {
 
 		// Initialize Scheduler class.
 		$this->scheduler = new Scheduler();
+
+		// Initialize Settings class.
+		$this->settings = new Settings();
 
 		// Hook for after dependencies loaded.
 		do_action( 'wpha_dependencies_loaded' );
@@ -230,6 +240,15 @@ class Plugin {
 	 */
 	public function get_scheduler() {
 		return $this->scheduler;
+	}
+
+	/**
+	 * Get settings instance.
+	 *
+	 * @return Settings|null
+	 */
+	public function get_settings() {
+		return $this->settings;
 	}
 
 	/**

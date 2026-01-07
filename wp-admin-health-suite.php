@@ -36,6 +36,7 @@ require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/autoload.php';
 // Require classes not following PSR-4 naming.
 require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/class-installer.php';
 require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/class-scheduler.php';
+require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/class-settings.php';
 
 /**
  * Main plugin class initialization.

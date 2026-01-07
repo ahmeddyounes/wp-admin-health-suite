@@ -31,6 +31,7 @@ class Installer {
 	 */
 	public static function install() {
 		self::create_tables();
+		self::set_default_settings();
 		self::set_version();
 	}
 
@@ -139,6 +140,20 @@ class Installer {
 	}
 
 	/**
+	 * Set default settings on installation.
+	 *
+	 * @return void
+	 */
+	private static function set_default_settings() {
+		// Only set defaults if settings don't exist yet.
+		if ( false === get_option( Settings::OPTION_NAME ) ) {
+			require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/class-settings.php';
+			$settings = new Settings();
+			update_option( Settings::OPTION_NAME, $settings->get_default_settings() );
+		}
+	}
+
+	/**
 	 * Set plugin version in options.
 	 *
 	 * @return void
@@ -196,6 +211,7 @@ class Installer {
 
 		// Delete options.
 		delete_option( self::VERSION_OPTION );
+		delete_option( Settings::OPTION_NAME );
 
 		// Hook for custom uninstall routines.
 		do_action( 'wpha_uninstalled' );

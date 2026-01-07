@@ -1,0 +1,629 @@
+<?php
+/**
+ * Settings Class
+ *
+ * @package WPAdminHealth
+ */
+
+namespace WPAdminHealth;
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	die;
+}
+
+/**
+ * Handles plugin settings using WordPress Settings API.
+ */
+class Settings {
+
+	/**
+	 * Option name for storing plugin settings.
+	 *
+	 * @var string
+	 */
+	const OPTION_NAME = 'wpha_settings';
+
+	/**
+	 * Settings sections.
+	 *
+	 * @var array
+	 */
+	private $sections;
+
+	/**
+	 * Settings fields.
+	 *
+	 * @var array
+	 */
+	private $fields;
+
+	/**
+	 * Constructor.
+	 */
+	public function __construct() {
+		$this->define_sections();
+		$this->define_fields();
+		$this->init_hooks();
+	}
+
+	/**
+	 * Define settings sections.
+	 *
+	 * @return void
+	 */
+	private function define_sections() {
+		$this->sections = array(
+			'general'          => array(
+				'title'       => __( 'General Settings', 'wp-admin-health-suite' ),
+				'description' => __( 'Configure general plugin behavior.', 'wp-admin-health-suite' ),
+			),
+			'database_cleanup' => array(
+				'title'       => __( 'Database Cleanup', 'wp-admin-health-suite' ),
+				'description' => __( 'Configure database cleanup options.', 'wp-admin-health-suite' ),
+			),
+			'media_audit'      => array(
+				'title'       => __( 'Media Audit', 'wp-admin-health-suite' ),
+				'description' => __( 'Configure media audit settings.', 'wp-admin-health-suite' ),
+			),
+			'performance'      => array(
+				'title'       => __( 'Performance', 'wp-admin-health-suite' ),
+				'description' => __( 'Configure performance monitoring.', 'wp-admin-health-suite' ),
+			),
+			'scheduling'       => array(
+				'title'       => __( 'Scheduling', 'wp-admin-health-suite' ),
+				'description' => __( 'Configure automated task scheduling.', 'wp-admin-health-suite' ),
+			),
+			'advanced'         => array(
+				'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+				'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
+			),
+		);
+	}
+
+	/**
+	 * Define settings fields.
+	 *
+	 * @return void
+	 */
+	private function define_fields() {
+		$this->fields = array(
+			// General settings.
+			'enable_dashboard_widget' => array(
+				'section'  => 'general',
+				'title'    => __( 'Enable Dashboard Widget', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => true,
+				'sanitize' => 'boolean',
+			),
+			'health_score_threshold'  => array(
+				'section'     => 'general',
+				'title'       => __( 'Health Score Threshold', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 70,
+				'sanitize'    => 'integer',
+				'description' => __( 'Minimum health score before warnings (0-100).', 'wp-admin-health-suite' ),
+				'min'         => 0,
+				'max'         => 100,
+			),
+
+			// Database cleanup settings.
+			'cleanup_revisions'         => array(
+				'section'  => 'database_cleanup',
+				'title'    => __( 'Clean Post Revisions', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => false,
+				'sanitize' => 'boolean',
+			),
+			'cleanup_auto_drafts'       => array(
+				'section'  => 'database_cleanup',
+				'title'    => __( 'Clean Auto-Drafts', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => false,
+				'sanitize' => 'boolean',
+			),
+			'cleanup_trashed_posts'     => array(
+				'section'  => 'database_cleanup',
+				'title'    => __( 'Clean Trashed Posts', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => false,
+				'sanitize' => 'boolean',
+			),
+			'cleanup_spam_comments'     => array(
+				'section'  => 'database_cleanup',
+				'title'    => __( 'Clean Spam Comments', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => false,
+				'sanitize' => 'boolean',
+			),
+			'cleanup_trashed_comments'  => array(
+				'section'  => 'database_cleanup',
+				'title'    => __( 'Clean Trashed Comments', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => false,
+				'sanitize' => 'boolean',
+			),
+			'cleanup_expired_transients' => array(
+				'section'  => 'database_cleanup',
+				'title'    => __( 'Clean Expired Transients', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => true,
+				'sanitize' => 'boolean',
+			),
+			'cleanup_orphaned_metadata' => array(
+				'section'  => 'database_cleanup',
+				'title'    => __( 'Clean Orphaned Metadata', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => false,
+				'sanitize' => 'boolean',
+			),
+
+			// Media audit settings.
+			'scan_unused_media'         => array(
+				'section'  => 'media_audit',
+				'title'    => __( 'Scan for Unused Media', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => true,
+				'sanitize' => 'boolean',
+			),
+			'media_retention_days'      => array(
+				'section'     => 'media_audit',
+				'title'       => __( 'Media Retention Days', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 30,
+				'sanitize'    => 'integer',
+				'description' => __( 'Days to retain deleted media before permanent removal.', 'wp-admin-health-suite' ),
+				'min'         => 1,
+				'max'         => 365,
+			),
+			'exclude_media_types'       => array(
+				'section'     => 'media_audit',
+				'title'       => __( 'Exclude Media Types', 'wp-admin-health-suite' ),
+				'type'        => 'text',
+				'default'     => '',
+				'sanitize'    => 'text',
+				'description' => __( 'Comma-separated list of mime types to exclude (e.g., image/svg+xml, application/pdf).', 'wp-admin-health-suite' ),
+			),
+
+			// Performance settings.
+			'enable_query_monitoring'   => array(
+				'section'  => 'performance',
+				'title'    => __( 'Enable Query Monitoring', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => false,
+				'sanitize' => 'boolean',
+			),
+			'slow_query_threshold'      => array(
+				'section'     => 'performance',
+				'title'       => __( 'Slow Query Threshold (ms)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 500,
+				'sanitize'    => 'integer',
+				'description' => __( 'Queries taking longer than this will be flagged.', 'wp-admin-health-suite' ),
+				'min'         => 1,
+				'max'         => 10000,
+			),
+			'enable_ajax_monitoring'    => array(
+				'section'  => 'performance',
+				'title'    => __( 'Enable AJAX Monitoring', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => false,
+				'sanitize' => 'boolean',
+			),
+			'log_retention_days'        => array(
+				'section'     => 'performance',
+				'title'       => __( 'Log Retention Days', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 7,
+				'sanitize'    => 'integer',
+				'description' => __( 'Days to retain performance logs.', 'wp-admin-health-suite' ),
+				'min'         => 1,
+				'max'         => 90,
+			),
+
+			// Scheduling settings.
+			'enable_scheduling'         => array(
+				'section'  => 'scheduling',
+				'title'    => __( 'Enable Scheduled Tasks', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => true,
+				'sanitize' => 'boolean',
+			),
+			'cleanup_frequency'         => array(
+				'section'  => 'scheduling',
+				'title'    => __( 'Cleanup Frequency', 'wp-admin-health-suite' ),
+				'type'     => 'select',
+				'default'  => 'weekly',
+				'sanitize' => 'select',
+				'options'  => array(
+					'daily'   => __( 'Daily', 'wp-admin-health-suite' ),
+					'weekly'  => __( 'Weekly', 'wp-admin-health-suite' ),
+					'monthly' => __( 'Monthly', 'wp-admin-health-suite' ),
+				),
+			),
+			'scan_frequency'            => array(
+				'section'  => 'scheduling',
+				'title'    => __( 'Scan Frequency', 'wp-admin-health-suite' ),
+				'type'     => 'select',
+				'default'  => 'daily',
+				'sanitize' => 'select',
+				'options'  => array(
+					'hourly'  => __( 'Hourly', 'wp-admin-health-suite' ),
+					'daily'   => __( 'Daily', 'wp-admin-health-suite' ),
+					'weekly'  => __( 'Weekly', 'wp-admin-health-suite' ),
+				),
+			),
+
+			// Advanced settings.
+			'debug_mode'                => array(
+				'section'     => 'advanced',
+				'title'       => __( 'Debug Mode', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Enable detailed logging for debugging.', 'wp-admin-health-suite' ),
+			),
+			'delete_data_on_uninstall'  => array(
+				'section'     => 'advanced',
+				'title'       => __( 'Delete Data on Uninstall', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Remove all plugin data when uninstalling.', 'wp-admin-health-suite' ),
+			),
+			'batch_size'                => array(
+				'section'     => 'advanced',
+				'title'       => __( 'Batch Processing Size', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 100,
+				'sanitize'    => 'integer',
+				'description' => __( 'Number of items to process in each batch.', 'wp-admin-health-suite' ),
+				'min'         => 10,
+				'max'         => 1000,
+			),
+		);
+	}
+
+	/**
+	 * Initialize hooks.
+	 *
+	 * @return void
+	 */
+	private function init_hooks() {
+		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_post_wpha_export_settings', array( $this, 'export_settings' ) );
+		add_action( 'admin_post_wpha_import_settings', array( $this, 'import_settings' ) );
+		add_action( 'admin_post_wpha_reset_settings', array( $this, 'reset_settings' ) );
+	}
+
+	/**
+	 * Register settings, sections, and fields.
+	 *
+	 * @return void
+	 */
+	public function register_settings() {
+		// Register the main settings option.
+		register_setting(
+			'wpha_settings_group',
+			self::OPTION_NAME,
+			array(
+				'type'              => 'array',
+				'sanitize_callback' => array( $this, 'sanitize_settings' ),
+				'default'           => $this->get_default_settings(),
+			)
+		);
+
+		// Add settings sections.
+		foreach ( $this->sections as $section_id => $section ) {
+			add_settings_section(
+				'wpha_section_' . $section_id,
+				$section['title'],
+				function() use ( $section ) {
+					if ( ! empty( $section['description'] ) ) {
+						echo '<p>' . esc_html( $section['description'] ) . '</p>';
+					}
+				},
+				'wpha_settings'
+			);
+		}
+
+		// Add settings fields.
+		foreach ( $this->fields as $field_id => $field ) {
+			add_settings_field(
+				'wpha_field_' . $field_id,
+				$field['title'],
+				array( $this, 'render_field' ),
+				'wpha_settings',
+				'wpha_section_' . $field['section'],
+				array(
+					'id'    => $field_id,
+					'field' => $field,
+				)
+			);
+		}
+	}
+
+	/**
+	 * Render a settings field.
+	 *
+	 * @param array $args Field arguments.
+	 * @return void
+	 */
+	public function render_field( $args ) {
+		$field_id = $args['id'];
+		$field    = $args['field'];
+		$settings = $this->get_settings();
+		$value    = isset( $settings[ $field_id ] ) ? $settings[ $field_id ] : $field['default'];
+
+		$name = self::OPTION_NAME . '[' . $field_id . ']';
+		$id   = 'wpha_' . $field_id;
+
+		switch ( $field['type'] ) {
+			case 'checkbox':
+				printf(
+					'<input type="checkbox" id="%s" name="%s" value="1" %s />',
+					esc_attr( $id ),
+					esc_attr( $name ),
+					checked( $value, true, false )
+				);
+				break;
+
+			case 'number':
+				printf(
+					'<input type="number" id="%s" name="%s" value="%s" min="%s" max="%s" class="regular-text" />',
+					esc_attr( $id ),
+					esc_attr( $name ),
+					esc_attr( $value ),
+					isset( $field['min'] ) ? esc_attr( $field['min'] ) : '',
+					isset( $field['max'] ) ? esc_attr( $field['max'] ) : ''
+				);
+				break;
+
+			case 'text':
+				printf(
+					'<input type="text" id="%s" name="%s" value="%s" class="regular-text" />',
+					esc_attr( $id ),
+					esc_attr( $name ),
+					esc_attr( $value )
+				);
+				break;
+
+			case 'select':
+				printf(
+					'<select id="%s" name="%s">',
+					esc_attr( $id ),
+					esc_attr( $name )
+				);
+				foreach ( $field['options'] as $option_value => $option_label ) {
+					printf(
+						'<option value="%s" %s>%s</option>',
+						esc_attr( $option_value ),
+						selected( $value, $option_value, false ),
+						esc_html( $option_label )
+					);
+				}
+				echo '</select>';
+				break;
+		}
+
+		if ( ! empty( $field['description'] ) ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html( $field['description'] )
+			);
+		}
+	}
+
+	/**
+	 * Sanitize settings.
+	 *
+	 * @param array $input Raw input data.
+	 * @return array Sanitized settings.
+	 */
+	public function sanitize_settings( $input ) {
+		$sanitized = array();
+
+		foreach ( $this->fields as $field_id => $field ) {
+			$value = isset( $input[ $field_id ] ) ? $input[ $field_id ] : $field['default'];
+
+			switch ( $field['sanitize'] ) {
+				case 'boolean':
+					$sanitized[ $field_id ] = (bool) $value;
+					break;
+
+				case 'integer':
+					$sanitized[ $field_id ] = absint( $value );
+					if ( isset( $field['min'] ) && $sanitized[ $field_id ] < $field['min'] ) {
+						$sanitized[ $field_id ] = $field['min'];
+					}
+					if ( isset( $field['max'] ) && $sanitized[ $field_id ] > $field['max'] ) {
+						$sanitized[ $field_id ] = $field['max'];
+					}
+					break;
+
+				case 'text':
+					$sanitized[ $field_id ] = sanitize_text_field( $value );
+					break;
+
+				case 'select':
+					if ( isset( $field['options'] ) && array_key_exists( $value, $field['options'] ) ) {
+						$sanitized[ $field_id ] = $value;
+					} else {
+						$sanitized[ $field_id ] = $field['default'];
+					}
+					break;
+
+				default:
+					$sanitized[ $field_id ] = $value;
+					break;
+			}
+		}
+
+		return $sanitized;
+	}
+
+	/**
+	 * Get settings.
+	 *
+	 * @return array
+	 */
+	public function get_settings() {
+		$settings = get_option( self::OPTION_NAME, array() );
+		return wp_parse_args( $settings, $this->get_default_settings() );
+	}
+
+	/**
+	 * Get a specific setting value.
+	 *
+	 * @param string $key Setting key.
+	 * @param mixed  $default Default value if setting doesn't exist.
+	 * @return mixed
+	 */
+	public function get_setting( $key, $default = null ) {
+		$settings = $this->get_settings();
+		if ( isset( $settings[ $key ] ) ) {
+			return $settings[ $key ];
+		}
+		if ( null !== $default ) {
+			return $default;
+		}
+		return isset( $this->fields[ $key ]['default'] ) ? $this->fields[ $key ]['default'] : null;
+	}
+
+	/**
+	 * Get default settings.
+	 *
+	 * @return array
+	 */
+	public function get_default_settings() {
+		$defaults = array();
+		foreach ( $this->fields as $field_id => $field ) {
+			$defaults[ $field_id ] = $field['default'];
+		}
+		return $defaults;
+	}
+
+	/**
+	 * Export settings as JSON.
+	 *
+	 * @return void
+	 */
+	public function export_settings() {
+		// Check user permissions and nonce.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'wp-admin-health-suite' ) );
+		}
+
+		check_admin_referer( 'wpha_export_settings' );
+
+		$settings = $this->get_settings();
+
+		// Prepare JSON export.
+		$export = array(
+			'version'   => WP_ADMIN_HEALTH_VERSION,
+			'timestamp' => current_time( 'mysql' ),
+			'settings'  => $settings,
+		);
+
+		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
+
+		// Set headers for download.
+		nocache_headers();
+		header( 'Content-Type: application/json; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename=wpha-settings-' . gmdate( 'Y-m-d-His' ) . '.json' );
+		header( 'Expires: 0' );
+
+		echo $json;
+		exit;
+	}
+
+	/**
+	 * Import settings from JSON.
+	 *
+	 * @return void
+	 */
+	public function import_settings() {
+		// Check user permissions and nonce.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'wp-admin-health-suite' ) );
+		}
+
+		check_admin_referer( 'wpha_import_settings' );
+
+		// Check if file was uploaded.
+		if ( empty( $_FILES['import_file']['tmp_name'] ) ) {
+			wp_die( esc_html__( 'No file uploaded.', 'wp-admin-health-suite' ) );
+		}
+
+		// Read and decode JSON.
+		$json = file_get_contents( $_FILES['import_file']['tmp_name'] );
+		$data = json_decode( $json, true );
+
+		if ( json_last_error() !== JSON_ERROR_NONE || ! isset( $data['settings'] ) ) {
+			wp_die( esc_html__( 'Invalid settings file.', 'wp-admin-health-suite' ) );
+		}
+
+		// Sanitize and update settings.
+		$sanitized = $this->sanitize_settings( $data['settings'] );
+		update_option( self::OPTION_NAME, $sanitized );
+
+		// Redirect back with success message.
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'admin-health-settings',
+					'message' => 'imported',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Reset settings to defaults.
+	 *
+	 * @return void
+	 */
+	public function reset_settings() {
+		// Check user permissions and nonce.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'wp-admin-health-suite' ) );
+		}
+
+		check_admin_referer( 'wpha_reset_settings' );
+
+		// Reset to default settings.
+		update_option( self::OPTION_NAME, $this->get_default_settings() );
+
+		// Redirect back with success message.
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'admin-health-settings',
+					'message' => 'reset',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Get sections.
+	 *
+	 * @return array
+	 */
+	public function get_sections() {
+		return $this->sections;
+	}
+
+	/**
+	 * Get fields.
+	 *
+	 * @return array
+	 */
+	public function get_fields() {
+		return $this->fields;
+	}
+}
