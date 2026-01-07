@@ -1,0 +1,11 @@
+[main 1903e71] M08-01: implement
+ 47 files changed, 1593 insertions(+), 27 deletions(-)
+ create mode 100644 .logs/M07-06.gitcommit.txt
+ create mode 100644 .logs/M08-01.claude.impl.last.md
+ create mode 100644 .logs/M08-01.claude.impl.raw.txt
+ create mode 100644 .plans/M08-01.md
+ create mode 100644 .scripts/add-phpdoc-tags.py
+ create mode 100644 .t2/handoff/M08-01.md
+ create mode 100644 docs/README.md
+ create mode 100644 phpdoc.xml
+
