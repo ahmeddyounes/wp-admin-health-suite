@@ -118,6 +118,15 @@ class Assets {
 			$this->get_asset_version( 'assets/css/dashboard.css' ),
 			'all'
 		);
+
+		// Enqueue database health CSS.
+		wp_enqueue_style(
+			'wpha-database-health-css',
+			$this->plugin_url . 'assets/css/database-health.css',
+			array(),
+			$this->get_asset_version( 'assets/css/database-health.css' ),
+			'all'
+		);
 	}
 
 	/**
@@ -141,6 +150,15 @@ class Assets {
 			$this->plugin_url . 'assets/js/charts.js',
 			array( 'jquery', 'wpha-admin-js' ),
 			$this->get_asset_version( 'assets/js/charts.js' ),
+			true
+		);
+
+		// Enqueue database health JS with dependencies.
+		wp_enqueue_script(
+			'wpha-database-health-js',
+			$this->plugin_url . 'assets/js/database-health.js',
+			array( 'jquery', 'wp-api-fetch', 'wpha-admin-js' ),
+			$this->get_asset_version( 'assets/js/database-health.js' ),
 			true
 		);
 
@@ -173,6 +191,14 @@ class Assets {
 					'refresh'       => __( 'Refresh', 'wp-admin-health-suite' ),
 					'no_data'       => __( 'No data available.', 'wp-admin-health-suite' ),
 					'processing'    => __( 'Processing...', 'wp-admin-health-suite' ),
+					'analyze'       => __( 'Analyze', 'wp-admin-health-suite' ),
+					'clean'         => __( 'Clean', 'wp-admin-health-suite' ),
+					'revisions'     => __( 'Post Revisions', 'wp-admin-health-suite' ),
+					'transients'    => __( 'Transients', 'wp-admin-health-suite' ),
+					'spam'          => __( 'Spam Comments', 'wp-admin-health-suite' ),
+					'trash'         => __( 'Trash (Posts & Comments)', 'wp-admin-health-suite' ),
+					'orphaned'      => __( 'Orphaned Data', 'wp-admin-health-suite' ),
+					'confirmCleanup' => __( 'Are you sure you want to clean this data? This action cannot be undone.', 'wp-admin-health-suite' ),
 				),
 			)
 		);
