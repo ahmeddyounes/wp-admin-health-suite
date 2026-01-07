@@ -605,6 +605,7 @@ class Settings {
 		add_action( 'admin_post_wpha_export_settings', array( $this, 'export_settings' ) );
 		add_action( 'admin_post_wpha_import_settings', array( $this, 'import_settings' ) );
 		add_action( 'admin_post_wpha_reset_settings', array( $this, 'reset_settings' ) );
+		add_action( 'admin_post_wpha_reset_section', array( $this, 'reset_section' ) );
 		add_action( 'update_option_' . self::OPTION_NAME, array( $this, 'handle_scheduling_update' ), 10, 2 );
 		add_action( 'admin_head', array( $this, 'output_custom_css' ) );
 	}
@@ -954,6 +955,52 @@ class Settings {
 				admin_url( 'admin.php' )
 			)
 		);
+		exit;
+	}
+
+	/**
+	 * Reset settings for a specific section to defaults.
+	 *
+	 * @return void
+	 */
+	public function reset_section() {
+		// Check user permissions and nonce.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'wp-admin-health-suite' ) );
+		}
+
+		check_admin_referer( 'wpha_reset_section' );
+
+		// Get the section to reset.
+		$section = isset( $_POST['section'] ) ? sanitize_key( $_POST['section'] ) : '';
+
+		// Validate section exists.
+		if ( empty( $section ) || ! isset( $this->sections[ $section ] ) ) {
+			wp_die( esc_html__( 'Invalid section.', 'wp-admin-health-suite' ) );
+		}
+
+		// Get current settings.
+		$current_settings = $this->get_settings();
+		$default_settings = $this->get_default_settings();
+
+		// Reset only fields in this section.
+		foreach ( $this->fields as $field_id => $field ) {
+			if ( $field['section'] === $section ) {
+				$current_settings[ $field_id ] = $default_settings[ $field_id ];
+			}
+		}
+
+		// Update settings.
+		update_option( self::OPTION_NAME, $current_settings );
+
+		// Get redirect URL.
+		$redirect = isset( $_POST['redirect'] ) ? esc_url_raw( wp_unslash( $_POST['redirect'] ) ) : admin_url( 'admin.php?page=admin-health-settings' );
+
+		// Add success message.
+		$redirect = add_query_arg( 'message', 'reset', $redirect );
+
+		// Redirect back with success message.
+		wp_safe_redirect( $redirect );
 		exit;
 	}
 
