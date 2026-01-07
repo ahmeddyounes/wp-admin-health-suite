@@ -61,6 +61,11 @@ class REST_API {
 		$activity_controller = new REST\Activity_Controller();
 		$activity_controller->register_routes();
 
+		// Load and register dashboard controller.
+		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/class-dashboard-controller.php';
+		$dashboard_controller = new REST\Dashboard_Controller();
+		$dashboard_controller->register_routes();
+
 		// Allow other controllers to register their routes.
 		do_action( 'wpha_register_rest_routes' );
 	}
