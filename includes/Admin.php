@@ -50,7 +50,22 @@ class Admin {
 	 * @return void
 	 */
 	private function init_hooks() {
+		// Load admin menu class on admin side only.
+		if ( is_admin() ) {
+			$this->load_admin_menu();
+		}
+
 		// Hook for admin initialization.
 		do_action( 'wpha_admin_init' );
+	}
+
+	/**
+	 * Load admin menu class.
+	 *
+	 * @return void
+	 */
+	private function load_admin_menu() {
+		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'admin/class-admin.php';
+		new \WPAdminHealth\Admin\Admin( $this->version, $this->plugin_name );
 	}
 }
