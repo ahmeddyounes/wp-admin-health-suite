@@ -81,6 +81,13 @@ class Plugin {
 	private $rest_api;
 
 	/**
+	 * Scheduler class instance.
+	 *
+	 * @var Scheduler|null
+	 */
+	private $scheduler;
+
+	/**
 	 * Private constructor to prevent direct instantiation.
 	 */
 	private function __construct() {
@@ -137,6 +144,9 @@ class Plugin {
 
 		// Initialize REST API class.
 		$this->rest_api = new REST_API( $this->version );
+
+		// Initialize Scheduler class.
+		$this->scheduler = new Scheduler();
 
 		// Hook for after dependencies loaded.
 		do_action( 'wpha_dependencies_loaded' );
@@ -211,6 +221,15 @@ class Plugin {
 	 */
 	public function get_plugin_url() {
 		return $this->plugin_url;
+	}
+
+	/**
+	 * Get scheduler instance.
+	 *
+	 * @return Scheduler|null
+	 */
+	public function get_scheduler() {
+		return $this->scheduler;
 	}
 
 	/**
