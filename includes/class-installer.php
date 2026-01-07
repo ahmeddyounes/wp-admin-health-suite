@@ -80,6 +80,23 @@ class Installer {
 		) {$charset_collate};";
 
 		dbDelta( $sql_scheduled_tasks );
+
+		// Create deleted media table.
+		$deleted_media_table = $prefix . 'wpha_deleted_media';
+		$sql_deleted_media   = "CREATE TABLE {$deleted_media_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			attachment_id bigint(20) unsigned NOT NULL,
+			file_path text NOT NULL,
+			metadata longtext NOT NULL,
+			deleted_at datetime NOT NULL,
+			permanent_at datetime DEFAULT NULL,
+			PRIMARY KEY  (id),
+			KEY attachment_id (attachment_id),
+			KEY deleted_at (deleted_at),
+			KEY permanent_at (permanent_at)
+		) {$charset_collate};";
+
+		dbDelta( $sql_deleted_media );
 	}
 
 	/**
@@ -134,6 +151,7 @@ class Installer {
 		// Drop tables.
 		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scan_history" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scheduled_tasks" );
+		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_deleted_media" );
 
 		// Delete options.
 		delete_option( self::VERSION_OPTION );
