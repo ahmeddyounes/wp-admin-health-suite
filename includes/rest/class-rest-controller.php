@@ -151,6 +151,7 @@ class REST_Controller extends WP_REST_Controller {
 	 * Check permissions for the request.
 	 *
 	 * Verifies:
+	 * - REST API is enabled
 	 * - User authentication
 	 * - manage_options capability
 	 * - Nonce verification via X-WP-Nonce header
@@ -160,6 +161,16 @@ class REST_Controller extends WP_REST_Controller {
 	 * @return bool|WP_Error True if the request has permission, WP_Error otherwise.
 	 */
 	public function check_permissions( $request ) {
+		// Check if REST API is enabled.
+		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
+		if ( ! $settings->is_rest_api_enabled() ) {
+			return new WP_Error(
+				'rest_api_disabled',
+				__( 'REST API is currently disabled.', 'wp-admin-health-suite' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Check if user is logged in.
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
@@ -224,7 +235,8 @@ class REST_Controller extends WP_REST_Controller {
 	/**
 	 * Check rate limiting for the current user.
 	 *
-	 * Limits to 60 requests per minute per user using transients.
+	 * Limits requests per minute per user using transients.
+	 * Rate limit is configurable via settings.
 	 *
 	 * @return bool|WP_Error True if within rate limit, WP_Error otherwise.
 	 */
@@ -235,6 +247,10 @@ class REST_Controller extends WP_REST_Controller {
 			return true;
 		}
 
+		// Get rate limit from settings.
+		$settings   = \WPAdminHealth\Plugin::get_instance()->get_settings();
+		$rate_limit = $settings->get_rest_api_rate_limit();
+
 		$transient_key = 'wpha_rate_limit_' . $user_id;
 		$requests      = get_transient( $transient_key );
 
@@ -244,13 +260,13 @@ class REST_Controller extends WP_REST_Controller {
 			return true;
 		}
 
-		if ( $requests >= $this->rate_limit ) {
+		if ( $requests >= $rate_limit ) {
 			return new WP_Error(
 				'rest_rate_limit_exceeded',
 				sprintf(
 					/* translators: %d: rate limit */
 					__( 'Rate limit exceeded. Maximum %d requests per minute allowed.', 'wp-admin-health-suite' ),
-					$this->rate_limit
+					$rate_limit
 				),
 				array( 'status' => 429 )
 			);
@@ -277,6 +293,32 @@ class REST_Controller extends WP_REST_Controller {
 			'data'    => $data,
 			'message' => $message,
 		);
+
+		// Add debug information if debug mode is enabled.
+		if ( $this->is_debug_mode_enabled() ) {
+			global $wpdb;
+
+			$response['debug'] = array(
+				'queries'       => $wpdb->num_queries,
+				'memory_usage'  => size_format( memory_get_usage() ),
+				'memory_peak'   => size_format( memory_get_peak_usage() ),
+				'time_elapsed'  => timer_stop( 0, 3 ),
+			);
+
+			// Include query log if available.
+			if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES && ! empty( $wpdb->queries ) ) {
+				$response['debug']['query_log'] = array_map(
+					function( $query ) {
+						return array(
+							'query' => $query[0],
+							'time'  => $query[1] . 's',
+							'stack' => $query[2],
+						);
+					},
+					array_slice( $wpdb->queries, -10 ) // Last 10 queries
+				);
+			}
+		}
 
 		return new WP_REST_Response( $response, $status );
 	}
@@ -333,5 +375,31 @@ class REST_Controller extends WP_REST_Controller {
 				'validate_callback' => 'rest_validate_request_arg',
 			),
 		);
+	}
+
+	/**
+	 * Check if safe mode is enabled.
+	 *
+	 * When safe mode is enabled, all destructive operations should return
+	 * preview data only without actually modifying anything.
+	 *
+	 * @return bool True if safe mode is enabled, false otherwise.
+	 */
+	protected function is_safe_mode_enabled() {
+		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
+		return $settings->is_safe_mode_enabled();
+	}
+
+	/**
+	 * Check if debug mode is enabled.
+	 *
+	 * When debug mode is enabled, extra logging and query time information
+	 * should be included in responses.
+	 *
+	 * @return bool True if debug mode is enabled, false otherwise.
+	 */
+	protected function is_debug_mode_enabled() {
+		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
+		return $settings->is_debug_mode_enabled();
 	}
 }

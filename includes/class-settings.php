@@ -540,13 +540,47 @@ class Settings {
 			),
 
 			// Advanced settings.
+			'enable_rest_api'           => array(
+				'section'     => 'advanced',
+				'title'       => __( 'Enable REST API', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => true,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Enable REST API endpoints for external integrations.', 'wp-admin-health-suite' ),
+			),
+			'rest_api_rate_limit'       => array(
+				'section'     => 'advanced',
+				'title'       => __( 'REST API Rate Limit (requests/minute)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 60,
+				'sanitize'    => 'integer',
+				'description' => __( 'Maximum number of API requests allowed per minute (10-120).', 'wp-admin-health-suite' ),
+				'min'         => 10,
+				'max'         => 120,
+			),
 			'debug_mode'                => array(
 				'section'     => 'advanced',
 				'title'       => __( 'Debug Mode', 'wp-admin-health-suite' ),
 				'type'        => 'checkbox',
 				'default'     => false,
 				'sanitize'    => 'boolean',
-				'description' => __( 'Enable detailed logging for debugging.', 'wp-admin-health-suite' ),
+				'description' => __( 'Enable detailed logging and visible query times for debugging.', 'wp-admin-health-suite' ),
+			),
+			'custom_css'                => array(
+				'section'     => 'advanced',
+				'title'       => __( 'Custom Admin CSS', 'wp-admin-health-suite' ),
+				'type'        => 'textarea',
+				'default'     => '',
+				'sanitize'    => 'textarea',
+				'description' => __( 'Custom CSS to apply to admin pages. Use this to customize the plugin appearance.', 'wp-admin-health-suite' ),
+			),
+			'safe_mode'                 => array(
+				'section'     => 'advanced',
+				'title'       => __( 'Safe Mode', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'When enabled, all delete/clean endpoints return preview only without modifying data.', 'wp-admin-health-suite' ),
 			),
 			'batch_size'                => array(
 				'section'     => 'advanced',
@@ -572,6 +606,7 @@ class Settings {
 		add_action( 'admin_post_wpha_import_settings', array( $this, 'import_settings' ) );
 		add_action( 'admin_post_wpha_reset_settings', array( $this, 'reset_settings' ) );
 		add_action( 'update_option_' . self::OPTION_NAME, array( $this, 'handle_scheduling_update' ), 10, 2 );
+		add_action( 'admin_head', array( $this, 'output_custom_css' ) );
 	}
 
 	/**
@@ -758,7 +793,12 @@ class Settings {
 					break;
 
 				case 'textarea':
-					$sanitized[ $field_id ] = sanitize_textarea_field( $value );
+					// Special handling for custom_css field.
+					if ( 'custom_css' === $field_id ) {
+						$sanitized[ $field_id ] = $this->sanitize_css( $value );
+					} else {
+						$sanitized[ $field_id ] = sanitize_textarea_field( $value );
+					}
 					break;
 
 				default:
@@ -1170,5 +1210,77 @@ class Settings {
 	 */
 	public function get_fields() {
 		return $this->fields;
+	}
+
+	/**
+	 * Sanitize CSS input.
+	 *
+	 * @param string $css CSS code to sanitize.
+	 * @return string Sanitized CSS.
+	 */
+	private function sanitize_css( $css ) {
+		// Strip tags but preserve CSS content.
+		$css = wp_strip_all_tags( $css );
+
+		// Remove any potentially dangerous content.
+		// This is a basic sanitization - in production, consider using wp_kses() with CSS rules.
+		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+		$css = preg_replace( '/javascript:/i', '', $css );
+		$css = preg_replace( '/expression\s*\(/i', '', $css );
+		$css = preg_replace( '/import\s+/i', '', $css );
+
+		return trim( $css );
+	}
+
+	/**
+	 * Check if safe mode is enabled.
+	 *
+	 * @return bool
+	 */
+	public function is_safe_mode_enabled() {
+		return (bool) $this->get_setting( 'safe_mode', false );
+	}
+
+	/**
+	 * Check if debug mode is enabled.
+	 *
+	 * @return bool
+	 */
+	public function is_debug_mode_enabled() {
+		return (bool) $this->get_setting( 'debug_mode', false );
+	}
+
+	/**
+	 * Check if REST API is enabled.
+	 *
+	 * @return bool
+	 */
+	public function is_rest_api_enabled() {
+		return (bool) $this->get_setting( 'enable_rest_api', true );
+	}
+
+	/**
+	 * Get REST API rate limit.
+	 *
+	 * @return int Requests per minute.
+	 */
+	public function get_rest_api_rate_limit() {
+		return absint( $this->get_setting( 'rest_api_rate_limit', 60 ) );
+	}
+
+	/**
+	 * Output custom CSS in admin head.
+	 *
+	 * @return void
+	 */
+	public function output_custom_css() {
+		$custom_css = $this->get_setting( 'custom_css', '' );
+		if ( ! empty( $custom_css ) ) {
+			echo "\n<style type=\"text/css\" id=\"wpha-custom-css\">\n";
+			// CSS is already sanitized in sanitize_css(), output directly.
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo $custom_css;
+			echo "\n</style>\n";
+		}
 	}
 }

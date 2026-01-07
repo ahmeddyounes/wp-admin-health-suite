@@ -297,27 +297,30 @@ class Database_Controller extends REST_Controller {
 			$options = array();
 		}
 
+		// Check if safe mode is enabled.
+		$safe_mode = $this->is_safe_mode_enabled();
+
 		$result = null;
 
 		switch ( $type ) {
 			case 'revisions':
-				$result = $this->clean_revisions( $options );
+				$result = $this->clean_revisions( $options, $safe_mode );
 				break;
 
 			case 'transients':
-				$result = $this->clean_transients( $options );
+				$result = $this->clean_transients( $options, $safe_mode );
 				break;
 
 			case 'spam':
-				$result = $this->clean_spam( $options );
+				$result = $this->clean_spam( $options, $safe_mode );
 				break;
 
 			case 'trash':
-				$result = $this->clean_trash( $options );
+				$result = $this->clean_trash( $options, $safe_mode );
 				break;
 
 			case 'orphaned':
-				$result = $this->clean_orphaned( $options );
+				$result = $this->clean_orphaned( $options, $safe_mode );
 				break;
 
 			default:
@@ -332,6 +335,12 @@ class Database_Controller extends REST_Controller {
 
 		if ( is_wp_error( $result ) ) {
 			return $this->format_error_response( $result, 400 );
+		}
+
+		// Add safe mode indicator to result.
+		if ( $safe_mode ) {
+			$result['safe_mode'] = true;
+			$result['preview_only'] = true;
 		}
 
 		// Log to activity.
@@ -412,15 +421,31 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Clean revisions.
 	 *
-	 * @param array $options Cleanup options.
+	 * @param array $options   Cleanup options.
+	 * @param bool  $safe_mode Whether safe mode is enabled.
 	 * @return array|WP_Error Cleanup results or error.
 	 */
-	private function clean_revisions( $options ) {
+	private function clean_revisions( $options, $safe_mode = false ) {
 		$revisions_manager = new Revisions_Manager();
 
 		// Use settings as fallback if not provided in options.
 		$settings = Plugin::get_instance()->get_settings();
 		$keep_per_post = isset( $options['keep_per_post'] ) ? absint( $options['keep_per_post'] ) : absint( $settings->get_setting( 'revisions_to_keep', 0 ) );
+
+		if ( $safe_mode ) {
+			// In safe mode, only return preview data without actually deleting.
+			$total_revisions = $revisions_manager->get_all_revisions_count();
+			$size_estimate   = $revisions_manager->get_revisions_size_estimate();
+
+			return array(
+				'type'          => 'revisions',
+				'deleted'       => 0,
+				'would_delete'  => $total_revisions,
+				'bytes_freed'   => 0,
+				'would_free'    => $size_estimate,
+				'keep_per_post' => $keep_per_post,
+			);
+		}
 
 		$result = $revisions_manager->delete_all_revisions( $keep_per_post );
 
@@ -435,10 +460,11 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Clean transients.
 	 *
-	 * @param array $options Cleanup options.
+	 * @param array $options   Cleanup options.
+	 * @param bool  $safe_mode Whether safe mode is enabled.
 	 * @return array|WP_Error Cleanup results or error.
 	 */
-	private function clean_transients( $options ) {
+	private function clean_transients( $options, $safe_mode = false ) {
 		$transients_cleaner = new Transients_Cleaner();
 
 		// Use settings as fallback if not provided in options.
@@ -452,6 +478,22 @@ class Database_Controller extends REST_Controller {
 			$exclude_patterns = array_filter( array_map( 'trim', explode( "\n", $excluded_prefixes ) ) );
 		} else {
 			$exclude_patterns = $options['exclude_patterns'];
+		}
+
+		if ( $safe_mode ) {
+			// In safe mode, only return preview data without actually deleting.
+			$total_count = $transients_cleaner->get_all_transients_count();
+			$size        = $transients_cleaner->get_transients_size();
+
+			return array(
+				'type'             => 'transients',
+				'deleted'          => 0,
+				'would_delete'     => $total_count,
+				'bytes_freed'      => 0,
+				'would_free'       => $size,
+				'expired_only'     => $expired_only,
+				'exclude_patterns' => $exclude_patterns,
+			);
 		}
 
 		if ( $expired_only ) {
@@ -472,15 +514,30 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Clean spam comments.
 	 *
-	 * @param array $options Cleanup options.
+	 * @param array $options   Cleanup options.
+	 * @param bool  $safe_mode Whether safe mode is enabled.
 	 * @return array|WP_Error Cleanup results or error.
 	 */
-	private function clean_spam( $options ) {
+	private function clean_spam( $options, $safe_mode = false ) {
 		$trash_cleaner = new Trash_Cleaner();
 
 		// Use settings as fallback if not provided in options.
 		$settings = Plugin::get_instance()->get_settings();
 		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : absint( $settings->get_setting( 'auto_clean_spam_days', 0 ) );
+
+		if ( $safe_mode ) {
+			// In safe mode, only return preview data.
+			$analyzer  = new Analyzer();
+			$count     = $analyzer->get_spam_comments_count();
+
+			return array(
+				'type'            => 'spam',
+				'deleted'         => 0,
+				'would_delete'    => $count,
+				'errors'          => array(),
+				'older_than_days' => $older_than_days,
+			);
+		}
 
 		$result = $trash_cleaner->delete_spam_comments( $older_than_days );
 
@@ -495,16 +552,36 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Clean trash (posts and comments).
 	 *
-	 * @param array $options Cleanup options.
+	 * @param array $options   Cleanup options.
+	 * @param bool  $safe_mode Whether safe mode is enabled.
 	 * @return array|WP_Error Cleanup results or error.
 	 */
-	private function clean_trash( $options ) {
+	private function clean_trash( $options, $safe_mode = false ) {
 		$trash_cleaner = new Trash_Cleaner();
 
 		// Use settings as fallback if not provided in options.
 		$settings = Plugin::get_instance()->get_settings();
 		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : absint( $settings->get_setting( 'auto_clean_trash_days', 0 ) );
 		$post_types      = isset( $options['post_types'] ) && is_array( $options['post_types'] ) ? $options['post_types'] : array();
+
+		if ( $safe_mode ) {
+			// In safe mode, only return preview data.
+			$analyzer     = new Analyzer();
+			$posts_count  = $analyzer->get_trashed_posts_count();
+			$comments_count = $analyzer->get_trashed_comments_count();
+
+			return array(
+				'type'                 => 'trash',
+				'posts_deleted'        => 0,
+				'posts_would_delete'   => $posts_count,
+				'posts_errors'         => array(),
+				'comments_deleted'     => 0,
+				'comments_would_delete' => $comments_count,
+				'comments_errors'      => array(),
+				'older_than_days'      => $older_than_days,
+				'post_types'           => $post_types,
+			);
+		}
 
 		// Delete trashed posts.
 		$posts_result = $trash_cleaner->delete_trashed_posts( $post_types, $older_than_days );
@@ -526,10 +603,11 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Clean orphaned data.
 	 *
-	 * @param array $options Cleanup options.
+	 * @param array $options   Cleanup options.
+	 * @param bool  $safe_mode Whether safe mode is enabled.
 	 * @return array|WP_Error Cleanup results or error.
 	 */
-	private function clean_orphaned( $options ) {
+	private function clean_orphaned( $options, $safe_mode = false ) {
 		$orphaned_cleaner = new Orphaned_Cleaner();
 
 		$types = isset( $options['types'] ) && is_array( $options['types'] ) ? $options['types'] : array( 'postmeta', 'commentmeta', 'termmeta', 'relationships' );
@@ -537,6 +615,31 @@ class Database_Controller extends REST_Controller {
 		$results = array(
 			'type' => 'orphaned',
 		);
+
+		if ( $safe_mode ) {
+			// In safe mode, only return preview counts.
+			if ( in_array( 'postmeta', $types, true ) ) {
+				$results['postmeta_deleted'] = 0;
+				$results['postmeta_would_delete'] = count( $orphaned_cleaner->find_orphaned_postmeta() );
+			}
+
+			if ( in_array( 'commentmeta', $types, true ) ) {
+				$results['commentmeta_deleted'] = 0;
+				$results['commentmeta_would_delete'] = count( $orphaned_cleaner->find_orphaned_commentmeta() );
+			}
+
+			if ( in_array( 'termmeta', $types, true ) ) {
+				$results['termmeta_deleted'] = 0;
+				$results['termmeta_would_delete'] = count( $orphaned_cleaner->find_orphaned_termmeta() );
+			}
+
+			if ( in_array( 'relationships', $types, true ) ) {
+				$results['relationships_deleted'] = 0;
+				$results['relationships_would_delete'] = count( $orphaned_cleaner->find_orphaned_relationships() );
+			}
+
+			return $results;
+		}
 
 		if ( in_array( 'postmeta', $types, true ) ) {
 			$results['postmeta_deleted'] = $orphaned_cleaner->delete_orphaned_postmeta();
