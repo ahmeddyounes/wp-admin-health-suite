@@ -1,0 +1,8 @@
+[main 61d9568] M06-05: implement
+ 7 files changed, 299 insertions(+), 6 deletions(-)
+ create mode 100644 .logs/M06-04.gitcommit.txt
+ create mode 100644 .logs/M06-05.claude.impl.last.md
+ create mode 100644 .logs/M06-05.claude.impl.raw.txt
+ create mode 100644 .plans/M06-05.md
+ create mode 100644 .t2/handoff/M06-05.md
+

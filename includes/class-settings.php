@@ -449,36 +449,94 @@ class Settings {
 			),
 
 			// Scheduling settings.
-			'enable_scheduling'         => array(
-				'section'  => 'scheduling',
-				'title'    => __( 'Enable Scheduled Tasks', 'wp-admin-health-suite' ),
-				'type'     => 'checkbox',
-				'default'  => true,
-				'sanitize' => 'boolean',
+			'scheduler_enabled'              => array(
+				'section'     => 'scheduling',
+				'title'       => __( 'Enable Scheduler', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => true,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Enable automated task scheduling using Action Scheduler.', 'wp-admin-health-suite' ),
 			),
-			'cleanup_frequency'         => array(
-				'section'  => 'scheduling',
-				'title'    => __( 'Cleanup Frequency', 'wp-admin-health-suite' ),
-				'type'     => 'select',
-				'default'  => 'weekly',
-				'sanitize' => 'select',
-				'options'  => array(
-					'daily'   => __( 'Daily', 'wp-admin-health-suite' ),
-					'weekly'  => __( 'Weekly', 'wp-admin-health-suite' ),
-					'monthly' => __( 'Monthly', 'wp-admin-health-suite' ),
+			'database_cleanup_frequency'     => array(
+				'section'     => 'scheduling',
+				'title'       => __( 'Database Cleanup Frequency', 'wp-admin-health-suite' ),
+				'type'        => 'select',
+				'default'     => 'weekly',
+				'sanitize'    => 'select',
+				'description' => __( 'How often to run automated database cleanup tasks.', 'wp-admin-health-suite' ),
+				'options'     => array(
+					'daily'    => __( 'Daily', 'wp-admin-health-suite' ),
+					'weekly'   => __( 'Weekly', 'wp-admin-health-suite' ),
+					'monthly'  => __( 'Monthly', 'wp-admin-health-suite' ),
+					'disabled' => __( 'Disabled', 'wp-admin-health-suite' ),
 				),
 			),
-			'scan_frequency'            => array(
-				'section'  => 'scheduling',
-				'title'    => __( 'Scan Frequency', 'wp-admin-health-suite' ),
-				'type'     => 'select',
-				'default'  => 'daily',
-				'sanitize' => 'select',
-				'options'  => array(
-					'hourly'  => __( 'Hourly', 'wp-admin-health-suite' ),
-					'daily'   => __( 'Daily', 'wp-admin-health-suite' ),
-					'weekly'  => __( 'Weekly', 'wp-admin-health-suite' ),
+			'media_scan_frequency'           => array(
+				'section'     => 'scheduling',
+				'title'       => __( 'Media Scan Frequency', 'wp-admin-health-suite' ),
+				'type'        => 'select',
+				'default'     => 'weekly',
+				'sanitize'    => 'select',
+				'description' => __( 'How often to scan for unused media files.', 'wp-admin-health-suite' ),
+				'options'     => array(
+					'weekly'   => __( 'Weekly', 'wp-admin-health-suite' ),
+					'monthly'  => __( 'Monthly', 'wp-admin-health-suite' ),
+					'disabled' => __( 'Disabled', 'wp-admin-health-suite' ),
 				),
+			),
+			'performance_check_frequency'    => array(
+				'section'     => 'scheduling',
+				'title'       => __( 'Performance Check Frequency', 'wp-admin-health-suite' ),
+				'type'        => 'select',
+				'default'     => 'daily',
+				'sanitize'    => 'select',
+				'description' => __( 'How often to run performance health checks.', 'wp-admin-health-suite' ),
+				'options'     => array(
+					'daily'  => __( 'Daily', 'wp-admin-health-suite' ),
+					'weekly' => __( 'Weekly', 'wp-admin-health-suite' ),
+				),
+			),
+			'preferred_time'                 => array(
+				'section'     => 'scheduling',
+				'title'       => __( 'Preferred Time', 'wp-admin-health-suite' ),
+				'type'        => 'select',
+				'default'     => 2,
+				'sanitize'    => 'integer',
+				'description' => __( 'Preferred hour (0-23) to run scheduled tasks.', 'wp-admin-health-suite' ),
+				'options'     => array(
+					0  => __( '12:00 AM', 'wp-admin-health-suite' ),
+					1  => __( '1:00 AM', 'wp-admin-health-suite' ),
+					2  => __( '2:00 AM', 'wp-admin-health-suite' ),
+					3  => __( '3:00 AM', 'wp-admin-health-suite' ),
+					4  => __( '4:00 AM', 'wp-admin-health-suite' ),
+					5  => __( '5:00 AM', 'wp-admin-health-suite' ),
+					6  => __( '6:00 AM', 'wp-admin-health-suite' ),
+					7  => __( '7:00 AM', 'wp-admin-health-suite' ),
+					8  => __( '8:00 AM', 'wp-admin-health-suite' ),
+					9  => __( '9:00 AM', 'wp-admin-health-suite' ),
+					10 => __( '10:00 AM', 'wp-admin-health-suite' ),
+					11 => __( '11:00 AM', 'wp-admin-health-suite' ),
+					12 => __( '12:00 PM', 'wp-admin-health-suite' ),
+					13 => __( '1:00 PM', 'wp-admin-health-suite' ),
+					14 => __( '2:00 PM', 'wp-admin-health-suite' ),
+					15 => __( '3:00 PM', 'wp-admin-health-suite' ),
+					16 => __( '4:00 PM', 'wp-admin-health-suite' ),
+					17 => __( '5:00 PM', 'wp-admin-health-suite' ),
+					18 => __( '6:00 PM', 'wp-admin-health-suite' ),
+					19 => __( '7:00 PM', 'wp-admin-health-suite' ),
+					20 => __( '8:00 PM', 'wp-admin-health-suite' ),
+					21 => __( '9:00 PM', 'wp-admin-health-suite' ),
+					22 => __( '10:00 PM', 'wp-admin-health-suite' ),
+					23 => __( '11:00 PM', 'wp-admin-health-suite' ),
+				),
+			),
+			'notification_on_completion'     => array(
+				'section'     => 'scheduling',
+				'title'       => __( 'Notification on Completion', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Send email notification when scheduled tasks complete.', 'wp-admin-health-suite' ),
 			),
 
 			// Advanced settings.
@@ -513,6 +571,7 @@ class Settings {
 		add_action( 'admin_post_wpha_export_settings', array( $this, 'export_settings' ) );
 		add_action( 'admin_post_wpha_import_settings', array( $this, 'import_settings' ) );
 		add_action( 'admin_post_wpha_reset_settings', array( $this, 'reset_settings' ) );
+		add_action( 'update_option_' . self::OPTION_NAME, array( $this, 'handle_scheduling_update' ), 10, 2 );
 	}
 
 	/**
@@ -856,6 +915,243 @@ class Settings {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Handle scheduling settings updates.
+	 *
+	 * This method is called when settings are updated. It creates or updates
+	 * Action Scheduler tasks based on the new settings.
+	 *
+	 * @param array $old_value Previous settings values.
+	 * @param array $new_value New settings values.
+	 * @return void
+	 */
+	public function handle_scheduling_update( $old_value, $new_value ) {
+		// Only proceed if scheduler is enabled.
+		if ( empty( $new_value['scheduler_enabled'] ) ) {
+			// If scheduler is disabled, unschedule all tasks.
+			$this->unschedule_all_tasks();
+			return;
+		}
+
+		// Get preferred time.
+		$preferred_hour = isset( $new_value['preferred_time'] ) ? absint( $new_value['preferred_time'] ) : 2;
+
+		// Calculate next run time based on preferred hour.
+		$next_run = $this->calculate_next_run_time( $preferred_hour );
+
+		// Schedule database cleanup.
+		$this->schedule_task(
+			'wpha_database_cleanup',
+			$new_value['database_cleanup_frequency'] ?? 'weekly',
+			$next_run
+		);
+
+		// Schedule media scan.
+		$this->schedule_task(
+			'wpha_media_scan',
+			$new_value['media_scan_frequency'] ?? 'weekly',
+			$next_run
+		);
+
+		// Schedule performance check.
+		$this->schedule_task(
+			'wpha_performance_check',
+			$new_value['performance_check_frequency'] ?? 'daily',
+			$next_run
+		);
+	}
+
+	/**
+	 * Schedule a task using Action Scheduler or WP-Cron.
+	 *
+	 * @param string $hook Hook name for the scheduled action.
+	 * @param string $frequency Frequency (daily/weekly/monthly/disabled).
+	 * @param int    $next_run Timestamp for next run.
+	 * @return void
+	 */
+	private function schedule_task( $hook, $frequency, $next_run ) {
+		// If disabled, unschedule and return.
+		if ( 'disabled' === $frequency ) {
+			$this->unschedule_task( $hook );
+			return;
+		}
+
+		// Calculate interval in seconds.
+		$interval = $this->get_interval_seconds( $frequency );
+		if ( ! $interval ) {
+			return;
+		}
+
+		// Try to use Action Scheduler first.
+		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_unschedule_all_actions' ) ) {
+			// Unschedule old actions.
+			as_unschedule_all_actions( $hook, array(), 'wpha_scheduling' );
+
+			// Schedule new recurring action.
+			as_schedule_recurring_action(
+				$next_run,
+				$interval,
+				$hook,
+				array(),
+				'wpha_scheduling'
+			);
+		} else {
+			// Fallback to WP-Cron.
+			// Unschedule existing events.
+			$timestamp = wp_next_scheduled( $hook );
+			if ( $timestamp ) {
+				wp_unschedule_event( $timestamp, $hook );
+			}
+
+			// Schedule new event.
+			wp_schedule_event( $next_run, $this->get_cron_schedule_name( $frequency ), $hook );
+		}
+	}
+
+	/**
+	 * Unschedule a specific task.
+	 *
+	 * @param string $hook Hook name for the scheduled action.
+	 * @return void
+	 */
+	private function unschedule_task( $hook ) {
+		// Try Action Scheduler first.
+		if ( function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( $hook, array(), 'wpha_scheduling' );
+		}
+
+		// Also clear WP-Cron.
+		$timestamp = wp_next_scheduled( $hook );
+		if ( $timestamp ) {
+			wp_unschedule_event( $timestamp, $hook );
+		}
+	}
+
+	/**
+	 * Unschedule all scheduled tasks.
+	 *
+	 * @return void
+	 */
+	private function unschedule_all_tasks() {
+		$hooks = array(
+			'wpha_database_cleanup',
+			'wpha_media_scan',
+			'wpha_performance_check',
+		);
+
+		foreach ( $hooks as $hook ) {
+			$this->unschedule_task( $hook );
+		}
+	}
+
+	/**
+	 * Calculate next run time based on preferred hour.
+	 *
+	 * @param int $preferred_hour Preferred hour (0-23).
+	 * @return int Timestamp for next run.
+	 */
+	private function calculate_next_run_time( $preferred_hour ) {
+		$now          = current_time( 'timestamp' );
+		$today        = strtotime( 'today', $now );
+		$preferred    = $today + ( $preferred_hour * HOUR_IN_SECONDS );
+
+		// If preferred time has passed today, schedule for tomorrow.
+		if ( $preferred <= $now ) {
+			$preferred = strtotime( '+1 day', $preferred );
+		}
+
+		return $preferred;
+	}
+
+	/**
+	 * Get interval in seconds for a frequency.
+	 *
+	 * @param string $frequency Frequency (daily/weekly/monthly).
+	 * @return int|false Interval in seconds or false if invalid.
+	 */
+	private function get_interval_seconds( $frequency ) {
+		$intervals = array(
+			'daily'   => DAY_IN_SECONDS,
+			'weekly'  => WEEK_IN_SECONDS,
+			'monthly' => 30 * DAY_IN_SECONDS,
+		);
+
+		return isset( $intervals[ $frequency ] ) ? $intervals[ $frequency ] : false;
+	}
+
+	/**
+	 * Get WP-Cron schedule name for a frequency.
+	 *
+	 * @param string $frequency Frequency (daily/weekly/monthly).
+	 * @return string WP-Cron schedule name.
+	 */
+	private function get_cron_schedule_name( $frequency ) {
+		$schedules = array(
+			'daily'   => 'daily',
+			'weekly'  => 'weekly',
+			'monthly' => 'monthly',
+		);
+
+		return isset( $schedules[ $frequency ] ) ? $schedules[ $frequency ] : 'daily';
+	}
+
+	/**
+	 * Send notification on task completion.
+	 *
+	 * @param string $task_name Name of the completed task.
+	 * @param array  $result Task result data.
+	 * @return void
+	 */
+	public function send_completion_notification( $task_name, $result = array() ) {
+		// Check if notifications are enabled.
+		$settings = $this->get_settings();
+		if ( empty( $settings['notification_on_completion'] ) ) {
+			return;
+		}
+
+		// Get notification email.
+		$email = ! empty( $settings['notification_email'] ) ? $settings['notification_email'] : get_option( 'admin_email' );
+		if ( ! is_email( $email ) ) {
+			return;
+		}
+
+		// Prepare email content.
+		$site_name = get_bloginfo( 'name' );
+		$subject   = sprintf(
+			/* translators: 1: Site name, 2: Task name */
+			__( '[%1$s] Scheduled Task Completed: %2$s', 'wp-admin-health-suite' ),
+			$site_name,
+			$task_name
+		);
+
+		$message = sprintf(
+			/* translators: 1: Task name, 2: Site URL */
+			__( 'The scheduled task "%1$s" has completed on %2$s.', 'wp-admin-health-suite' ),
+			$task_name,
+			home_url()
+		);
+
+		$message .= "\n\n";
+
+		// Add result details if available.
+		if ( ! empty( $result ) ) {
+			$message .= __( 'Task Results:', 'wp-admin-health-suite' ) . "\n";
+			foreach ( $result as $key => $value ) {
+				$message .= sprintf( "- %s: %s\n", ucfirst( str_replace( '_', ' ', $key ) ), $value );
+			}
+			$message .= "\n";
+		}
+
+		$message .= sprintf(
+			/* translators: Dashboard URL */
+			__( 'View details: %s', 'wp-admin-health-suite' ),
+			admin_url( 'admin.php?page=admin-health-dashboard' )
+		);
+
+		// Send email.
+		wp_mail( $email, $subject, $message );
 	}
 
 	/**
