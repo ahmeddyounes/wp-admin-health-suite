@@ -151,6 +151,9 @@ class Scanner {
 		$unused = array();
 		$batch_offset = 0;
 
+		// Initialize exclusions manager.
+		$exclusions = new Exclusions();
+
 		while ( true ) {
 			$query = $wpdb->prepare(
 				"SELECT ID FROM {$wpdb->posts}
@@ -168,6 +171,11 @@ class Scanner {
 			}
 
 			foreach ( $attachments as $attachment_id ) {
+				// Skip excluded items.
+				if ( $exclusions->is_excluded( $attachment_id ) ) {
+					continue;
+				}
+
 				if ( ! $this->is_attachment_used( $attachment_id ) ) {
 					$unused[] = $attachment_id;
 				}

@@ -16,6 +16,7 @@ use WPAdminHealth\Media\Duplicate_Detector;
 use WPAdminHealth\Media\Large_Files;
 use WPAdminHealth\Media\Alt_Text_Checker;
 use WPAdminHealth\Media\Safe_Delete;
+use WPAdminHealth\Media\Exclusions;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -185,6 +186,84 @@ class Media_Controller extends REST_Controller {
 							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
+				),
+			)
+		);
+
+		// GET /wpha/v1/media/exclusions - Get all exclusions.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/exclusions',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_exclusions' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+				),
+			)
+		);
+
+		// POST /wpha/v1/media/exclusions - Add exclusion(s).
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/exclusions',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'add_exclusions' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+					'args'                => array(
+						'ids' => array(
+							'description'       => __( 'Array of attachment IDs to exclude.', 'wp-admin-health-suite' ),
+							'type'              => 'array',
+							'required'          => true,
+							'items'             => array( 'type' => 'integer' ),
+							'sanitize_callback' => array( $this, 'sanitize_ids' ),
+							'validate_callback' => 'rest_validate_request_arg',
+						),
+						'reason' => array(
+							'description'       => __( 'Reason for exclusion.', 'wp-admin-health-suite' ),
+							'type'              => 'string',
+							'default'           => '',
+							'sanitize_callback' => 'sanitize_text_field',
+							'validate_callback' => 'rest_validate_request_arg',
+						),
+					),
+				),
+			)
+		);
+
+		// DELETE /wpha/v1/media/exclusions/{id} - Remove an exclusion.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/exclusions/(?P<id>\d+)',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::DELETABLE,
+					'callback'            => array( $this, 'remove_exclusion' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+					'args'                => array(
+						'id' => array(
+							'description'       => __( 'Attachment ID to remove from exclusions.', 'wp-admin-health-suite' ),
+							'type'              => 'integer',
+							'required'          => true,
+							'sanitize_callback' => 'absint',
+							'validate_callback' => 'rest_validate_request_arg',
+						),
+					),
+				),
+			)
+		);
+
+		// DELETE /wpha/v1/media/exclusions - Clear all exclusions.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/exclusions',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::DELETABLE,
+					'callback'            => array( $this, 'clear_exclusions' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
 				),
 			)
 		);
@@ -654,6 +733,135 @@ class Media_Controller extends REST_Controller {
 				'created_at'    => current_time( 'mysql' ),
 			),
 			array( '%s', '%d', '%d', '%d', '%s' )
+		);
+	}
+
+	/**
+	 * Get all exclusions.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function get_exclusions( $request ) {
+		$exclusions_manager = new Exclusions();
+		$exclusions = $exclusions_manager->get_exclusions();
+
+		// Enrich with attachment details.
+		$enriched_exclusions = array();
+		foreach ( $exclusions as $exclusion ) {
+			$attachment_id = $exclusion['attachment_id'];
+			$details = $this->get_attachment_details( $attachment_id );
+
+			$user = get_user_by( 'id', $exclusion['excluded_by'] );
+			$excluded_by_name = $user ? $user->display_name : __( 'Unknown', 'wp-admin-health-suite' );
+
+			$enriched_exclusions[] = array_merge(
+				$exclusion,
+				$details,
+				array( 'excluded_by_name' => $excluded_by_name )
+			);
+		}
+
+		return $this->format_response(
+			true,
+			array(
+				'exclusions' => $enriched_exclusions,
+				'total' => count( $enriched_exclusions ),
+			),
+			__( 'Exclusions retrieved successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Add exclusions.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function add_exclusions( $request ) {
+		$ids = $request->get_param( 'ids' );
+		$reason = $request->get_param( 'reason' );
+
+		if ( empty( $ids ) || ! is_array( $ids ) ) {
+			return $this->format_error_response(
+				new WP_Error(
+					'invalid_ids',
+					__( 'No valid attachment IDs provided.', 'wp-admin-health-suite' )
+				),
+				400
+			);
+		}
+
+		$exclusions_manager = new Exclusions();
+		$result = $exclusions_manager->bulk_add_exclusions( $ids, $reason );
+
+		return $this->format_response(
+			true,
+			array(
+				'added' => $result['success'],
+				'failed' => $result['failed'],
+			),
+			sprintf(
+				// translators: %d is the number of items excluded.
+				__( '%d item(s) excluded successfully.', 'wp-admin-health-suite' ),
+				$result['success']
+			)
+		);
+	}
+
+	/**
+	 * Remove an exclusion.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function remove_exclusion( $request ) {
+		$attachment_id = $request->get_param( 'id' );
+
+		$exclusions_manager = new Exclusions();
+		$success = $exclusions_manager->remove_exclusion( $attachment_id );
+
+		if ( ! $success ) {
+			return $this->format_error_response(
+				new WP_Error(
+					'removal_failed',
+					__( 'Failed to remove exclusion. Attachment may not be excluded.', 'wp-admin-health-suite' )
+				),
+				400
+			);
+		}
+
+		return $this->format_response(
+			true,
+			array( 'removed' => $attachment_id ),
+			__( 'Exclusion removed successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Clear all exclusions.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function clear_exclusions( $request ) {
+		$exclusions_manager = new Exclusions();
+		$success = $exclusions_manager->clear_exclusions();
+
+		if ( ! $success ) {
+			return $this->format_error_response(
+				new WP_Error(
+					'clear_failed',
+					__( 'Failed to clear exclusions.', 'wp-admin-health-suite' )
+				),
+				400
+			);
+		}
+
+		return $this->format_response(
+			true,
+			array(),
+			__( 'All exclusions cleared successfully.', 'wp-admin-health-suite' )
 		);
 	}
 }

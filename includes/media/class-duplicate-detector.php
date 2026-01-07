@@ -66,8 +66,17 @@ class Duplicate_Detector {
 	public function get_duplicate_groups() {
 		$duplicates = $this->find_duplicates();
 		$groups = array();
+		$exclusions = new Exclusions();
 
 		foreach ( $duplicates as $hash => $attachment_ids ) {
+			if ( count( $attachment_ids ) < 2 ) {
+				continue;
+			}
+
+			// Filter out excluded items.
+			$attachment_ids = $exclusions->filter_excluded( $attachment_ids );
+
+			// Re-check count after filtering.
 			if ( count( $attachment_ids ) < 2 ) {
 				continue;
 			}

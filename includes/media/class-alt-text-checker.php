@@ -38,6 +38,7 @@ class Alt_Text_Checker {
 
 		$missing_alt = array();
 		$batch_offset = 0;
+		$exclusions = new Exclusions();
 
 		while ( true ) {
 			$query = $wpdb->prepare(
@@ -58,6 +59,10 @@ class Alt_Text_Checker {
 			}
 
 			foreach ( $attachments as $attachment_id ) {
+				// Skip excluded items.
+				if ( $exclusions->is_excluded( $attachment_id ) ) {
+					continue;
+				}
 				$alt_text = get_post_meta( $attachment_id, '_wp_attachment_image_alt', true );
 
 				// Check if alt text is missing or empty.

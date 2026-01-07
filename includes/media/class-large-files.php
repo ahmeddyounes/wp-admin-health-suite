@@ -49,6 +49,7 @@ class Large_Files {
 		$threshold_bytes = $threshold_kb * 1024;
 		$large_files = array();
 		$batch_offset = 0;
+		$exclusions = new Exclusions();
 
 		while ( true ) {
 			$query = $wpdb->prepare(
@@ -67,6 +68,10 @@ class Large_Files {
 			}
 
 			foreach ( $attachments as $attachment_id ) {
+				// Skip excluded items.
+				if ( $exclusions->is_excluded( $attachment_id ) ) {
+					continue;
+				}
 				$file_path = get_attached_file( $attachment_id );
 				if ( ! $file_path || ! file_exists( $file_path ) ) {
 					continue;
