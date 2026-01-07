@@ -311,7 +311,7 @@ const ActivityTimeline = () => {
 					<div className="dashicons dashicons-chart-line" style={emptyIconStyles} aria-hidden="true" />
 					<h3 style={emptyTitleStyles}>No Activity Yet</h3>
 					<p style={emptyMessageStyles}>
-						Get started by running your first scan to see your site's health metrics.
+						Get started by running your first scan to see your site&apos;s health metrics.
 					</p>
 					<button
 						onClick={() => {

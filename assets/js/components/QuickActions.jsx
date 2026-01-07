@@ -202,12 +202,6 @@ const QuickActions = () => {
 		position: 'relative',
 	};
 
-	const buttonHoverStyles = {
-		boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-		transform: 'translateY(-2px)',
-		borderColor: '#2271b1',
-	};
-
 	const buttonDisabledStyles = {
 		opacity: 0.6,
 		cursor: 'not-allowed',
@@ -354,7 +348,7 @@ const QuickActions = () => {
 		borderLeftWidth: '4px',
 	};
 
-	// Add CSS animation for spinner and toast
+	// Add CSS animation for spinner, toast, and hover effects
 	const styleSheet = `
 		@keyframes spin {
 			0% { transform: translate(-50%, -50%) rotate(0deg); }
@@ -370,6 +364,10 @@ const QuickActions = () => {
 				opacity: 1;
 			}
 		}
+		.quick-action-button:hover:not([aria-busy="true"]) {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+		}
 	`;
 
 	return (
@@ -380,7 +378,6 @@ const QuickActions = () => {
 			<div style={gridStyles}>
 				{ACTIONS.map((action) => {
 					const isExecuting = executingAction === action.id;
-					const [isHovered, setIsHovered] = useState(false);
 
 					return (
 						<div
@@ -393,11 +390,8 @@ const QuickActions = () => {
 							aria-busy={isExecuting}
 							onClick={() => !isExecuting && handleActionClick(action)}
 							onKeyPress={(e) => !isExecuting && handleKeyPress(e, action)}
-							onMouseEnter={() => setIsHovered(true)}
-							onMouseLeave={() => setIsHovered(false)}
 							style={{
 								...buttonStyles,
-								...(isHovered && !isExecuting ? buttonHoverStyles : {}),
 								...(isExecuting ? buttonDisabledStyles : {}),
 							}}
 						>

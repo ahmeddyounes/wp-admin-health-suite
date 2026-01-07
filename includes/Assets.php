@@ -153,63 +153,64 @@ class Assets {
 	 * @return void
 	 */
 	private function enqueue_admin_scripts() {
-		// Enqueue core admin JS with dependencies.
-		wp_enqueue_script(
-			'wpha-admin-js',
-			$this->plugin_url . 'assets/js/admin.js',
-			array( 'jquery', 'wp-api-fetch', 'wp-i18n', 'wp-components' ),
-			$this->get_asset_version( 'assets/js/admin.js' ),
-			true
+		$screen = get_current_screen();
+
+		// Determine which bundle to load based on current screen
+		$bundle_map = array(
+			'toplevel_page_admin-health'             => 'dashboard',
+			'admin-health_page_admin-health-database' => 'database-health',
+			'admin-health_page_admin-health-media'   => 'media-audit',
+			'admin-health_page_admin-health-performance' => 'performance',
+			'admin-health_page_admin-health-settings' => 'settings',
 		);
 
-		// Enqueue charts JS with dependencies.
-		wp_enqueue_script(
-			'wpha-charts-js',
-			$this->plugin_url . 'assets/js/charts.js',
-			array( 'jquery', 'wpha-admin-js' ),
-			$this->get_asset_version( 'assets/js/charts.js' ),
-			true
-		);
+		// Get the bundle name for current screen
+		$bundle_name = isset( $bundle_map[ $screen->id ] ) ? $bundle_map[ $screen->id ] : 'dashboard';
 
-		// Enqueue database health JS with dependencies.
-		wp_enqueue_script(
-			'wpha-database-health-js',
-			$this->plugin_url . 'assets/js/database-health.js',
-			array( 'jquery', 'wp-api-fetch', 'wpha-admin-js' ),
-			$this->get_asset_version( 'assets/js/database-health.js' ),
-			true
-		);
+		// Enqueue vendor bundle (shared dependencies)
+		$vendor_path = 'assets/js/dist/vendor.bundle.js';
+		if ( file_exists( $this->plugin_path . $vendor_path ) ) {
+			$vendor_asset = $this->get_asset_data( 'vendor' );
+			wp_enqueue_script(
+				'wpha-vendor-js',
+				$this->plugin_url . $vendor_path,
+				$vendor_asset['dependencies'],
+				$this->get_asset_version( $vendor_path ),
+				true
+			);
+		}
 
-		// Enqueue media audit JS with dependencies.
-		wp_enqueue_script(
-			'wpha-media-audit-js',
-			$this->plugin_url . 'assets/js/media-audit.js',
-			array( 'jquery', 'wp-api-fetch', 'wpha-admin-js' ),
-			$this->get_asset_version( 'assets/js/media-audit.js' ),
-			true
-		);
+		// Enqueue page-specific bundle
+		$bundle_path      = 'assets/js/dist/' . $bundle_name . '.bundle.js';
+		$bundle_asset     = $this->get_asset_data( $bundle_name );
+		$bundle_deps      = array_merge( array( 'react', 'react-dom' ), $bundle_asset['dependencies'] );
 
-		// Enqueue performance JS with dependencies.
+		// Add vendor bundle as dependency if it exists
+		if ( file_exists( $this->plugin_path . 'assets/js/dist/vendor.bundle.js' ) ) {
+			$bundle_deps[] = 'wpha-vendor-js';
+		}
+
 		wp_enqueue_script(
-			'wpha-performance-js',
-			$this->plugin_url . 'assets/js/performance.js',
-			array( 'jquery', 'wp-element', 'wp-api-fetch', 'wpha-admin-js' ),
-			$this->get_asset_version( 'assets/js/performance.js' ),
+			'wpha-' . $bundle_name . '-js',
+			$this->plugin_url . $bundle_path,
+			$bundle_deps,
+			$this->get_asset_version( $bundle_path ),
 			true
 		);
 
 		// Localize script with data.
-		$this->localize_admin_script();
+		$this->localize_admin_script( 'wpha-' . $bundle_name . '-js' );
 	}
 
 	/**
 	 * Localize admin script with required data.
 	 *
+	 * @param string $handle Script handle to localize.
 	 * @return void
 	 */
-	private function localize_admin_script() {
+	private function localize_admin_script( $handle ) {
 		wp_localize_script(
-			'wpha-admin-js',
+			$handle,
 			'wpAdminHealthData',
 			array(
 				'ajax_url'   => admin_url( 'admin-ajax.php' ),
@@ -237,6 +238,31 @@ class Assets {
 					'confirmCleanup' => __( 'Are you sure you want to clean this data? This action cannot be undone.', 'wp-admin-health-suite' ),
 				),
 			)
+		);
+	}
+
+	/**
+	 * Get asset data from webpack-generated asset file.
+	 *
+	 * @param string $bundle_name Bundle name without extension.
+	 * @return array Asset data with dependencies and version.
+	 */
+	private function get_asset_data( $bundle_name ) {
+		$assets_file = $this->plugin_path . 'assets/js/dist/assets.php';
+
+		if ( file_exists( $assets_file ) ) {
+			$all_assets = require $assets_file;
+			$key        = $bundle_name . '.bundle.js';
+
+			if ( isset( $all_assets[ $key ] ) ) {
+				return $all_assets[ $key ];
+			}
+		}
+
+		// Return default asset data if file doesn't exist.
+		return array(
+			'dependencies' => array(),
+			'version'      => $this->version,
 		);
 	}
 
