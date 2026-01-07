@@ -68,6 +68,11 @@
 	transition: stroke-dashoffset 1s ease-in-out, stroke 0.3s ease;
 }
 
+/* Gradient fill option for health score */
+.wpha-health-score-fill.wpha-gradient {
+	stroke: url(#healthScoreGradient);
+}
+
 .wpha-health-score-fill.loaded {
 	animation: healthScoreAnimation 1.5s ease-in-out forwards;
 }
@@ -142,11 +147,12 @@
 	border-radius: 4px;
 	padding: 20px;
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
-	transition: box-shadow 0.2s ease;
+	transition: all 0.2s ease;
 }
 
 .wpha-metric-card:hover {
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+	transform: translateY(-2px);
 }
 
 .wpha-metric-card-content {
@@ -198,6 +204,34 @@
 .wpha-metric-label {
 	font-size: 12px;
 	color: #646970;
+}
+
+/* Trend indicators */
+.wpha-metric-trend {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	font-weight: 600;
+	margin-left: 8px;
+}
+
+.wpha-metric-trend.trend-up {
+	color: #00a32a;
+}
+
+.wpha-metric-trend.trend-down {
+	color: #d63638;
+}
+
+.wpha-metric-trend.trend-neutral {
+	color: #646970;
+}
+
+.wpha-metric-trend .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
 }
 
 /* Metric card skeleton loader */
@@ -383,7 +417,8 @@
 	background: #fff;
 	border-color: #2271b1;
 	color: #2271b1;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+	transform: translateY(-2px);
 }
 
 .wpha-action-button:focus {
