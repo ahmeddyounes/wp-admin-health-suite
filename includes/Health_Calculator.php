@@ -21,6 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - Plugin performance (25%)
  * - Revision count (15%)
  * - Transient bloat (15%)
+ *
+ * @since 1.0.0
  */
 class Health_Calculator {
 
@@ -70,6 +72,8 @@ class Health_Calculator {
 	 * Computes a weighted score based on all health factors.
 	 * Results are cached for 1 hour to prevent repeated heavy queries.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param bool $force_refresh Whether to bypass cache and recalculate.
 	 * @return array {
 	 *     Health score data.
@@ -79,6 +83,15 @@ class Health_Calculator {
 	 *     @type array  $factor_scores Individual factor scores.
 	 *     @type int    $timestamp     Unix timestamp of calculation.
 	 * }
+	 *
+	 * @example
+	 * // Get current health score (cached)
+	 * $calculator = new Health_Calculator();
+	 * $result = $calculator->calculate_overall_score();
+	 * echo "Your site health score is: " . $result['score'] . " (Grade: " . $result['grade'] . ")";
+	 *
+	 * // Force fresh calculation
+	 * $fresh_result = $calculator->calculate_overall_score( true );
 	 */
 	public function calculate_overall_score( $force_refresh = false ) {
 		// Check cache first unless forcing refresh.
@@ -123,6 +136,8 @@ class Health_Calculator {
 	/**
 	 * Get letter grade for a given score.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param int $score Score value (0-100).
 	 * @return string Letter grade (A, B, C, D, or F).
 	 */
@@ -139,6 +154,8 @@ class Health_Calculator {
 	 * Get individual factor scores.
 	 *
 	 * Calculates scores for each health factor.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return array {
 	 *     Individual factor scores.
@@ -164,6 +181,8 @@ class Health_Calculator {
 	 * Get actionable recommendations based on health scores.
 	 *
 	 * Provides specific recommendations for factors scoring below 80.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return array Array of recommendation strings.
 	 */
@@ -212,6 +231,8 @@ class Health_Calculator {
 	 * - Spam comments
 	 * - Post revisions (excessive)
 	 * - Orphaned postmeta
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return int Score from 0-100 (100 = no bloat, 0 = severe bloat).
 	 */
@@ -264,6 +285,8 @@ class Health_Calculator {
 	 * - Total number of media files
 	 * - Percentage of unattached media
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return int Score from 0-100 (100 = all media used, 0 = mostly unused).
 	 */
 	private function calculate_unused_media_score() {
@@ -306,6 +329,8 @@ class Health_Calculator {
 	 * - Total number of active plugins
 	 * - Presence of inactive plugins
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return int Score from 0-100 (100 = optimal plugins, 0 = too many plugins).
 	 */
 	private function calculate_plugin_performance_score() {
@@ -347,6 +372,8 @@ class Health_Calculator {
 	 * Evaluates post revision health based on:
 	 * - Average revisions per post
 	 * - Total revision count
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return int Score from 0-100 (100 = minimal revisions, 0 = excessive revisions).
 	 */
@@ -391,6 +418,8 @@ class Health_Calculator {
 	 * - Total number of transients
 	 * - Number of expired transients
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return int Score from 0-100 (100 = minimal transients, 0 = excessive transients).
 	 */
 	private function calculate_transient_bloat_score() {
@@ -434,6 +463,8 @@ class Health_Calculator {
 
 	/**
 	 * Clear the cached health score.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return bool True on success, false on failure.
 	 */

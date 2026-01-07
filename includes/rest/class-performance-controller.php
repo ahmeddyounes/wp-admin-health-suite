@@ -26,6 +26,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - Heartbeat control
  * - Object cache status
  * - Autoload analysis
+ *
+ * @since 1.0.0
  */
 class Performance_Controller extends REST_Controller {
 
@@ -53,6 +55,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Register routes for the controller.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function register_routes() {
@@ -202,6 +206,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Get performance stats overview.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -281,6 +287,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Get plugin impact analysis.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -330,6 +338,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Get query analysis.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -373,6 +383,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Get heartbeat settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -393,6 +405,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Update heartbeat settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -424,6 +438,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Get object cache status.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -457,6 +473,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Get autoload analysis.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -498,6 +516,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Update autoload setting for an option.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -561,6 +581,8 @@ class Performance_Controller extends REST_Controller {
 	/**
 	 * Get performance recommendations.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */

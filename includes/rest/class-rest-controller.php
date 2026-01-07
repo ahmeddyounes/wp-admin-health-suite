@@ -26,6 +26,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - Rate limiting
  * - Standard response formatting
  * - Error handling
+ *
+ * @since 1.0.0
  */
 class REST_Controller extends WP_REST_Controller {
 
@@ -53,6 +55,8 @@ class REST_Controller extends WP_REST_Controller {
 	/**
 	 * Register routes for the controller.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function register_routes() {
@@ -108,6 +112,8 @@ class REST_Controller extends WP_REST_Controller {
 	/**
 	 * Get a collection of items.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -118,6 +124,8 @@ class REST_Controller extends WP_REST_Controller {
 	/**
 	 * Get a single item.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -129,6 +137,8 @@ class REST_Controller extends WP_REST_Controller {
 	/**
 	 * Create a single item.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -139,6 +149,8 @@ class REST_Controller extends WP_REST_Controller {
 	/**
 	 * Delete a single item.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -157,6 +169,8 @@ class REST_Controller extends WP_REST_Controller {
 	 * - Nonce verification via X-WP-Nonce header
 	 * - Rate limiting
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return bool|WP_Error True if the request has permission, WP_Error otherwise.
 	 */
@@ -353,6 +367,8 @@ class REST_Controller extends WP_REST_Controller {
 	/**
 	 * Get collection parameters.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Collection parameters.
 	 */
 	public function get_collection_params() {

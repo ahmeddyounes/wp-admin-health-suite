@@ -20,6 +20,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * REST API controller for activity timeline.
  *
  * Handles fetching recent activities from the scan history table.
+ *
+ * @since 1.0.0
  */
 class Activity_Controller extends REST_Controller {
 
@@ -33,6 +35,8 @@ class Activity_Controller extends REST_Controller {
 	/**
 	 * Register routes for the controller.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function register_routes() {
@@ -53,6 +57,8 @@ class Activity_Controller extends REST_Controller {
 	/**
 	 * Get recent activities from scan history.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -135,6 +141,8 @@ class Activity_Controller extends REST_Controller {
 	/**
 	 * Get collection parameters.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Collection parameters.
 	 */
 	public function get_collection_params() {

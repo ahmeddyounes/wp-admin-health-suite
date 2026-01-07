@@ -17,12 +17,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Orphaned Tables class for detecting and managing orphaned database tables.
+ *
+ * @since 1.0.0
  */
 class Orphaned_Tables {
 
 	/**
 	 * Get all tables in the database with the WordPress prefix.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of table names.
 	 */
 	public function get_all_wp_tables() {
@@ -49,6 +53,8 @@ class Orphaned_Tables {
 	/**
 	 * Get known WordPress core tables.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of core table names.
 	 */
 	public function get_known_core_tables() {
@@ -91,6 +97,8 @@ class Orphaned_Tables {
 	 *
 	 * Scans active plugins for $wpdb->table patterns and custom table registrations.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of plugin table names.
 	 */
 	public function get_registered_plugin_tables() {
@@ -168,12 +176,18 @@ class Orphaned_Tables {
 		}
 
 		/**
-		 * Filter the list of known plugin tables.
+		 * Filters the list of known plugin tables.
 		 *
 		 * Allows plugins to register their custom tables to prevent them from being
 		 * detected as orphaned.
 		 *
-		 * @param array $plugin_tables Array of plugin table names.
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_registered_plugin_tables
+		 *
+		 * @param {array} $plugin_tables Array of plugin table names.
+		 *
+		 * @return array Modified array of plugin table names.
 		 */
 		$plugin_tables = apply_filters( 'wpha_registered_plugin_tables', $plugin_tables );
 
@@ -189,6 +203,8 @@ class Orphaned_Tables {
 	 * Identifies tables that have the WordPress prefix but are not in the known
 	 * core or plugin tables list.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of orphaned table information including name, size, and row count.
 	 */
 	public function find_orphaned_tables() {
@@ -288,6 +304,8 @@ class Orphaned_Tables {
 	 *
 	 * NEVER auto-deletes - requires explicit confirmation with table name hash.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $table_name      The table name to delete.
 	 * @param string $confirmation_hash The confirmation hash.
 	 * @return array Array with 'success' boolean and 'message' string.

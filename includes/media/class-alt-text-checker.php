@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Alt Text Checker class for identifying images without alt text.
+ *
+ * @since 1.0.0
  */
 class Alt_Text_Checker {
 
@@ -31,6 +33,8 @@ class Alt_Text_Checker {
 	 *
 	 * Returns list with: ID, filename, thumbnail URL, edit link.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of images missing alt text with details.
 	 */
 	public function find_missing_alt_text() {
@@ -99,6 +103,8 @@ class Alt_Text_Checker {
 	 *
 	 * Returns the percentage of images with alt text.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array with coverage statistics.
 	 */
 	public function get_alt_text_coverage() {
@@ -157,6 +163,8 @@ class Alt_Text_Checker {
 	 * Generates alt text suggestions from filename (clean up slugs).
 	 * AI service integration is a placeholder for future feature.
 	 *
+ * @since 1.0.0
+ *
 	 * @param bool $use_ai Whether to use AI service for suggestions (future feature, currently a placeholder).
 	 * @return array Array of suggestions with attachment ID and suggested alt text.
 	 */

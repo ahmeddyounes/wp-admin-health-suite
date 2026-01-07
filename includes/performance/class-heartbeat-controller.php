@@ -18,6 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Heartbeat Controller class for managing WordPress Heartbeat API.
+ *
+ * @since 1.0.0
  */
 class Heartbeat_Controller {
 
@@ -51,6 +53,8 @@ class Heartbeat_Controller {
 
 	/**
 	 * Constructor.
+ * @since 1.0.0
+ *
 	 */
 	public function __construct() {
 		$this->init_hooks();
@@ -69,6 +73,8 @@ class Heartbeat_Controller {
 	/**
 	 * Get current heartbeat settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Current settings for all locations.
 	 */
 	public function get_current_settings() {
@@ -93,6 +99,8 @@ class Heartbeat_Controller {
 	/**
 	 * Update heartbeat frequency for a specific location.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string     $location Location: 'admin', 'post-editor', or 'frontend'.
 	 * @param int|string $seconds  Frequency in seconds (15, 30, 60, 120) or 'disabled'.
 	 * @return bool True on success, false on failure.
@@ -117,6 +125,8 @@ class Heartbeat_Controller {
 	/**
 	 * Disable heartbeat for a specific location.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $location Location: 'admin', 'post-editor', or 'frontend'.
 	 * @return bool True on success, false on failure.
 	 */
@@ -127,6 +137,8 @@ class Heartbeat_Controller {
 	/**
 	 * Enable heartbeat for a specific location with default frequency.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $location Location: 'admin', 'post-editor', or 'frontend'.
 	 * @return bool True on success, false on failure.
 	 */
@@ -137,6 +149,8 @@ class Heartbeat_Controller {
 	/**
 	 * Apply heartbeat settings using WordPress filter.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $settings WordPress heartbeat settings.
 	 * @return array Modified settings.
 	 */
@@ -164,6 +178,8 @@ class Heartbeat_Controller {
 	/**
 	 * Maybe disable heartbeat completely for the current location.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function maybe_disable_heartbeat() {
@@ -208,6 +224,8 @@ class Heartbeat_Controller {
 	/**
 	 * Get available presets with their settings and estimated CPU savings.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of presets with settings and CPU savings.
 	 */
 	public function get_presets() {
@@ -248,6 +266,8 @@ class Heartbeat_Controller {
 	/**
 	 * Apply a preset to heartbeat settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $preset_name Preset name: 'default', 'optimized', or 'minimal'.
 	 * @return bool True on success, false on failure.
 	 */
@@ -266,6 +286,8 @@ class Heartbeat_Controller {
 	/**
 	 * Calculate estimated CPU savings based on current settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Savings information including percentage and details.
 	 */
 	public function calculate_cpu_savings() {
@@ -347,6 +369,8 @@ class Heartbeat_Controller {
 	/**
 	 * Get heartbeat status information.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Status information including current settings and savings.
 	 */
 	public function get_status() {
@@ -381,6 +405,8 @@ class Heartbeat_Controller {
 	/**
 	 * Reset heartbeat settings to WordPress defaults.
 	 *
+ * @since 1.0.0
+ *
 	 * @return bool True on success.
 	 */
 	public function reset_to_defaults() {
@@ -390,6 +416,8 @@ class Heartbeat_Controller {
 	/**
 	 * Validate heartbeat settings array.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $settings Settings to validate.
 	 * @return bool True if valid, false otherwise.
 	 */

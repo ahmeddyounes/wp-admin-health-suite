@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Safe_Delete class for managing two-step media deletion with recovery.
+ *
+ * @since 1.0.0
  */
 class Safe_Delete {
 
@@ -42,6 +44,8 @@ class Safe_Delete {
 
 	/**
 	 * Constructor.
+ * @since 1.0.0
+ *
 	 */
 	public function __construct() {
 		global $wpdb;
@@ -51,6 +55,8 @@ class Safe_Delete {
 	/**
 	 * Prepare deletion by moving files to trash and storing metadata.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $attachment_ids Array of attachment IDs to prepare for deletion.
 	 * @return array Result with success status and deletion ID.
 	 */
@@ -159,6 +165,8 @@ class Safe_Delete {
 	/**
 	 * Execute permanent deletion of items in trash.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $deletion_id Deletion ID to permanently remove.
 	 * @return array Result with success status.
 	 */
@@ -226,6 +234,8 @@ class Safe_Delete {
 	/**
 	 * Restore a deleted attachment.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $deletion_id Deletion ID to restore.
 	 * @return array Result with success status and restored attachment ID.
 	 */
@@ -338,6 +348,8 @@ class Safe_Delete {
 	/**
 	 * Get queue of items pending permanent deletion.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array List of items in deletion queue.
 	 */
 	public function get_deletion_queue() {
@@ -375,6 +387,8 @@ class Safe_Delete {
 	/**
 	 * Get history of permanently deleted items.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $limit Number of records to retrieve.
 	 * @return array List of permanently deleted items.
 	 */
@@ -417,6 +431,8 @@ class Safe_Delete {
 	/**
 	 * Auto-purge items older than retention period.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Result with count of purged items.
 	 */
 	public function auto_purge_expired() {

@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Transients Cleaner class for managing transients.
+ *
+ * @since 1.0.0
  */
 class Transients_Cleaner {
 
@@ -30,6 +32,8 @@ class Transients_Cleaner {
 	/**
 	 * Get the total count of all transients.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Total number of transients.
 	 */
 	public function get_all_transients_count() {
@@ -58,6 +62,8 @@ class Transients_Cleaner {
 	/**
 	 * Get expired transients.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $exclude_patterns Array of prefixes to exclude (e.g., ['wpha_', 'wc_']).
 	 * @return array Array of expired transient names.
 	 */
@@ -110,6 +116,8 @@ class Transients_Cleaner {
 	/**
 	 * Get the count of all transients (regular and site transients).
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Total number of transients.
 	 */
 	public function count_transients() {
@@ -119,6 +127,8 @@ class Transients_Cleaner {
 	/**
 	 * Get the count of expired transients.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of expired transients.
 	 */
 	public function count_expired_transients() {
@@ -129,6 +139,8 @@ class Transients_Cleaner {
 	/**
 	 * Get an estimate of the disk space used by transients.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Estimated bytes used by transients.
 	 */
 	public function get_transients_size() {
@@ -163,6 +175,8 @@ class Transients_Cleaner {
 	/**
 	 * Delete expired transients.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $exclude_patterns Array of prefixes to exclude (e.g., ['wpha_', 'wc_']).
 	 * @return array Array with 'deleted' count and 'bytes_freed' estimate.
 	 */
@@ -214,6 +228,8 @@ class Transients_Cleaner {
 	/**
 	 * Delete all transients with optional exclusion patterns.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $exclude_patterns Array of prefixes to exclude (e.g., ['wpha_', 'wc_']).
 	 * @return array Array with 'deleted' count and 'bytes_freed' estimate.
 	 */
@@ -301,6 +317,8 @@ class Transients_Cleaner {
 	/**
 	 * Get transients by prefix.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $prefix The prefix to search for.
 	 * @return array Array of transient names matching the prefix.
 	 */

@@ -29,6 +29,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Recommendations class for generating AI-powered site health recommendations.
+ *
+ * @since 1.0.0
  */
 class Recommendations {
 
@@ -56,6 +58,8 @@ class Recommendations {
 	/**
 	 * Generate recommendations based on all scan results.
 	 *
+ * @since 1.0.0
+ *
 	 * @param bool $force_refresh Force regeneration of recommendations.
 	 * @return array Array of recommendation objects.
 	 */
@@ -91,6 +95,8 @@ class Recommendations {
 	/**
 	 * Prioritize issues based on impact, ease of fix, and risk level.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $recommendations Array of recommendations to prioritize.
 	 * @return array Sorted array of recommendations with priority scores.
 	 */
@@ -163,6 +169,8 @@ class Recommendations {
 	/**
 	 * Get actionable steps for a specific recommendation.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $recommendation_id Recommendation ID.
 	 * @return array|null Actionable steps or null if not found.
 	 */
@@ -184,6 +192,8 @@ class Recommendations {
 	/**
 	 * Dismiss a recommendation.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $recommendation_id Recommendation ID to dismiss.
 	 * @return bool True on success, false on failure.
 	 */

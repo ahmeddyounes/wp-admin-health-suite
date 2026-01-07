@@ -18,6 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Query Monitor class for tracking and analyzing database queries.
+ *
+ * @since 1.0.0
  */
 class Query_Monitor {
 
@@ -44,6 +46,8 @@ class Query_Monitor {
 
 	/**
 	 * Constructor.
+ * @since 1.0.0
+ *
 	 */
 	public function __construct() {
 		global $wpdb;
@@ -66,6 +70,8 @@ class Query_Monitor {
 	/**
 	 * Analyze queries on shutdown.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function analyze_queries_on_shutdown() {
@@ -76,6 +82,8 @@ class Query_Monitor {
 	/**
 	 * Capture slow queries based on a threshold.
 	 *
+ * @since 1.0.0
+ *
 	 * @param float $threshold_ms Threshold in milliseconds (default: 50ms).
 	 * @return array Array of slow queries.
 	 */
@@ -322,6 +330,8 @@ class Query_Monitor {
 	/**
 	 * Get query summary statistics.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $limit Number of days to look back (default: 7).
 	 * @return array Summary statistics.
 	 */
@@ -398,6 +408,8 @@ class Query_Monitor {
 	/**
 	 * Get queries grouped by caller.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $limit Number of results to return (default: 20).
 	 * @param int $days Number of days to look back (default: 7).
 	 * @return array Queries grouped by caller.
@@ -448,6 +460,8 @@ class Query_Monitor {
 	/**
 	 * Export query log to CSV format.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int    $days Number of days to export (default: 7).
 	 * @param string $format Export format: 'csv' or 'json' (default: 'csv').
 	 * @return string|array Exported data.
@@ -529,6 +543,8 @@ class Query_Monitor {
 	/**
 	 * Prune old query logs based on TTL.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of rows deleted.
 	 */
 	public function prune_old_logs() {
@@ -549,6 +565,8 @@ class Query_Monitor {
 	/**
 	 * Check if Query Monitor plugin is active.
 	 *
+ * @since 1.0.0
+ *
 	 * @return bool True if Query Monitor is active.
 	 */
 	public function is_query_monitor_active() {
@@ -558,6 +576,8 @@ class Query_Monitor {
 	/**
 	 * Get current monitoring status.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Status information.
 	 */
 	public function get_monitoring_status() {

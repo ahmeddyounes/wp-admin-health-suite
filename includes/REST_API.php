@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * REST API class for handling REST API endpoints.
+ *
+ * @since 1.0.0
  */
 class REST_API {
 
@@ -27,6 +29,8 @@ class REST_API {
 	/**
 	 * Constructor.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $version Plugin version.
 	 */
 	public function __construct( $version ) {
@@ -38,17 +42,27 @@ class REST_API {
 	/**
 	 * Initialize REST API hooks.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	private function init_hooks() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 
-		// Hook for REST API initialization.
+		/**
+		 * Fires after REST API initialization.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_rest_api_init
+		 */
 		do_action( 'wpha_rest_api_init' );
 	}
 
 	/**
 	 * Register REST API routes.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -81,7 +95,15 @@ class REST_API {
 		$performance_controller = new REST\Performance_Controller();
 		$performance_controller->register_routes();
 
-		// Allow other controllers to register their routes.
+		/**
+		 * Fires after core REST routes are registered.
+		 *
+		 * Allows other controllers to register their routes.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_register_rest_routes
+		 */
 		do_action( 'wpha_register_rest_routes' );
 	}
 }

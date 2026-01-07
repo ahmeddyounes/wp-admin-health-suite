@@ -25,6 +25,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - Health score calculations
  * - Activity log retrieval with pagination
  * - Quick action execution
+ *
+ * @since 1.0.0
  */
 class Dashboard_Controller extends REST_Controller {
 
@@ -52,6 +54,8 @@ class Dashboard_Controller extends REST_Controller {
 	/**
 	 * Register routes for the controller.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function register_routes() {
@@ -129,6 +133,8 @@ class Dashboard_Controller extends REST_Controller {
 	 *
 	 * Results are cached for 5 minutes to reduce database load.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -184,6 +190,8 @@ class Dashboard_Controller extends REST_Controller {
 	 * Returns the overall health score along with individual factor scores
 	 * and recommendations.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -217,6 +225,8 @@ class Dashboard_Controller extends REST_Controller {
 	 *
 	 * Returns activity log entries from the scan history table with pagination support.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -319,6 +329,8 @@ class Dashboard_Controller extends REST_Controller {
 	 *
 	 * Executes a quick action by ID and logs the result to the scan history.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -605,6 +617,8 @@ class Dashboard_Controller extends REST_Controller {
 	/**
 	 * Get activity endpoint parameters.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Collection parameters.
 	 */
 	public function get_activity_params() {

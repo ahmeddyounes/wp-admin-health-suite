@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Admin class for handling WordPress admin functionality.
+ *
+ * @since 1.0.0
  */
 class Admin {
 
@@ -34,6 +36,8 @@ class Admin {
 	/**
 	 * Constructor.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $version Plugin version.
 	 * @param string $plugin_name Plugin name.
 	 */
@@ -47,6 +51,8 @@ class Admin {
 	/**
 	 * Initialize admin hooks.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	private function init_hooks() {
@@ -55,12 +61,20 @@ class Admin {
 			$this->load_admin_menu();
 		}
 
-		// Hook for admin initialization.
+		/**
+		 * Fires after admin initialization.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_admin_init
+		 */
 		do_action( 'wpha_admin_init' );
 	}
 
 	/**
 	 * Load admin menu class.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */

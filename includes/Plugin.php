@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Main plugin class using singleton pattern.
+ *
+ * @since 1.0.0
  */
 class Plugin {
 
@@ -107,6 +109,8 @@ class Plugin {
 	/**
 	 * Get singleton instance.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return Plugin
 	 */
 	public static function get_instance() {
@@ -121,6 +125,8 @@ class Plugin {
 	 *
 	 * Loads all dependencies and hooks into plugins_loaded.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	public function init() {
@@ -130,12 +136,20 @@ class Plugin {
 		// Load dependencies.
 		$this->load_dependencies();
 
-		// Hook for plugin initialization.
+		/**
+		 * Fires after plugin initialization is complete.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_init
+		 */
 		do_action( 'wpha_init' );
 	}
 
 	/**
 	 * Load plugin dependencies.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -158,17 +172,31 @@ class Plugin {
 		// Initialize Settings class.
 		$this->settings = new Settings();
 
-		// Hook for after dependencies loaded.
+		/**
+		 * Fires after all plugin dependencies are loaded.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_dependencies_loaded
+		 */
 		do_action( 'wpha_dependencies_loaded' );
 	}
 
 	/**
 	 * Plugin activation handler.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	public function activate() {
-		// Run activation hook.
+		/**
+		 * Fires before plugin activation tasks are run.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_activate
+		 */
 		do_action( 'wpha_activate' );
 
 		// Run installer.
@@ -177,30 +205,52 @@ class Plugin {
 		// Flush rewrite rules.
 		flush_rewrite_rules();
 
-		// Hook for after activation.
+		/**
+		 * Fires after plugin activation is complete.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_activated
+		 */
 		do_action( 'wpha_activated' );
 	}
 
 	/**
 	 * Plugin deactivation handler.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	public function deactivate() {
-		// Run deactivation hook.
+		/**
+		 * Fires before plugin deactivation tasks are run.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_deactivate
+		 */
 		do_action( 'wpha_deactivate' );
 
 		// Flush rewrite rules.
 		flush_rewrite_rules();
 
-		// Hook for after deactivation.
+		/**
+		 * Fires after plugin deactivation is complete.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_deactivated
+		 */
 		do_action( 'wpha_deactivated' );
 	}
 
 	/**
 	 * Get plugin version.
 	 *
-	 * @return string
+	 * @since 1.0.0
+	 *
+	 * @return string Plugin version number.
 	 */
 	public function get_version() {
 		return $this->version;
@@ -209,7 +259,9 @@ class Plugin {
 	/**
 	 * Get plugin name.
 	 *
-	 * @return string
+	 * @since 1.0.0
+	 *
+	 * @return string Plugin slug name.
 	 */
 	public function get_plugin_name() {
 		return $this->plugin_name;
@@ -218,7 +270,9 @@ class Plugin {
 	/**
 	 * Get plugin path.
 	 *
-	 * @return string
+	 * @since 1.0.0
+	 *
+	 * @return string Absolute path to plugin directory.
 	 */
 	public function get_plugin_path() {
 		return $this->plugin_path;
@@ -227,7 +281,9 @@ class Plugin {
 	/**
 	 * Get plugin URL.
 	 *
-	 * @return string
+	 * @since 1.0.0
+	 *
+	 * @return string Plugin directory URL.
 	 */
 	public function get_plugin_url() {
 		return $this->plugin_url;
@@ -236,7 +292,9 @@ class Plugin {
 	/**
 	 * Get scheduler instance.
 	 *
-	 * @return Scheduler|null
+	 * @since 1.0.0
+	 *
+	 * @return Scheduler|null Scheduler instance or null if not initialized.
 	 */
 	public function get_scheduler() {
 		return $this->scheduler;
@@ -245,7 +303,9 @@ class Plugin {
 	/**
 	 * Get settings instance.
 	 *
-	 * @return Settings|null
+	 * @since 1.0.0
+	 *
+	 * @return Settings|null Settings instance or null if not initialized.
 	 */
 	public function get_settings() {
 		return $this->settings;
@@ -253,6 +313,8 @@ class Plugin {
 
 	/**
 	 * Prevent cloning of the instance.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -266,6 +328,8 @@ class Plugin {
 
 	/**
 	 * Prevent unserializing of the instance.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */

@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Assets class for handling CSS and JavaScript assets.
+ *
+ * @since 1.0.0
  */
 class Assets {
 
@@ -41,6 +43,8 @@ class Assets {
 	/**
 	 * Constructor.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $version Plugin version.
 	 * @param string $plugin_url Plugin URL.
 	 */
@@ -55,17 +59,27 @@ class Assets {
 	/**
 	 * Initialize assets hooks.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	private function init_hooks() {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 
-		// Hook for assets initialization.
+		/**
+		 * Fires after assets initialization.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_assets_init
+		 */
 		do_action( 'wpha_assets_init' );
 	}
 
 	/**
 	 * Check if current screen is a plugin admin page.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return bool True if on plugin admin page.
 	 */
@@ -83,6 +97,8 @@ class Assets {
 	/**
 	 * Enqueue admin CSS and JavaScript assets.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	public function enqueue_admin_assets() {
@@ -97,6 +113,8 @@ class Assets {
 
 	/**
 	 * Enqueue admin CSS files.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -149,6 +167,8 @@ class Assets {
 
 	/**
 	 * Enqueue admin JavaScript files.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -205,6 +225,8 @@ class Assets {
 	/**
 	 * Localize admin script with required data.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $handle Script handle to localize.
 	 * @return void
 	 */
@@ -244,6 +266,8 @@ class Assets {
 	/**
 	 * Get asset data from webpack-generated asset file.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $bundle_name Bundle name without extension.
 	 * @return array Asset data with dependencies and version.
 	 */
@@ -268,6 +292,8 @@ class Assets {
 
 	/**
 	 * Get asset version using filemtime in development.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param string $relative_path Relative path to asset file from plugin directory.
 	 * @return string Version string.

@@ -28,6 +28,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Handles media statistics, unused media detection, duplicate finding,
  * large files analysis, alt text checking, and safe deletion operations.
+ *
+ * @since 1.0.0
  */
 class Media_Controller extends REST_Controller {
 
@@ -48,6 +50,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Register routes for the controller.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function register_routes() {
@@ -272,6 +276,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Get media overview statistics.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -333,6 +339,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Get paginated list of unused media.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -371,6 +379,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Get duplicate file groups.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -420,6 +430,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Get large files list.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -471,6 +483,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Get images missing alt text.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -503,6 +517,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Trigger full media scan.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -538,6 +554,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Safe delete selected media items.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -580,6 +598,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Restore media from trash.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -671,6 +691,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Sanitize IDs array.
 	 *
+ * @since 1.0.0
+ *
 	 * @param mixed $value The value to sanitize.
 	 * @return array Sanitized IDs array.
 	 */
@@ -739,6 +761,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Get all exclusions.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -775,6 +799,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Add exclusions.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -812,6 +838,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Remove an exclusion.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -841,6 +869,8 @@ class Media_Controller extends REST_Controller {
 	/**
 	 * Clear all exclusions.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */

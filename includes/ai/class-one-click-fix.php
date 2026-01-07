@@ -22,6 +22,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * One_Click_Fix class for executing safe, automated fixes.
+ *
+ * @since 1.0.0
  */
 class One_Click_Fix {
 
@@ -69,6 +71,8 @@ class One_Click_Fix {
 
 	/**
 	 * Constructor.
+ * @since 1.0.0
+ *
 	 */
 	public function __construct() {
 		$this->transients_cleaner = new Transients_Cleaner();
@@ -80,6 +84,8 @@ class One_Click_Fix {
 	/**
 	 * Get all safe fixes that can be auto-executed.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of safe fix definitions.
 	 */
 	public function get_safe_fixes() {
@@ -170,6 +176,8 @@ class One_Click_Fix {
 	/**
 	 * Get a preview of what will be affected by a specific fix.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $recommendation_id The fix ID.
 	 * @return array|null Preview data with affected items and impact estimate.
 	 */
@@ -195,6 +203,8 @@ class One_Click_Fix {
 	/**
 	 * Execute a specific safe fix.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $recommendation_id The fix ID.
 	 * @return array|null Execution result with success status, items affected, and messages.
 	 */
@@ -242,6 +252,8 @@ class One_Click_Fix {
 	/**
 	 * Execute all safe fixes in batch with progress tracking.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Batch execution results with progress for each fix.
 	 */
 	public function execute_all_safe() {

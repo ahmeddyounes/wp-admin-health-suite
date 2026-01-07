@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Duplicate Detector class for finding duplicate media files.
+ *
+ * @since 1.0.0
  */
 class Duplicate_Detector {
 
@@ -32,6 +34,8 @@ class Duplicate_Detector {
 	 * Combines exact file hash matching, filename pattern matching,
 	 * and dimension/size similarity detection.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of duplicate groups.
 	 */
 	public function find_duplicates() {
@@ -61,6 +65,8 @@ class Duplicate_Detector {
 	/**
 	 * Get duplicate groups organized by original and copies.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of duplicate groups with original and copies.
 	 */
 	public function get_duplicate_groups() {
@@ -99,6 +105,8 @@ class Duplicate_Detector {
 	/**
 	 * Calculate potential storage savings if duplicates are removed.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array with total savings in bytes and formatted size.
 	 */
 	public function get_potential_savings() {

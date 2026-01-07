@@ -20,6 +20,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Plugin Profiler class for measuring plugin performance impact.
+ *
+ * @since 1.0.0
  */
 class Plugin_Profiler {
 
@@ -63,6 +65,8 @@ class Plugin_Profiler {
 	 * Results are stored in a transient for later retrieval.
 	 * This is an approximation and should be used as a guide only.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Results of the profiling operation.
 	 */
 	public function measure_plugin_impact() {
@@ -310,6 +314,8 @@ class Plugin_Profiler {
 	/**
 	 * Get the slowest plugins based on impact score.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $limit Number of plugins to return (default: 10).
 	 * @return array Array of slowest plugins.
 	 */
@@ -329,6 +335,8 @@ class Plugin_Profiler {
 	/**
 	 * Get memory usage by plugin.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of plugins with their memory usage.
 	 */
 	public function get_plugin_memory_usage() {
@@ -360,6 +368,8 @@ class Plugin_Profiler {
 	/**
 	 * Get database query counts by plugin.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of plugins with their query counts.
 	 */
 	public function get_plugin_query_counts() {
@@ -391,6 +401,8 @@ class Plugin_Profiler {
 	/**
 	 * Get asset counts by plugin.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of plugins with their asset counts.
 	 */
 	public function get_asset_counts_by_plugin() {
@@ -424,6 +436,8 @@ class Plugin_Profiler {
 	/**
 	 * Clear cached profiler results.
 	 *
+ * @since 1.0.0
+ *
 	 * @return bool True on success, false on failure.
 	 */
 	public function clear_cache() {

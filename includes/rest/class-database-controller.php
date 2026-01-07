@@ -27,6 +27,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * REST API controller for database health endpoints.
  *
  * Handles database statistics, cleanup operations, and optimization.
+ *
+ * @since 1.0.0
  */
 class Database_Controller extends REST_Controller {
 
@@ -40,6 +42,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Register routes for the controller.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function register_routes() {
@@ -163,6 +167,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Get all analyzer statistics.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -193,6 +199,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Get revision details.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -217,6 +225,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Get transient list.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -255,6 +265,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Get orphaned data summary.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -286,6 +298,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Execute cleanup by type.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -360,6 +374,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Run database optimization.
 	 *
+ * @since 1.0.0
+ *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
@@ -745,6 +761,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Sanitize options parameter.
 	 *
+ * @since 1.0.0
+ *
 	 * @param mixed $value The value to sanitize.
 	 * @return array Sanitized options array.
 	 */
@@ -775,6 +793,8 @@ class Database_Controller extends REST_Controller {
 	/**
 	 * Sanitize table names array.
 	 *
+ * @since 1.0.0
+ *
 	 * @param mixed $value The value to sanitize.
 	 * @return array Sanitized table names array.
 	 */

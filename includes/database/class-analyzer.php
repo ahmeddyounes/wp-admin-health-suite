@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Database Analyzer class for analyzing database health and statistics.
+ *
+ * @since 1.0.0
  */
 class Analyzer {
 
@@ -99,6 +101,8 @@ class Analyzer {
 	/**
 	 * Get the total database size in bytes.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Total database size in bytes.
 	 */
 	public function get_database_size() {
@@ -125,6 +129,8 @@ class Analyzer {
 	/**
 	 * Get sizes of all database tables.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of table names and their sizes in bytes.
 	 */
 	public function get_table_sizes() {
@@ -158,6 +164,8 @@ class Analyzer {
 	/**
 	 * Get the count of post revisions.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of post revisions.
 	 */
 	public function get_revisions_count() {
@@ -180,6 +188,8 @@ class Analyzer {
 	/**
 	 * Get the count of auto-draft posts.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of auto-draft posts.
 	 */
 	public function get_auto_drafts_count() {
@@ -202,6 +212,8 @@ class Analyzer {
 	/**
 	 * Get the count of trashed posts.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of trashed posts.
 	 */
 	public function get_trashed_posts_count() {
@@ -224,6 +236,8 @@ class Analyzer {
 	/**
 	 * Get the count of spam comments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of spam comments.
 	 */
 	public function get_spam_comments_count() {
@@ -246,6 +260,8 @@ class Analyzer {
 	/**
 	 * Get the count of trashed comments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of trashed comments.
 	 */
 	public function get_trashed_comments_count() {
@@ -268,6 +284,8 @@ class Analyzer {
 	/**
 	 * Get the count of expired transients.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of expired transients.
 	 */
 	public function get_expired_transients_count() {
@@ -293,6 +311,8 @@ class Analyzer {
 	/**
 	 * Get the count of orphaned postmeta.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of orphaned postmeta records.
 	 */
 	public function get_orphaned_postmeta_count() {
@@ -316,6 +336,8 @@ class Analyzer {
 	/**
 	 * Get the count of orphaned commentmeta.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of orphaned commentmeta records.
 	 */
 	public function get_orphaned_commentmeta_count() {
@@ -339,6 +361,8 @@ class Analyzer {
 	/**
 	 * Get the count of orphaned termmeta.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of orphaned termmeta records.
 	 */
 	public function get_orphaned_termmeta_count() {

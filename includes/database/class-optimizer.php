@@ -16,12 +16,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Database Optimizer class for optimizing and repairing database tables.
+ *
+ * @since 1.0.0
  */
 class Optimizer {
 
 	/**
 	 * Get tables that need optimization based on overhead.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of table names with overhead.
 	 */
 	public function get_tables_needing_optimization() {
@@ -59,6 +63,8 @@ class Optimizer {
 	/**
 	 * Get the overhead (wasted space) for a specific table.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $table_name The name of the table.
 	 * @return int|false Overhead in bytes, or false if table not found.
 	 */
@@ -87,6 +93,8 @@ class Optimizer {
 	/**
 	 * Optimize a specific table.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $table_name The name of the table to optimize.
 	 * @return array|false Array with optimization results, or false on failure.
 	 */
@@ -136,6 +144,8 @@ class Optimizer {
 	/**
 	 * Optimize all WordPress tables.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of optimization results for each table.
 	 */
 	public function optimize_all_tables() {
@@ -155,6 +165,8 @@ class Optimizer {
 	/**
 	 * Repair a specific table.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $table_name The name of the table to repair.
 	 * @return bool|array True on success, array with error details on failure.
 	 */

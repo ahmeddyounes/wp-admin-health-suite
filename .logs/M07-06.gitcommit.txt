@@ -1,0 +1,23 @@
+[main 833caf1] M07-06: implement
+ 25 files changed, 13858 insertions(+), 57 deletions(-)
+ create mode 100644 .babelrc
+ create mode 100644 .eslintrc.json
+ create mode 100644 .gitignore
+ create mode 100644 .logs/M07-05.gitcommit.txt
+ create mode 100644 .logs/M07-06.claude.fix1.last.md
+ create mode 100644 .logs/M07-06.claude.fix1.raw.txt
+ create mode 100644 .logs/M07-06.claude.impl.last.md
+ create mode 100644 .logs/M07-06.claude.impl.raw.txt
+ create mode 100644 .plans/M07-06.md
+ create mode 100644 .t2/handoff/M07-06.md
+ create mode 100644 BUILD.md
+ create mode 100644 assets/js/entries/dashboard.js
+ create mode 100644 assets/js/entries/database-health.js
+ create mode 100644 assets/js/entries/media-audit.js
+ create mode 100644 assets/js/entries/performance.js
+ create mode 100644 assets/js/entries/settings.js
+ create mode 100644 jest.config.js
+ create mode 100644 jest.setup.js
+ create mode 100644 package-lock.json
+ create mode 100644 webpack.config.js
+

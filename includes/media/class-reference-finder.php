@@ -16,12 +16,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Reference Finder class for locating media usage across the site.
+ *
+ * @since 1.0.0
  */
 class Reference_Finder {
 
 	/**
 	 * Find all references to a media attachment.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $attachment_id Attachment ID to search for.
 	 * @return array Array of reference locations with context.
 	 */
@@ -80,6 +84,8 @@ class Reference_Finder {
 	/**
 	 * Check if media is used anywhere.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $attachment_id Attachment ID to check.
 	 * @return bool True if used, false otherwise.
 	 */
@@ -91,6 +97,8 @@ class Reference_Finder {
 	/**
 	 * Get reference locations with detailed context.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $attachment_id Attachment ID to search for.
 	 * @return array Array of reference locations with actionable context.
 	 */

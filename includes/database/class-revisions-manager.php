@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Revisions Manager class for managing post revisions.
+ *
+ * @since 1.0.0
  */
 class Revisions_Manager {
 
@@ -29,6 +31,8 @@ class Revisions_Manager {
 	/**
 	 * Get revisions for a specific post.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $post_id The post ID to get revisions for.
 	 * @return array Array of revision objects.
 	 */
@@ -47,6 +51,8 @@ class Revisions_Manager {
 	/**
 	 * Get the total count of all post revisions (alias).
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Total number of revisions.
 	 */
 	public function get_total_revisions_count() {
@@ -56,6 +62,8 @@ class Revisions_Manager {
 	/**
 	 * Get the total count of all post revisions.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Total number of revisions.
 	 */
 	public function get_all_revisions_count() {
@@ -72,6 +80,8 @@ class Revisions_Manager {
 	/**
 	 * Get an estimate of the disk space used by revisions.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Estimated bytes used by revisions.
 	 */
 	public function get_revisions_size_estimate() {
@@ -115,6 +125,8 @@ class Revisions_Manager {
 	/**
 	 * Delete revisions for a specific post.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $post_id     The post ID to delete revisions for.
 	 * @param int $keep_count  Number of most recent revisions to keep (default 0).
 	 * @return array Array with 'deleted' count and 'bytes_freed' estimate.
@@ -198,6 +210,8 @@ class Revisions_Manager {
 	/**
 	 * Delete all revisions across all posts.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $keep_per_post Number of most recent revisions to keep per post (default 0).
 	 * @return array Array with 'deleted' count and 'bytes_freed' estimate.
 	 */
@@ -267,6 +281,8 @@ class Revisions_Manager {
 	/**
 	 * Get posts with the most revisions.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $limit Number of posts to return (default 10).
 	 * @return array Array of posts with revision counts.
 	 */

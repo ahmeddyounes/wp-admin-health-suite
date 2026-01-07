@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Database class for handling database operations.
+ *
+ * @since 1.0.0
  */
 class Database {
 
@@ -27,6 +29,8 @@ class Database {
 	/**
 	 * Constructor.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $version Plugin version.
 	 */
 	public function __construct( $version ) {
@@ -38,10 +42,18 @@ class Database {
 	/**
 	 * Initialize database hooks.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	private function init_hooks() {
-		// Hook for database initialization.
+		/**
+		 * Fires after database initialization.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_database_init
+		 */
 		do_action( 'wpha_database_init' );
 	}
 }

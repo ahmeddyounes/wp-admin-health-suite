@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Media Exclusions manager for handling items excluded from scans and cleanup.
+ *
+ * @since 1.0.0
  */
 class Exclusions {
 
@@ -29,6 +31,8 @@ class Exclusions {
 	/**
 	 * Add an exclusion for an attachment.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int    $attachment_id Attachment ID to exclude.
 	 * @param string $reason        Reason for exclusion.
 	 * @return bool True on success, false on failure.
@@ -69,6 +73,8 @@ class Exclusions {
 	/**
 	 * Remove an exclusion for an attachment.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $attachment_id Attachment ID to remove from exclusions.
 	 * @return bool True on success, false on failure.
 	 */
@@ -93,6 +99,8 @@ class Exclusions {
 	/**
 	 * Get all exclusions.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of exclusions with metadata.
 	 */
 	public function get_exclusions() {
@@ -102,6 +110,8 @@ class Exclusions {
 	/**
 	 * Check if an attachment is excluded.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $attachment_id Attachment ID to check.
 	 * @return bool True if excluded, false otherwise.
 	 */
@@ -115,6 +125,8 @@ class Exclusions {
 	/**
 	 * Bulk add exclusions for multiple attachments.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array  $ids    Array of attachment IDs to exclude.
 	 * @param string $reason Reason for exclusion.
 	 * @return array Result with success count and failed IDs.
@@ -147,6 +159,8 @@ class Exclusions {
 	/**
 	 * Clear all exclusions.
 	 *
+ * @since 1.0.0
+ *
 	 * @return bool True on success, false on failure.
 	 */
 	public function clear_exclusions() {
@@ -171,6 +185,8 @@ class Exclusions {
 	/**
 	 * Filter out excluded items from an array of attachment IDs.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $attachment_ids Array of attachment IDs.
 	 * @return array Filtered array with excluded items removed.
 	 */

@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Large Files class for identifying and analyzing large media files.
+ *
+ * @since 1.0.0
  */
 class Large_Files {
 
@@ -36,6 +38,8 @@ class Large_Files {
 	/**
 	 * Find large files above a specified threshold.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $threshold_kb Minimum file size in KB. Default is 500KB.
 	 * @return array Array of large files with details.
 	 */
@@ -121,6 +125,8 @@ class Large_Files {
 	/**
 	 * Get optimization suggestions for large files.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of optimization suggestions with actionable recommendations.
 	 */
 	public function get_optimization_suggestions() {
@@ -234,6 +240,8 @@ class Large_Files {
 	 *
 	 * Returns counts for different size buckets to understand library composition.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of size buckets with counts.
 	 */
 	public function get_size_distribution() {

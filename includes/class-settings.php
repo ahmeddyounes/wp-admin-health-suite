@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Handles plugin settings using WordPress Settings API.
+ *
+ * @since 1.0.0
  */
 class Settings {
 
@@ -40,6 +42,8 @@ class Settings {
 
 	/**
 	 * Constructor.
+ * @since 1.0.0
+ *
 	 */
 	public function __construct() {
 		$this->define_sections();
@@ -613,6 +617,8 @@ class Settings {
 	/**
 	 * Register settings, sections, and fields.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function register_settings() {
@@ -660,6 +666,8 @@ class Settings {
 	/**
 	 * Render a settings field.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $args Field arguments.
 	 * @return void
 	 */
@@ -749,6 +757,8 @@ class Settings {
 	/**
 	 * Sanitize settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $input Raw input data.
 	 * @return array Sanitized settings.
 	 */
@@ -814,6 +824,8 @@ class Settings {
 	/**
 	 * Get settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array
 	 */
 	public function get_settings() {
@@ -824,6 +836,8 @@ class Settings {
 	/**
 	 * Get a specific setting value.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $key Setting key.
 	 * @param mixed  $default Default value if setting doesn't exist.
 	 * @return mixed
@@ -842,6 +856,8 @@ class Settings {
 	/**
 	 * Get default settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array
 	 */
 	public function get_default_settings() {
@@ -855,6 +871,8 @@ class Settings {
 	/**
 	 * Export settings as JSON.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function export_settings() {
@@ -889,6 +907,8 @@ class Settings {
 	/**
 	 * Import settings from JSON.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function import_settings() {
@@ -932,6 +952,8 @@ class Settings {
 	/**
 	 * Reset settings to defaults.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function reset_settings() {
@@ -961,6 +983,8 @@ class Settings {
 	/**
 	 * Reset settings for a specific section to defaults.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function reset_section() {
@@ -1010,6 +1034,8 @@ class Settings {
 	 * This method is called when settings are updated. It creates or updates
 	 * Action Scheduler tasks based on the new settings.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $old_value Previous settings values.
 	 * @param array $new_value New settings values.
 	 * @return void
@@ -1187,6 +1213,8 @@ class Settings {
 	/**
 	 * Send notification on task completion.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $task_name Name of the completed task.
 	 * @param array  $result Task result data.
 	 * @return void
@@ -1244,6 +1272,8 @@ class Settings {
 	/**
 	 * Get sections.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array
 	 */
 	public function get_sections() {
@@ -1253,6 +1283,8 @@ class Settings {
 	/**
 	 * Get fields.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array
 	 */
 	public function get_fields() {
@@ -1282,6 +1314,8 @@ class Settings {
 	/**
 	 * Check if safe mode is enabled.
 	 *
+ * @since 1.0.0
+ *
 	 * @return bool
 	 */
 	public function is_safe_mode_enabled() {
@@ -1291,6 +1325,8 @@ class Settings {
 	/**
 	 * Check if debug mode is enabled.
 	 *
+ * @since 1.0.0
+ *
 	 * @return bool
 	 */
 	public function is_debug_mode_enabled() {
@@ -1300,6 +1336,8 @@ class Settings {
 	/**
 	 * Check if REST API is enabled.
 	 *
+ * @since 1.0.0
+ *
 	 * @return bool
 	 */
 	public function is_rest_api_enabled() {
@@ -1309,6 +1347,8 @@ class Settings {
 	/**
 	 * Get REST API rate limit.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Requests per minute.
 	 */
 	public function get_rest_api_rate_limit() {
@@ -1318,6 +1358,8 @@ class Settings {
 	/**
 	 * Output custom CSS in admin head.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function output_custom_css() {

@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Handles scheduled cleanup tasks using WP-Cron.
+ *
+ * @since 1.0.0
  */
 class Scheduler {
 
@@ -34,6 +36,8 @@ class Scheduler {
 	/**
 	 * Initialize the scheduler.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	public function __construct() {
@@ -42,6 +46,8 @@ class Scheduler {
 
 	/**
 	 * Initialize hooks.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -58,6 +64,8 @@ class Scheduler {
 
 	/**
 	 * Register custom cron schedules.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param array $schedules Existing schedules.
 	 * @return array Modified schedules.
@@ -82,6 +90,8 @@ class Scheduler {
 
 	/**
 	 * Schedule a cleanup task.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param string $type      Task type (e.g., 'transients', 'revisions').
 	 * @param string $frequency Frequency (daily, weekly, monthly, custom_days).
@@ -141,6 +151,8 @@ class Scheduler {
 	/**
 	 * Unschedule a cleanup task.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $type Task type to unschedule.
 	 * @return bool True on success, false on failure.
 	 */
@@ -190,6 +202,8 @@ class Scheduler {
 	/**
 	 * Get all scheduled tasks.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $status Optional. Filter by status (active, inactive). Default 'active'.
 	 * @return array Array of scheduled tasks.
 	 */
@@ -221,6 +235,8 @@ class Scheduler {
 
 	/**
 	 * Run a scheduled task.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param int $task_id Task ID to run.
 	 * @return bool True on success, false on failure.
@@ -282,6 +298,8 @@ class Scheduler {
 	/**
 	 * Execute the scheduled task (called by WP-Cron).
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param int $task_id Task ID.
 	 * @return void
 	 */
@@ -291,6 +309,8 @@ class Scheduler {
 
 	/**
 	 * Check for missed schedules and run them.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -316,6 +336,8 @@ class Scheduler {
 
 	/**
 	 * Calculate next run time based on frequency.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param string $frequency Frequency type.
 	 * @param array  $options   Additional options.
@@ -352,6 +374,8 @@ class Scheduler {
 
 	/**
 	 * Schedule WP-Cron event for a task.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param int    $task_id   Task ID.
 	 * @param string $type      Task type.
@@ -394,6 +418,8 @@ class Scheduler {
 	/**
 	 * Calculate next run timestamp.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $frequency Frequency type.
 	 * @param array  $options   Additional options.
 	 * @return int Timestamp for next run.
@@ -423,6 +449,8 @@ class Scheduler {
 	/**
 	 * Execute cleanup based on task type.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $task_type Task type.
 	 * @param array  $settings  Task settings.
 	 * @return array Result with items_cleaned and bytes_freed.
@@ -435,7 +463,21 @@ class Scheduler {
 			'bytes_freed'   => 0,
 		);
 
-		// Hook for custom cleanup execution.
+		/**
+		 * Filters the cleanup execution result.
+		 *
+		 * Allows custom cleanup logic to be executed for specific task types.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_execute_cleanup
+		 *
+		 * @param {array}  $result    Cleanup result with items_cleaned and bytes_freed.
+		 * @param {string} $task_type Type of cleanup task being executed.
+		 * @param {array}  $settings  Task-specific settings.
+		 *
+		 * @return array Modified cleanup result.
+		 */
 		$result = apply_filters( 'wpha_execute_cleanup', $result, $task_type, $settings );
 
 		// Store result in scan history.
@@ -446,6 +488,8 @@ class Scheduler {
 
 	/**
 	 * Store scan history.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param string $task_type Task type.
 	 * @param array  $result    Cleanup result.
@@ -471,6 +515,8 @@ class Scheduler {
 
 	/**
 	 * Send completion email notification.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @param object $task   Task object.
 	 * @param array  $result Cleanup result.
@@ -504,6 +550,8 @@ class Scheduler {
 	/**
 	 * Log execution details.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param int    $task_id Task ID.
 	 * @param string $action  Action performed.
 	 * @param string $message Log message.
@@ -522,7 +570,17 @@ class Scheduler {
 			);
 		}
 
-		// Hook for custom logging.
+		/**
+		 * Fires when scheduler logs an execution event.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_scheduler_log
+		 *
+		 * @param {int}    $task_id Task ID being logged.
+		 * @param {string} $action  Action performed (e.g., 'scheduled', 'completed', 'recovered').
+		 * @param {string} $message Log message with execution details.
+		 */
 		do_action( 'wpha_scheduler_log', $task_id, $action, $message );
 	}
 }

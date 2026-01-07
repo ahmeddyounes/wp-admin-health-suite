@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Trash Cleaner class for managing trashed and spam content.
+ *
+ * @since 1.0.0
  */
 class Trash_Cleaner {
 
@@ -30,6 +32,8 @@ class Trash_Cleaner {
 	/**
 	 * Get trashed posts by post types.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $post_types Array of post types to query (e.g., ['post', 'page']).
 	 *                          If empty, queries all post types.
 	 * @return array Array of trashed post objects with ID, post_title, post_type, and post_modified.
@@ -64,6 +68,8 @@ class Trash_Cleaner {
 	/**
 	 * Get the count of trashed posts.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of trashed posts.
 	 */
 	public function count_trashed_posts() {
@@ -80,6 +86,8 @@ class Trash_Cleaner {
 	/**
 	 * Get the count of spam comments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of spam comments.
 	 */
 	public function count_spam_comments() {
@@ -89,6 +97,8 @@ class Trash_Cleaner {
 	/**
 	 * Get the count of spam comments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of spam comments.
 	 */
 	public function get_spam_comments_count() {
@@ -105,6 +115,8 @@ class Trash_Cleaner {
 	/**
 	 * Get the count of trashed comments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of trashed comments.
 	 */
 	public function count_trashed_comments() {
@@ -114,6 +126,8 @@ class Trash_Cleaner {
 	/**
 	 * Get the count of trashed comments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of trashed comments.
 	 */
 	public function get_trashed_comments_count() {
@@ -130,6 +144,8 @@ class Trash_Cleaner {
 	/**
 	 * Delete trashed posts with optional filters.
 	 *
+ * @since 1.0.0
+ *
 	 * @param array $post_types       Array of post types to delete. If empty, deletes all.
 	 * @param int   $older_than_days  Only delete posts trashed more than X days ago. 0 = all.
 	 * @return array Array with 'deleted' count and 'errors' count.
@@ -204,6 +220,8 @@ class Trash_Cleaner {
 	/**
 	 * Delete spam comments with optional age filter.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $older_than_days Only delete comments marked as spam more than X days ago. 0 = all.
 	 * @return array Array with 'deleted' count and 'errors' count.
 	 */
@@ -269,6 +287,8 @@ class Trash_Cleaner {
 	/**
 	 * Delete trashed comments with optional age filter.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $older_than_days Only delete comments in trash more than X days ago. 0 = all.
 	 * @return array Array with 'deleted' count and 'errors' count.
 	 */
@@ -337,6 +357,8 @@ class Trash_Cleaner {
 	 * This is a convenience method that combines deletion of all trashed posts
 	 * and trashed comments without age restrictions.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array with 'posts_deleted', 'comments_deleted', 'posts_errors', 'comments_errors'.
 	 */
 	public function empty_all_trash() {

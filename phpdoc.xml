@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<phpdocumentor
+    configVersion="3"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://www.phpdoc.org"
+    xsi:noNamespaceSchemaLocation="https://docs.phpdoc.org/latest/phpdoc.xsd"
+>
+    <title>WP Admin Health Suite</title>
+    <paths>
+        <output>docs/api</output>
+        <cache>.phpdoc/cache</cache>
+    </paths>
+    <version number="1.0.0">
+        <folder>latest</folder>
+        <api>
+            <source dsn=".">
+                <path>includes</path>
+            </source>
+            <ignore hidden="true" symlinks="true">
+                <path>includes/index.php</path>
+                <path>includes/*/index.php</path>
+                <path>node_modules</path>
+                <path>vendor</path>
+                <path>tests</path>
+                <path>assets</path>
+            </ignore>
+            <output>api</output>
+            <extensions>
+                <extension>php</extension>
+            </extensions>
+            <default-package-name>WPAdminHealth</default-package-name>
+            <include-source>true</include-source>
+        </api>
+    </version>
+    <setting name="graphs.enabled" value="true"/>
+    <setting name="guides.enabled" value="true"/>
+    <template name="default"/>
+</phpdocumentor>

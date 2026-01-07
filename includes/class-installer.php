@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Handles plugin installation, upgrades, and database setup.
+ *
+ * @since 1.0.0
  */
 class Installer {
 
@@ -27,6 +29,8 @@ class Installer {
 	/**
 	 * Run installation process.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	public static function install() {
@@ -37,6 +41,8 @@ class Installer {
 
 	/**
 	 * Create custom database tables.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -142,6 +148,8 @@ class Installer {
 	/**
 	 * Set default settings on installation.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	private static function set_default_settings() {
@@ -156,6 +164,8 @@ class Installer {
 	/**
 	 * Set plugin version in options.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @return void
 	 */
 	private static function set_version() {
@@ -164,6 +174,8 @@ class Installer {
 
 	/**
 	 * Check if upgrade is needed and run upgrade routine.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -178,6 +190,8 @@ class Installer {
 	/**
 	 * Run upgrade routines based on version.
 	 *
+	 * @since 1.0.0
+	 *
 	 * @param string $from_version The version upgrading from.
 	 * @return void
 	 */
@@ -188,12 +202,23 @@ class Installer {
 		// Update version.
 		self::set_version();
 
-		// Hook for custom upgrade routines.
+		/**
+		 * Fires after plugin upgrade is complete.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_upgraded
+		 *
+		 * @param {string} $from_version The version being upgraded from.
+		 * @param {string} WP_ADMIN_HEALTH_VERSION The version being upgraded to.
+		 */
 		do_action( 'wpha_upgraded', $from_version, WP_ADMIN_HEALTH_VERSION );
 	}
 
 	/**
 	 * Remove all plugin data from database.
+	 *
+	 * @since 1.0.0
 	 *
 	 * @return void
 	 */
@@ -213,7 +238,13 @@ class Installer {
 		delete_option( self::VERSION_OPTION );
 		delete_option( Settings::OPTION_NAME );
 
-		// Hook for custom uninstall routines.
+		/**
+		 * Fires after plugin uninstall is complete.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_uninstalled
+		 */
 		do_action( 'wpha_uninstalled' );
 	}
 }

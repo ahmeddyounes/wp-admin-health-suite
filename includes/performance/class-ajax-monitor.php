@@ -18,6 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Ajax Monitor class for tracking and analyzing AJAX requests.
+ *
+ * @since 1.0.0
  */
 class Ajax_Monitor {
 
@@ -51,6 +53,8 @@ class Ajax_Monitor {
 
 	/**
 	 * Constructor.
+ * @since 1.0.0
+ *
 	 */
 	public function __construct() {
 		global $wpdb;
@@ -79,6 +83,8 @@ class Ajax_Monitor {
 	/**
 	 * Start monitoring AJAX request.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function start_ajax_monitoring() {
@@ -94,6 +100,8 @@ class Ajax_Monitor {
 	/**
 	 * Finish monitoring and log AJAX request.
 	 *
+ * @since 1.0.0
+ *
 	 * @return void
 	 */
 	public function finish_ajax_monitoring() {
@@ -137,6 +145,8 @@ class Ajax_Monitor {
 	/**
 	 * Log AJAX request to database.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $action         AJAX action name.
 	 * @param float  $execution_time Execution time in milliseconds.
 	 * @param int    $memory_used    Memory used in bytes.
@@ -164,6 +174,8 @@ class Ajax_Monitor {
 	/**
 	 * Get AJAX request summary for a given period.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $period Period: '1hour', '24hours', '7days', '30days' (default: '24hours').
 	 * @return array Summary statistics.
 	 */
@@ -241,6 +253,8 @@ class Ajax_Monitor {
 	/**
 	 * Get most frequent AJAX actions.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $period Period: '1hour', '24hours', '7days', '30days' (default: '24hours').
 	 * @param int    $limit  Number of results to return (default: 10).
 	 * @return array Frequent AJAX actions with statistics.
@@ -289,6 +303,8 @@ class Ajax_Monitor {
 	/**
 	 * Get slow AJAX actions above a threshold.
 	 *
+ * @since 1.0.0
+ *
 	 * @param float  $threshold_ms Threshold in milliseconds (default: 1000ms).
 	 * @param string $period       Period: '1hour', '24hours', '7days', '30days' (default: '24hours').
 	 * @param int    $limit        Number of results to return (default: 10).
@@ -335,6 +351,8 @@ class Ajax_Monitor {
 	/**
 	 * Identify potentially excessive polling by detecting high-frequency requests.
 	 *
+ * @since 1.0.0
+ *
 	 * @param string $period         Period: '1hour', '24hours', '7days', '30days' (default: '1hour').
 	 * @param int    $min_requests   Minimum requests to be considered excessive (default: 60).
 	 * @return array Actions with excessive polling detected.
@@ -383,6 +401,8 @@ class Ajax_Monitor {
 	/**
 	 * Identify redundant requests (same action called multiple times in short period).
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $timeframe_seconds Timeframe in seconds to check for redundancy (default: 60).
 	 * @param int $min_occurrences   Minimum occurrences to be considered redundant (default: 3).
 	 * @return array Redundant request patterns.
@@ -491,6 +511,8 @@ class Ajax_Monitor {
 	/**
 	 * Prune old AJAX logs based on TTL.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Number of rows deleted.
 	 */
 	public function prune_old_logs() {
@@ -511,6 +533,8 @@ class Ajax_Monitor {
 	/**
 	 * Get monitoring status.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Status information.
 	 */
 	public function get_monitoring_status() {

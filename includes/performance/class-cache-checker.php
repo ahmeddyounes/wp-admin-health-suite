@@ -18,6 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Cache Checker class for object cache analysis and recommendations.
+ *
+ * @since 1.0.0
  */
 class Cache_Checker {
 
@@ -38,6 +40,8 @@ class Cache_Checker {
 	/**
 	 * Check if persistent cache is available.
 	 *
+ * @since 1.0.0
+ *
 	 * @return bool True if persistent cache is available.
 	 */
 	public function is_persistent_cache_available() {
@@ -59,6 +63,8 @@ class Cache_Checker {
 	/**
 	 * Get comprehensive cache status information.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Cache status details.
 	 */
 	public function get_cache_status() {
@@ -78,6 +84,8 @@ class Cache_Checker {
 	/**
 	 * Test cache performance with benchmark.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Performance test results.
 	 */
 	public function test_cache_performance() {
@@ -144,6 +152,8 @@ class Cache_Checker {
 	/**
 	 * Get cache recommendations based on hosting environment.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Recommendations array.
 	 */
 	public function get_cache_recommendations() {

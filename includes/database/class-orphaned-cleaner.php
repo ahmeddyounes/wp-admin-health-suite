@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Orphaned Cleaner class for managing orphaned database records.
+ *
+ * @since 1.0.0
  */
 class Orphaned_Cleaner {
 
@@ -32,6 +34,8 @@ class Orphaned_Cleaner {
 	 *
 	 * Identifies postmeta rows where the post_id does not exist in the posts table.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of orphaned meta_ids.
 	 */
 	public function find_orphaned_postmeta() {
@@ -53,6 +57,8 @@ class Orphaned_Cleaner {
 	 *
 	 * Identifies commentmeta rows where the comment_id does not exist in the comments table.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of orphaned meta_ids.
 	 */
 	public function find_orphaned_commentmeta() {
@@ -74,6 +80,8 @@ class Orphaned_Cleaner {
 	 *
 	 * Identifies termmeta rows where the term_id does not exist in the terms table.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of orphaned meta_ids.
 	 */
 	public function find_orphaned_termmeta() {
@@ -95,6 +103,8 @@ class Orphaned_Cleaner {
 	 *
 	 * Identifies term_relationships rows where the object_id does not exist in the posts table.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of orphaned relationship data (object_id and term_taxonomy_id pairs).
 	 */
 	public function find_orphaned_relationships() {
@@ -114,6 +124,8 @@ class Orphaned_Cleaner {
 	/**
 	 * Delete orphaned postmeta records.
 	 *
+ * @since 1.0.0
+ *
 	 * @param bool $dry_run If true, only returns the count without deleting.
 	 * @return int Number of records deleted (or would be deleted if dry_run is true).
 	 */
@@ -155,6 +167,8 @@ class Orphaned_Cleaner {
 	/**
 	 * Delete orphaned commentmeta records.
 	 *
+ * @since 1.0.0
+ *
 	 * @param bool $dry_run If true, only returns the count without deleting.
 	 * @return int Number of records deleted (or would be deleted if dry_run is true).
 	 */
@@ -196,6 +210,8 @@ class Orphaned_Cleaner {
 	/**
 	 * Delete orphaned termmeta records.
 	 *
+ * @since 1.0.0
+ *
 	 * @param bool $dry_run If true, only returns the count without deleting.
 	 * @return int Number of records deleted (or would be deleted if dry_run is true).
 	 */
@@ -237,6 +253,8 @@ class Orphaned_Cleaner {
 	/**
 	 * Delete orphaned term relationships.
 	 *
+ * @since 1.0.0
+ *
 	 * @param bool $dry_run If true, only returns the count without deleting.
 	 * @return int Number of records deleted (or would be deleted if dry_run is true).
 	 */

@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Media Scanner class for analyzing media library health and statistics.
+ *
+ * @since 1.0.0
  */
 class Scanner {
 
@@ -36,7 +38,26 @@ class Scanner {
 	/**
 	 * Scan all media attachments in batches.
 	 *
-	 * @return array Scan results with counts and statistics.
+	 * @since 1.0.0
+	 *
+	 * @return array {
+	 *     Scan results with counts and statistics.
+	 *
+	 *     @type int    $total_count        Total number of media files.
+	 *     @type int    $total_size         Total size in bytes.
+	 *     @type int    $unused_count       Number of unused files.
+	 *     @type int    $duplicate_count    Number of duplicate files.
+	 *     @type int    $large_files_count  Number of large files.
+	 *     @type int    $missing_alt_count  Number of files missing alt text.
+	 *     @type string $scanned_at         Timestamp of scan.
+	 * }
+	 *
+	 * @example
+	 * // Scan all media and get results
+	 * $scanner = new Media\Scanner();
+	 * $results = $scanner->scan_all_media();
+	 * echo "Found " . $results['total_count'] . " media files";
+	 * echo "Unused files: " . $results['unused_count'];
 	 */
 	public function scan_all_media() {
 		global $wpdb;
@@ -64,6 +85,8 @@ class Scanner {
 	/**
 	 * Get the total count of media attachments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Total number of media attachments.
 	 */
 	public function get_media_count() {
@@ -80,6 +103,8 @@ class Scanner {
 	/**
 	 * Get the total size of all media attachments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Total size in bytes.
 	 */
 	public function get_media_total_size() {
@@ -143,6 +168,8 @@ class Scanner {
 	/**
 	 * Find unused media attachments.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of unused attachment IDs.
 	 */
 	public function find_unused_media() {
@@ -306,6 +333,8 @@ class Scanner {
 	/**
 	 * Find duplicate files based on file hash.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of duplicate file groups.
 	 */
 	public function find_duplicate_files() {
@@ -362,6 +391,8 @@ class Scanner {
 	/**
 	 * Find large files above a specified size.
 	 *
+ * @since 1.0.0
+ *
 	 * @param int $min_size_mb Minimum file size in MB.
 	 * @return array Array of attachment IDs with their sizes.
 	 */
@@ -418,6 +449,8 @@ class Scanner {
 	/**
 	 * Find images missing alt text.
 	 *
+ * @since 1.0.0
+ *
 	 * @return array Array of attachment IDs missing alt text.
 	 */
 	public function find_missing_alt_text() {
@@ -467,6 +500,8 @@ class Scanner {
 	/**
 	 * Get the current scan progress.
 	 *
+ * @since 1.0.0
+ *
 	 * @return int Progress percentage (0-100).
 	 */
 	public function get_scan_progress() {
