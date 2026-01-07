@@ -1,0 +1,22 @@
+{
+  "name": "wp-admin-health/suite",
+  "description": "A comprehensive suite for monitoring and maintaining WordPress admin health and performance",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "version": "1.0.0",
+  "require": {
+    "php": ">=7.4",
+    "composer/installers": "^1.0 || ^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "WPAdminHealth\\": "includes/"
+    }
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
