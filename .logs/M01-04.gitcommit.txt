@@ -1,0 +1,9 @@
+[main 24531fa] M01-04: implement
+ 7 files changed, 895 insertions(+), 3 deletions(-)
+ create mode 100644 .logs/M01-03.gitcommit.txt
+ create mode 100644 .logs/M01-04.claude.impl.last.md
+ create mode 100644 .logs/M01-04.claude.impl.raw.txt
+ create mode 100644 .plans/M01-04.md
+ create mode 100644 .t2/handoff/M01-04.md
+ create mode 100644 assets/js/components/QuickActions.jsx
+
