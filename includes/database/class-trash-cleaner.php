@@ -62,6 +62,31 @@ class Trash_Cleaner {
 	}
 
 	/**
+	 * Get the count of trashed posts.
+	 *
+	 * @return int Number of trashed posts.
+	 */
+	public function count_trashed_posts() {
+		global $wpdb;
+
+		$count = $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$wpdb->posts}
+			WHERE post_status = 'trash'"
+		);
+
+		return absint( $count );
+	}
+
+	/**
+	 * Get the count of spam comments.
+	 *
+	 * @return int Number of spam comments.
+	 */
+	public function count_spam_comments() {
+		return $this->get_spam_comments_count();
+	}
+
+	/**
 	 * Get the count of spam comments.
 	 *
 	 * @return int Number of spam comments.
@@ -75,6 +100,15 @@ class Trash_Cleaner {
 		);
 
 		return absint( $count );
+	}
+
+	/**
+	 * Get the count of trashed comments.
+	 *
+	 * @return int Number of trashed comments.
+	 */
+	public function count_trashed_comments() {
+		return $this->get_trashed_comments_count();
 	}
 
 	/**

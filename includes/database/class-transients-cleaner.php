@@ -108,6 +108,25 @@ class Transients_Cleaner {
 	}
 
 	/**
+	 * Get the count of all transients (regular and site transients).
+	 *
+	 * @return int Total number of transients.
+	 */
+	public function count_transients() {
+		return $this->get_all_transients_count();
+	}
+
+	/**
+	 * Get the count of expired transients.
+	 *
+	 * @return int Number of expired transients.
+	 */
+	public function count_expired_transients() {
+		$expired_transients = $this->get_expired_transients();
+		return count( $expired_transients );
+	}
+
+	/**
 	 * Get an estimate of the disk space used by transients.
 	 *
 	 * @return int Estimated bytes used by transients.

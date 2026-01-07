@@ -45,6 +45,15 @@ class Revisions_Manager {
 	}
 
 	/**
+	 * Get the total count of all post revisions (alias).
+	 *
+	 * @return int Total number of revisions.
+	 */
+	public function get_total_revisions_count() {
+		return $this->get_all_revisions_count();
+	}
+
+	/**
 	 * Get the total count of all post revisions.
 	 *
 	 * @return int Total number of revisions.
