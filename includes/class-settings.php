@@ -208,6 +208,60 @@ class Settings {
 				'default'  => false,
 				'sanitize' => 'boolean',
 			),
+			'revisions_to_keep'          => array(
+				'section'     => 'database_cleanup',
+				'title'       => __( 'Revisions to Keep', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 0,
+				'sanitize'    => 'integer',
+				'description' => __( 'Number of revisions to keep per post (0-50, 0 = delete all).', 'wp-admin-health-suite' ),
+				'min'         => 0,
+				'max'         => 50,
+			),
+			'auto_clean_spam_days'       => array(
+				'section'     => 'database_cleanup',
+				'title'       => __( 'Auto Clean Spam Comments (days)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 0,
+				'sanitize'    => 'integer',
+				'description' => __( 'Auto-delete spam comments older than X days (0-365, 0 = disabled).', 'wp-admin-health-suite' ),
+				'min'         => 0,
+				'max'         => 365,
+			),
+			'auto_clean_trash_days'      => array(
+				'section'     => 'database_cleanup',
+				'title'       => __( 'Auto Clean Trash (days)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 0,
+				'sanitize'    => 'integer',
+				'description' => __( 'Auto-delete trashed content older than X days (0-365, 0 = disabled).', 'wp-admin-health-suite' ),
+				'min'         => 0,
+				'max'         => 365,
+			),
+			'excluded_transient_prefixes' => array(
+				'section'     => 'database_cleanup',
+				'title'       => __( 'Excluded Transient Prefixes', 'wp-admin-health-suite' ),
+				'type'        => 'textarea',
+				'default'     => '',
+				'sanitize'    => 'textarea',
+				'description' => __( 'Transient prefixes to exclude from cleanup (one per line).', 'wp-admin-health-suite' ),
+			),
+			'optimize_tables_weekly'     => array(
+				'section'     => 'database_cleanup',
+				'title'       => __( 'Optimize Tables Weekly', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Automatically optimize database tables weekly.', 'wp-admin-health-suite' ),
+			),
+			'orphaned_cleanup_enabled'   => array(
+				'section'     => 'database_cleanup',
+				'title'       => __( 'Enable Orphaned Cleanup', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Automatically clean orphaned metadata during scheduled tasks.', 'wp-admin-health-suite' ),
+			),
 
 			// Media audit settings.
 			'scan_unused_media'         => array(
@@ -446,6 +500,15 @@ class Settings {
 				}
 				echo '</select>';
 				break;
+
+			case 'textarea':
+				printf(
+					'<textarea id="%s" name="%s" rows="5" class="large-text">%s</textarea>',
+					esc_attr( $id ),
+					esc_attr( $name ),
+					esc_textarea( $value )
+				);
+				break;
 		}
 
 		if ( ! empty( $field['description'] ) ) {
@@ -501,6 +564,10 @@ class Settings {
 					} else {
 						$sanitized[ $field_id ] = $field['default'];
 					}
+					break;
+
+				case 'textarea':
+					$sanitized[ $field_id ] = sanitize_textarea_field( $value );
 					break;
 
 				default:

@@ -16,6 +16,7 @@ use WPAdminHealth\Database\Transients_Cleaner;
 use WPAdminHealth\Database\Orphaned_Cleaner;
 use WPAdminHealth\Database\Trash_Cleaner;
 use WPAdminHealth\Database\Optimizer;
+use WPAdminHealth\Plugin;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -417,7 +418,9 @@ class Database_Controller extends REST_Controller {
 	private function clean_revisions( $options ) {
 		$revisions_manager = new Revisions_Manager();
 
-		$keep_per_post = isset( $options['keep_per_post'] ) ? absint( $options['keep_per_post'] ) : 0;
+		// Use settings as fallback if not provided in options.
+		$settings = Plugin::get_instance()->get_settings();
+		$keep_per_post = isset( $options['keep_per_post'] ) ? absint( $options['keep_per_post'] ) : absint( $settings->get_setting( 'revisions_to_keep', 0 ) );
 
 		$result = $revisions_manager->delete_all_revisions( $keep_per_post );
 
@@ -438,8 +441,18 @@ class Database_Controller extends REST_Controller {
 	private function clean_transients( $options ) {
 		$transients_cleaner = new Transients_Cleaner();
 
+		// Use settings as fallback if not provided in options.
+		$settings = Plugin::get_instance()->get_settings();
 		$expired_only      = isset( $options['expired_only'] ) ? (bool) $options['expired_only'] : true;
-		$exclude_patterns  = isset( $options['exclude_patterns'] ) && is_array( $options['exclude_patterns'] ) ? $options['exclude_patterns'] : array();
+
+		// Get exclude patterns from settings if not provided in options.
+		if ( ! isset( $options['exclude_patterns'] ) || ! is_array( $options['exclude_patterns'] ) ) {
+			$excluded_prefixes = $settings->get_setting( 'excluded_transient_prefixes', '' );
+			// Split by newlines and filter empty lines.
+			$exclude_patterns = array_filter( array_map( 'trim', explode( "\n", $excluded_prefixes ) ) );
+		} else {
+			$exclude_patterns = $options['exclude_patterns'];
+		}
 
 		if ( $expired_only ) {
 			$result = $transients_cleaner->delete_expired_transients( $exclude_patterns );
@@ -465,7 +478,9 @@ class Database_Controller extends REST_Controller {
 	private function clean_spam( $options ) {
 		$trash_cleaner = new Trash_Cleaner();
 
-		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : 0;
+		// Use settings as fallback if not provided in options.
+		$settings = Plugin::get_instance()->get_settings();
+		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : absint( $settings->get_setting( 'auto_clean_spam_days', 0 ) );
 
 		$result = $trash_cleaner->delete_spam_comments( $older_than_days );
 
@@ -486,7 +501,9 @@ class Database_Controller extends REST_Controller {
 	private function clean_trash( $options ) {
 		$trash_cleaner = new Trash_Cleaner();
 
-		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : 0;
+		// Use settings as fallback if not provided in options.
+		$settings = Plugin::get_instance()->get_settings();
+		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : absint( $settings->get_setting( 'auto_clean_trash_days', 0 ) );
 		$post_types      = isset( $options['post_types'] ) && is_array( $options['post_types'] ) ? $options['post_types'] : array();
 
 		// Delete trashed posts.
