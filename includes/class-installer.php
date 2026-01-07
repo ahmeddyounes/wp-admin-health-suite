@@ -118,6 +118,24 @@ class Installer {
 		) {$charset_collate};";
 
 		dbDelta( $sql_query_log );
+
+		// Create AJAX log table.
+		$ajax_log_table = $prefix . 'wpha_ajax_log';
+		$sql_ajax_log   = "CREATE TABLE {$ajax_log_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			action varchar(255) NOT NULL,
+			execution_time decimal(10,2) NOT NULL,
+			memory_used bigint(20) unsigned NOT NULL DEFAULT 0,
+			user_role varchar(50) NOT NULL,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			KEY action (action),
+			KEY user_role (user_role),
+			KEY created_at (created_at),
+			KEY execution_time (execution_time)
+		) {$charset_collate};";
+
+		dbDelta( $sql_ajax_log );
 	}
 
 	/**
@@ -174,6 +192,7 @@ class Installer {
 		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scheduled_tasks" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_deleted_media" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_query_log" );
+		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_ajax_log" );
 
 		// Delete options.
 		delete_option( self::VERSION_OPTION );
