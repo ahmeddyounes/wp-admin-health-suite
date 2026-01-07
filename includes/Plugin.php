@@ -110,6 +110,9 @@ class Plugin {
 	 * @return void
 	 */
 	public function init() {
+		// Check for upgrades.
+		Installer::maybe_upgrade();
+
 		// Load dependencies.
 		$this->load_dependencies();
 
@@ -147,6 +150,9 @@ class Plugin {
 	public function activate() {
 		// Run activation hook.
 		do_action( 'wpha_activate' );
+
+		// Run installer.
+		Installer::install();
 
 		// Flush rewrite rules.
 		flush_rewrite_rules();

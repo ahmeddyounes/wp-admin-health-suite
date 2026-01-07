@@ -1,0 +1,13 @@
+[main 77bac63] M00-02: implement
+ 12 files changed, 660 insertions(+), 9 deletions(-)
+ create mode 100644 .logs/M00-01.gitcommit.txt
+ create mode 100644 .logs/M00-02.claude.impl.last.md
+ create mode 100644 .logs/M00-02.claude.impl.raw.txt
+ create mode 100644 .plans/M00-02.md
+ create mode 100644 .t2/handoff/M00-02.md
+ create mode 100644 includes/Admin.php
+ create mode 100644 includes/Assets.php
+ create mode 100644 includes/Database.php
+ create mode 100644 includes/Plugin.php
+ create mode 100644 includes/REST_API.php
+
