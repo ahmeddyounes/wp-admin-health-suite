@@ -76,6 +76,11 @@ class REST_API {
 		$media_controller = new REST\Media_Controller();
 		$media_controller->register_routes();
 
+		// Load and register performance controller.
+		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/class-performance-controller.php';
+		$performance_controller = new REST\Performance_Controller();
+		$performance_controller->register_routes();
+
 		// Allow other controllers to register their routes.
 		do_action( 'wpha_register_rest_routes' );
 	}

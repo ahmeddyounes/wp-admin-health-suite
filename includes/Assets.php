@@ -136,6 +136,15 @@ class Assets {
 			$this->get_asset_version( 'assets/css/media-audit.css' ),
 			'all'
 		);
+
+		// Enqueue performance CSS.
+		wp_enqueue_style(
+			'wpha-performance-css',
+			$this->plugin_url . 'assets/css/performance.css',
+			array(),
+			$this->get_asset_version( 'assets/css/performance.css' ),
+			'all'
+		);
 	}
 
 	/**
@@ -177,6 +186,15 @@ class Assets {
 			$this->plugin_url . 'assets/js/media-audit.js',
 			array( 'jquery', 'wp-api-fetch', 'wpha-admin-js' ),
 			$this->get_asset_version( 'assets/js/media-audit.js' ),
+			true
+		);
+
+		// Enqueue performance JS with dependencies.
+		wp_enqueue_script(
+			'wpha-performance-js',
+			$this->plugin_url . 'assets/js/performance.js',
+			array( 'jquery', 'wp-element', 'wp-api-fetch', 'wpha-admin-js' ),
+			$this->get_asset_version( 'assets/js/performance.js' ),
 			true
 		);
 
