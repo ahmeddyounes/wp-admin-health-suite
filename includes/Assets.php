@@ -127,6 +127,15 @@ class Assets {
 			$this->get_asset_version( 'assets/css/database-health.css' ),
 			'all'
 		);
+
+		// Enqueue media audit CSS.
+		wp_enqueue_style(
+			'wpha-media-audit-css',
+			$this->plugin_url . 'assets/css/media-audit.css',
+			array(),
+			$this->get_asset_version( 'assets/css/media-audit.css' ),
+			'all'
+		);
 	}
 
 	/**
@@ -159,6 +168,15 @@ class Assets {
 			$this->plugin_url . 'assets/js/database-health.js',
 			array( 'jquery', 'wp-api-fetch', 'wpha-admin-js' ),
 			$this->get_asset_version( 'assets/js/database-health.js' ),
+			true
+		);
+
+		// Enqueue media audit JS with dependencies.
+		wp_enqueue_script(
+			'wpha-media-audit-js',
+			$this->plugin_url . 'assets/js/media-audit.js',
+			array( 'jquery', 'wp-api-fetch', 'wpha-admin-js' ),
+			$this->get_asset_version( 'assets/js/media-audit.js' ),
 			true
 		);
 
