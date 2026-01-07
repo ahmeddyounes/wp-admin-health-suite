@@ -46,8 +46,9 @@ function wp_admin_health_init() {
 		dirname( WP_ADMIN_HEALTH_PLUGIN_BASENAME ) . '/languages'
 	);
 
-	// Initialize the plugin (placeholder for future initialization logic).
-	// Future: Initialize main plugin class here.
+	// Initialize the main plugin singleton.
+	$plugin = Plugin::get_instance();
+	$plugin->init();
 }
 
 add_action( 'plugins_loaded', __NAMESPACE__ . '\wp_admin_health_init' );
@@ -58,8 +59,8 @@ add_action( 'plugins_loaded', __NAMESPACE__ . '\wp_admin_health_init' );
  * @return void
  */
 function wp_admin_health_activate() {
-	// Activation logic here (if needed in future).
-	flush_rewrite_rules();
+	$plugin = Plugin::get_instance();
+	$plugin->activate();
 }
 
 register_activation_hook( __FILE__, __NAMESPACE__ . '\wp_admin_health_activate' );
@@ -70,8 +71,8 @@ register_activation_hook( __FILE__, __NAMESPACE__ . '\wp_admin_health_activate' 
  * @return void
  */
 function wp_admin_health_deactivate() {
-	// Deactivation logic here (if needed in future).
-	flush_rewrite_rules();
+	$plugin = Plugin::get_instance();
+	$plugin->deactivate();
 }
 
 register_deactivation_hook( __FILE__, __NAMESPACE__ . '\wp_admin_health_deactivate' );
