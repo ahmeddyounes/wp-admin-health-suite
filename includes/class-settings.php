@@ -369,14 +369,14 @@ class Settings {
 			),
 
 			// Performance settings.
-			'enable_query_monitoring'   => array(
+			'enable_query_monitoring'      => array(
 				'section'  => 'performance',
 				'title'    => __( 'Enable Query Monitoring', 'wp-admin-health-suite' ),
 				'type'     => 'checkbox',
 				'default'  => false,
 				'sanitize' => 'boolean',
 			),
-			'slow_query_threshold'      => array(
+			'slow_query_threshold'         => array(
 				'section'     => 'performance',
 				'title'       => __( 'Slow Query Threshold (ms)', 'wp-admin-health-suite' ),
 				'type'        => 'number',
@@ -386,12 +386,66 @@ class Settings {
 				'min'         => 1,
 				'max'         => 10000,
 			),
-			'enable_ajax_monitoring'    => array(
+			'enable_ajax_monitoring'       => array(
 				'section'  => 'performance',
 				'title'    => __( 'Enable AJAX Monitoring', 'wp-admin-health-suite' ),
 				'type'     => 'checkbox',
 				'default'  => false,
 				'sanitize' => 'boolean',
+			),
+			'heartbeat_admin_frequency'    => array(
+				'section'     => 'performance',
+				'title'       => __( 'Heartbeat Admin Frequency (seconds)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 60,
+				'sanitize'    => 'integer',
+				'description' => __( 'How often the WordPress Heartbeat API runs in the admin area (15-120 seconds).', 'wp-admin-health-suite' ),
+				'min'         => 15,
+				'max'         => 120,
+			),
+			'heartbeat_editor_frequency'   => array(
+				'section'     => 'performance',
+				'title'       => __( 'Heartbeat Editor Frequency (seconds)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 15,
+				'sanitize'    => 'integer',
+				'description' => __( 'How often the WordPress Heartbeat API runs in the post editor (15-120 seconds).', 'wp-admin-health-suite' ),
+				'min'         => 15,
+				'max'         => 120,
+			),
+			'heartbeat_frontend'           => array(
+				'section'     => 'performance',
+				'title'       => __( 'Enable Heartbeat on Frontend', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => true,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Allow the WordPress Heartbeat API to run on the frontend.', 'wp-admin-health-suite' ),
+			),
+			'query_logging_enabled'        => array(
+				'section'     => 'performance',
+				'title'       => __( 'Enable Query Logging', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Log database queries for performance analysis.', 'wp-admin-health-suite' ),
+			),
+			'slow_query_threshold_ms'      => array(
+				'section'     => 'performance',
+				'title'       => __( 'Slow Query Threshold (ms)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 100,
+				'sanitize'    => 'integer',
+				'description' => __( 'Queries slower than this threshold will be flagged as slow (10-500 ms).', 'wp-admin-health-suite' ),
+				'min'         => 10,
+				'max'         => 500,
+			),
+			'plugin_profiling_enabled'     => array(
+				'section'     => 'performance',
+				'title'       => __( 'Enable Plugin Profiling', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Profile plugin execution time and performance impact.', 'wp-admin-health-suite' ),
 			),
 
 			// Scheduling settings.
