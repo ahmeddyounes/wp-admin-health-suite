@@ -71,6 +71,11 @@ class REST_API {
 		$database_controller = new REST\Database_Controller();
 		$database_controller->register_routes();
 
+		// Load and register media controller.
+		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/class-media-controller.php';
+		$media_controller = new REST\Media_Controller();
+		$media_controller->register_routes();
+
 		// Allow other controllers to register their routes.
 		do_action( 'wpha_register_rest_routes' );
 	}
