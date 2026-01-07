@@ -6,6 +6,577 @@
  * @package WPAdminHealth
  */
 
-.wpha-dashboard-widget {
-	/* Dashboard widget styles */
+/* ========================================
+   Dashboard Container
+   ======================================== */
+
+.wpha-dashboard-wrap {
+	margin-top: 20px;
+}
+
+.wpha-dashboard {
+	max-width: 1400px;
+	margin: 0 auto;
+}
+
+/* ========================================
+   Health Score Header
+   ======================================== */
+
+.wpha-dashboard-header {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 40px;
+	margin-bottom: 24px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.wpha-health-score {
+	text-align: center;
+}
+
+.wpha-health-score-circle {
+	position: relative;
+	width: 200px;
+	height: 200px;
+	margin: 0 auto;
+}
+
+.wpha-health-score-svg {
+	transform: rotate(-90deg);
+	width: 100%;
+	height: 100%;
+}
+
+.wpha-health-score-bg {
+	fill: none;
+	stroke: #f0f0f1;
+	stroke-width: 12;
+}
+
+.wpha-health-score-fill {
+	fill: none;
+	stroke: #2271b1;
+	stroke-width: 12;
+	stroke-linecap: round;
+	stroke-dasharray: 534;
+	stroke-dashoffset: 534;
+	transition: stroke-dashoffset 1s ease-in-out, stroke 0.3s ease;
+}
+
+.wpha-health-score-fill.loaded {
+	animation: healthScoreAnimation 1.5s ease-in-out forwards;
+}
+
+@keyframes healthScoreAnimation {
+	from {
+		stroke-dashoffset: 534;
+	}
+	to {
+		stroke-dashoffset: var(--health-score-offset, 534);
+	}
+}
+
+.wpha-health-score-content {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	text-align: center;
+}
+
+.wpha-health-score-value {
+	display: block;
+	font-size: 48px;
+	font-weight: 600;
+	color: #1d2327;
+	line-height: 1;
+	margin-bottom: 4px;
+}
+
+.wpha-health-score-label {
+	display: block;
+	font-size: 14px;
+	color: #646970;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+/* Health score skeleton loader */
+.wpha-health-score-skeleton {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 80px;
+	height: 80px;
+	border-radius: 50%;
+	background: linear-gradient(90deg, #f0f0f1 25%, #e0e0e0 50%, #f0f0f1 75%);
+	background-size: 200% 100%;
+	animation: skeleton-loading 1.5s infinite;
+}
+
+.wpha-health-score-skeleton.hidden {
+	display: none;
+}
+
+/* ========================================
+   Metrics Cards Row
+   ======================================== */
+
+.wpha-metrics-cards {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 16px;
+	margin-bottom: 24px;
+}
+
+.wpha-metric-card {
+	position: relative;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	transition: box-shadow 0.2s ease;
+}
+
+.wpha-metric-card:hover {
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.wpha-metric-card-content {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.wpha-metric-icon {
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+	background: #f6f7f7;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.wpha-metric-icon .dashicons {
+	font-size: 24px;
+	width: 24px;
+	height: 24px;
+	color: #2271b1;
+}
+
+.wpha-metric-data {
+	flex: 1;
+	min-width: 0;
+}
+
+.wpha-metric-title {
+	margin: 0 0 8px 0;
+	font-size: 13px;
+	font-weight: 400;
+	color: #646970;
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+}
+
+.wpha-metric-value {
+	margin: 0 0 4px 0;
+	font-size: 24px;
+	font-weight: 600;
+	color: #1d2327;
+	line-height: 1.2;
+}
+
+.wpha-metric-label {
+	font-size: 12px;
+	color: #646970;
+}
+
+/* Metric card skeleton loader */
+.wpha-metric-card-skeleton {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, #f0f0f1 25%, #e0e0e0 50%, #f0f0f1 75%);
+	background-size: 200% 100%;
+	animation: skeleton-loading 1.5s infinite;
+	border-radius: 4px;
+	z-index: 1;
+}
+
+.wpha-metric-card-skeleton.hidden {
+	display: none;
+}
+
+/* ========================================
+   Dashboard Grid
+   ======================================== */
+
+.wpha-dashboard-grid {
+	display: grid;
+	grid-template-columns: 2fr 1fr;
+	gap: 24px;
+	margin-bottom: 24px;
+}
+
+.wpha-dashboard-section {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	overflow: hidden;
+}
+
+.wpha-section-header {
+	padding: 16px 20px;
+	border-bottom: 1px solid #c3c4c7;
+	background: #f6f7f7;
+}
+
+.wpha-section-header h2 {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.wpha-section-content {
+	position: relative;
+	padding: 20px;
+	min-height: 300px;
+}
+
+/* Section skeleton loader */
+.wpha-section-skeleton {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, #f0f0f1 25%, #e0e0e0 50%, #f0f0f1 75%);
+	background-size: 200% 100%;
+	animation: skeleton-loading 1.5s infinite;
+	z-index: 1;
+}
+
+.wpha-section-skeleton.hidden {
+	display: none;
+}
+
+@keyframes skeleton-loading {
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
+	}
+}
+
+/* ========================================
+   Recent Activity Timeline
+   ======================================== */
+
+.wpha-activity-timeline {
+	position: relative;
+}
+
+.wpha-activity-timeline::before {
+	content: '';
+	position: absolute;
+	left: 12px;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: #f0f0f1;
+}
+
+.wpha-activity-item {
+	position: relative;
+	padding-left: 40px;
+	margin-bottom: 24px;
+}
+
+.wpha-activity-item:last-child {
+	margin-bottom: 0;
+}
+
+.wpha-activity-icon {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 24px;
+	height: 24px;
+	background: #2271b1;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1;
+}
+
+.wpha-activity-icon .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	color: #fff;
+}
+
+.wpha-activity-content {
+	background: #f6f7f7;
+	padding: 12px;
+	border-radius: 4px;
+}
+
+.wpha-activity-title {
+	margin: 0 0 4px 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.wpha-activity-description {
+	margin: 0 0 4px 0;
+	font-size: 13px;
+	color: #646970;
+}
+
+.wpha-activity-time {
+	font-size: 12px;
+	color: #787c82;
+}
+
+/* ========================================
+   Quick Actions Grid
+   ======================================== */
+
+.wpha-actions-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 12px;
+}
+
+.wpha-action-button {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 16px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	text-decoration: none;
+	color: #1d2327;
+	transition: all 0.2s ease;
+	cursor: pointer;
+}
+
+.wpha-action-button:hover {
+	background: #fff;
+	border-color: #2271b1;
+	color: #2271b1;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.wpha-action-button:focus {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+.wpha-action-icon {
+	flex-shrink: 0;
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.wpha-action-icon .dashicons {
+	font-size: 20px;
+	width: 20px;
+	height: 20px;
+}
+
+.wpha-action-label {
+	flex: 1;
+	font-size: 14px;
+	font-weight: 500;
+}
+
+/* ========================================
+   WordPress Admin Color Scheme Support
+   ======================================== */
+
+/* Fresh (default) scheme */
+body.admin-color-fresh .wpha-health-score-fill {
+	stroke: #2271b1;
+}
+
+body.admin-color-fresh .wpha-metric-icon .dashicons,
+body.admin-color-fresh .wpha-activity-icon {
+	background: #2271b1;
+}
+
+/* Light scheme */
+body.admin-color-light .wpha-health-score-fill {
+	stroke: #0073aa;
+}
+
+body.admin-color-light .wpha-metric-icon .dashicons {
+	color: #0073aa;
+}
+
+body.admin-color-light .wpha-activity-icon {
+	background: #0073aa;
+}
+
+/* Modern scheme */
+body.admin-color-modern .wpha-health-score-fill {
+	stroke: #3858e9;
+}
+
+body.admin-color-modern .wpha-metric-icon .dashicons {
+	color: #3858e9;
+}
+
+body.admin-color-modern .wpha-activity-icon {
+	background: #3858e9;
+}
+
+/* Blue scheme */
+body.admin-color-blue .wpha-health-score-fill {
+	stroke: #096484;
+}
+
+body.admin-color-blue .wpha-metric-icon .dashicons {
+	color: #096484;
+}
+
+body.admin-color-blue .wpha-activity-icon {
+	background: #096484;
+}
+
+/* Midnight scheme */
+body.admin-color-midnight .wpha-health-score-fill {
+	stroke: #e14d43;
+}
+
+body.admin-color-midnight .wpha-metric-icon .dashicons {
+	color: #e14d43;
+}
+
+body.admin-color-midnight .wpha-activity-icon {
+	background: #e14d43;
+}
+
+/* ========================================
+   Responsive Design - Mobile Breakpoint at 782px
+   ======================================== */
+
+@media screen and (max-width: 782px) {
+	.wpha-dashboard-header {
+		padding: 24px 16px;
+	}
+
+	.wpha-health-score-circle {
+		width: 160px;
+		height: 160px;
+	}
+
+	.wpha-health-score-value {
+		font-size: 36px;
+	}
+
+	.wpha-health-score-label {
+		font-size: 12px;
+	}
+
+	/* Stack metrics cards on mobile */
+	.wpha-metrics-cards {
+		grid-template-columns: 1fr 1fr;
+		gap: 12px;
+	}
+
+	.wpha-metric-card {
+		padding: 16px;
+	}
+
+	.wpha-metric-icon {
+		width: 36px;
+		height: 36px;
+	}
+
+	.wpha-metric-icon .dashicons {
+		font-size: 20px;
+		width: 20px;
+		height: 20px;
+	}
+
+	.wpha-metric-title {
+		font-size: 12px;
+	}
+
+	.wpha-metric-value {
+		font-size: 20px;
+	}
+
+	.wpha-metric-label {
+		font-size: 11px;
+	}
+
+	/* Stack dashboard grid on mobile */
+	.wpha-dashboard-grid {
+		grid-template-columns: 1fr;
+		gap: 16px;
+	}
+
+	.wpha-section-header {
+		padding: 12px 16px;
+	}
+
+	.wpha-section-header h2 {
+		font-size: 15px;
+	}
+
+	.wpha-section-content {
+		padding: 16px;
+		min-height: 200px;
+	}
+}
+
+@media screen and (max-width: 600px) {
+	/* Single column layout for metrics on very small screens */
+	.wpha-metrics-cards {
+		grid-template-columns: 1fr;
+	}
+
+	.wpha-dashboard-header {
+		padding: 20px 12px;
+	}
+
+	.wpha-health-score-circle {
+		width: 140px;
+		height: 140px;
+	}
+
+	.wpha-health-score-value {
+		font-size: 32px;
+	}
+}
+
+/* ========================================
+   React Mount Point
+   ======================================== */
+
+#wpha-dashboard-root {
+	/* React components will be mounted here */
 }
