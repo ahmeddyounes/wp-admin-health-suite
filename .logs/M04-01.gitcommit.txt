@@ -1,0 +1,10 @@
+[main d660274] M04-01: implement
+ 8 files changed, 665 insertions(+), 3 deletions(-)
+ create mode 100644 .logs/M03-09.gitcommit.txt
+ create mode 100644 .logs/M04-01.claude.impl.last.md
+ create mode 100644 .logs/M04-01.claude.impl.raw.txt
+ create mode 100644 .plans/M04-01.md
+ create mode 100644 .t2/handoff/M04-01.md
+ create mode 100644 includes/performance/class-plugin-profiler.php
+ create mode 100644 includes/performance/index.php
+

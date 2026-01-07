@@ -97,6 +97,27 @@ class Installer {
 		) {$charset_collate};";
 
 		dbDelta( $sql_deleted_media );
+
+		// Create query log table.
+		$query_log_table = $prefix . 'wpha_query_log';
+		$sql_query_log   = "CREATE TABLE {$query_log_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			sql text NOT NULL,
+			time_ms decimal(10,2) NOT NULL,
+			caller varchar(255) NOT NULL,
+			component varchar(100) NOT NULL,
+			is_duplicate tinyint(1) NOT NULL DEFAULT 0,
+			needs_index tinyint(1) NOT NULL DEFAULT 0,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			KEY component (component),
+			KEY is_duplicate (is_duplicate),
+			KEY needs_index (needs_index),
+			KEY created_at (created_at),
+			KEY time_ms (time_ms)
+		) {$charset_collate};";
+
+		dbDelta( $sql_query_log );
 	}
 
 	/**
@@ -152,6 +173,7 @@ class Installer {
 		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scan_history" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scheduled_tasks" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_deleted_media" );
+		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_query_log" );
 
 		// Delete options.
 		delete_option( self::VERSION_OPTION );
