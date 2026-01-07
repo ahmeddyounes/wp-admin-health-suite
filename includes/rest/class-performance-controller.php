@@ -56,14 +56,14 @@ class Performance_Controller extends REST_Controller {
 	 * @return void
 	 */
 	public function register_routes() {
-		// GET /wpha/v1/performance/score
+		// GET /wpha/v1/performance/stats
 		register_rest_route(
 			$this->namespace,
-			'/' . $this->rest_base . '/score',
+			'/' . $this->rest_base . '/stats',
 			array(
 				array(
 					'methods'             => \WP_REST_Server::READABLE,
-					'callback'            => array( $this, 'get_performance_score' ),
+					'callback'            => array( $this, 'get_performance_stats' ),
 					'permission_callback' => array( $this, 'check_permissions' ),
 				),
 			)
@@ -164,6 +164,24 @@ class Performance_Controller extends REST_Controller {
 					'callback'            => array( $this, 'get_autoload_analysis' ),
 					'permission_callback' => array( $this, 'check_permissions' ),
 				),
+				array(
+					'methods'             => \WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'update_autoload' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+					'args'                => array(
+						'option_name' => array(
+							'description'       => __( 'The option name to update.', 'wp-admin-health-suite' ),
+							'type'              => 'string',
+							'required'          => true,
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+						'autoload'    => array(
+							'description' => __( 'Whether to autoload the option.', 'wp-admin-health-suite' ),
+							'type'        => 'boolean',
+							'required'    => true,
+						),
+					),
+				),
 			)
 		);
 
@@ -182,12 +200,12 @@ class Performance_Controller extends REST_Controller {
 	}
 
 	/**
-	 * Get performance score.
+	 * Get performance stats overview.
 	 *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
-	public function get_performance_score( $request ) {
+	public function get_performance_stats( $request ) {
 		global $wpdb;
 
 		// Calculate performance factors.
@@ -474,6 +492,69 @@ class Performance_Controller extends REST_Controller {
 			true,
 			$response_data,
 			__( 'Autoload analysis retrieved successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Update autoload setting for an option.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function update_autoload( $request ) {
+		global $wpdb;
+
+		$option_name = $request->get_param( 'option_name' );
+		$autoload    = $request->get_param( 'autoload' );
+
+		// Check if option exists.
+		$option_exists = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name = %s",
+				$option_name
+			)
+		);
+
+		if ( ! $option_exists ) {
+			return $this->format_error_response(
+				new \WP_Error(
+					'option_not_found',
+					__( 'The specified option does not exist.', 'wp-admin-health-suite' )
+				),
+				404
+			);
+		}
+
+		// Update the autoload setting.
+		$autoload_value = $autoload ? 'yes' : 'no';
+		$result = $wpdb->update(
+			$wpdb->options,
+			array( 'autoload' => $autoload_value ),
+			array( 'option_name' => $option_name ),
+			array( '%s' ),
+			array( '%s' )
+		);
+
+		if ( false === $result ) {
+			return $this->format_error_response(
+				new \WP_Error(
+					'update_failed',
+					__( 'Failed to update autoload setting.', 'wp-admin-health-suite' )
+				),
+				500
+			);
+		}
+
+		// Clear the alloptions cache to ensure changes take effect.
+		wp_cache_delete( 'alloptions', 'options' );
+
+		return $this->format_response(
+			true,
+			array(
+				'option_name' => $option_name,
+				'autoload'    => $autoload,
+			),
+			__( 'Autoload setting updated successfully.', 'wp-admin-health-suite' )
 		);
 	}
 

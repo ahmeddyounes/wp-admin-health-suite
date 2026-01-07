@@ -1,0 +1,11 @@
+[main 336e830] M04-07: implement
+ 12 files changed, 2057 insertions(+), 5 deletions(-)
+ create mode 100644 .logs/M04-06.gitcommit.txt
+ create mode 100644 .logs/M04-07.claude.impl.last.md
+ create mode 100644 .logs/M04-07.claude.impl.raw.txt
+ create mode 100644 .plans/M04-07.md
+ create mode 100644 .t2/handoff/M04-07.md
+ create mode 100644 assets/css/performance.css
+ create mode 100644 assets/js/performance.js
+ create mode 100644 includes/rest/class-performance-controller.php
+
