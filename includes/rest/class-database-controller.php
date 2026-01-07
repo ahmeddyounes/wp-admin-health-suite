@@ -1,0 +1,681 @@
+<?php
+/**
+ * Database REST Controller
+ *
+ * @package WPAdminHealth
+ */
+
+namespace WPAdminHealth\REST;
+
+use WP_REST_Request;
+use WP_REST_Response;
+use WP_Error;
+use WPAdminHealth\Database\Analyzer;
+use WPAdminHealth\Database\Revisions_Manager;
+use WPAdminHealth\Database\Transients_Cleaner;
+use WPAdminHealth\Database\Orphaned_Cleaner;
+use WPAdminHealth\Database\Trash_Cleaner;
+use WPAdminHealth\Database\Optimizer;
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	die;
+}
+
+/**
+ * REST API controller for database health endpoints.
+ *
+ * Handles database statistics, cleanup operations, and optimization.
+ */
+class Database_Controller extends REST_Controller {
+
+	/**
+	 * REST base for the controller.
+	 *
+	 * @var string
+	 */
+	protected $rest_base = 'database';
+
+	/**
+	 * Register routes for the controller.
+	 *
+	 * @return void
+	 */
+	public function register_routes() {
+		// GET /wpha/v1/database/stats - Get all analyzer stats.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/stats',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_stats' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+				),
+			)
+		);
+
+		// GET /wpha/v1/database/revisions - Get revision details.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/revisions',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_revisions' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+					'args'                => array(
+						'limit' => array(
+							'description'       => __( 'Number of posts to return with most revisions.', 'wp-admin-health-suite' ),
+							'type'              => 'integer',
+							'default'           => 10,
+							'minimum'           => 1,
+							'maximum'           => 50,
+							'sanitize_callback' => 'absint',
+							'validate_callback' => 'rest_validate_request_arg',
+						),
+					),
+				),
+			)
+		);
+
+		// GET /wpha/v1/database/transients - Get transient list.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/transients',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_transients' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+				),
+			)
+		);
+
+		// GET /wpha/v1/database/orphaned - Get orphaned data summary.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/orphaned',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_orphaned' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+				),
+			)
+		);
+
+		// POST /wpha/v1/database/clean - Execute cleanup by type.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/clean',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'clean' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+					'args'                => array(
+						'type'    => array(
+							'description'       => __( 'Type of cleanup to perform.', 'wp-admin-health-suite' ),
+							'type'              => 'string',
+							'required'          => true,
+							'enum'              => array( 'revisions', 'transients', 'spam', 'trash', 'orphaned' ),
+							'sanitize_callback' => 'sanitize_text_field',
+							'validate_callback' => 'rest_validate_request_arg',
+						),
+						'options' => array(
+							'description'       => __( 'Additional options for cleanup.', 'wp-admin-health-suite' ),
+							'type'              => 'object',
+							'default'           => array(),
+							'sanitize_callback' => array( $this, 'sanitize_options' ),
+							'validate_callback' => 'rest_validate_request_arg',
+						),
+					),
+				),
+			)
+		);
+
+		// POST /wpha/v1/database/optimize - Run optimization.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/optimize',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'optimize' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+					'args'                => array(
+						'tables' => array(
+							'description'       => __( 'Specific tables to optimize. If empty, optimizes all tables.', 'wp-admin-health-suite' ),
+							'type'              => 'array',
+							'items'             => array( 'type' => 'string' ),
+							'default'           => array(),
+							'sanitize_callback' => array( $this, 'sanitize_table_names' ),
+							'validate_callback' => 'rest_validate_request_arg',
+						),
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Get all analyzer statistics.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function get_stats( $request ) {
+		$analyzer = new Analyzer();
+
+		$stats = array(
+			'database_size'           => $analyzer->get_database_size(),
+			'table_sizes'             => $analyzer->get_table_sizes(),
+			'revisions_count'         => $analyzer->get_revisions_count(),
+			'auto_drafts_count'       => $analyzer->get_auto_drafts_count(),
+			'trashed_posts_count'     => $analyzer->get_trashed_posts_count(),
+			'spam_comments_count'     => $analyzer->get_spam_comments_count(),
+			'trashed_comments_count'  => $analyzer->get_trashed_comments_count(),
+			'expired_transients_count' => $analyzer->get_expired_transients_count(),
+			'orphaned_postmeta_count' => $analyzer->get_orphaned_postmeta_count(),
+			'orphaned_commentmeta_count' => $analyzer->get_orphaned_commentmeta_count(),
+			'orphaned_termmeta_count' => $analyzer->get_orphaned_termmeta_count(),
+		);
+
+		return $this->format_response(
+			true,
+			$stats,
+			__( 'Database statistics retrieved successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Get revision details.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function get_revisions( $request ) {
+		$limit = $request->get_param( 'limit' );
+
+		$revisions_manager = new Revisions_Manager();
+
+		$data = array(
+			'total_count' => $revisions_manager->get_all_revisions_count(),
+			'size_estimate' => $revisions_manager->get_revisions_size_estimate(),
+			'posts_with_most_revisions' => $revisions_manager->get_posts_with_most_revisions( $limit ),
+		);
+
+		return $this->format_response(
+			true,
+			$data,
+			__( 'Revision details retrieved successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Get transient list.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function get_transients( $request ) {
+		$transients_cleaner = new Transients_Cleaner();
+
+		// Check if using external object cache.
+		if ( wp_using_ext_object_cache() ) {
+			return $this->format_response(
+				true,
+				array(
+					'total_count' => 0,
+					'size_estimate' => 0,
+					'expired_transients' => array(),
+					'using_external_cache' => true,
+					'message' => __( 'External object cache is in use. Transient data is not stored in the database.', 'wp-admin-health-suite' ),
+				),
+				__( 'Transient information retrieved successfully.', 'wp-admin-health-suite' )
+			);
+		}
+
+		$data = array(
+			'total_count' => $transients_cleaner->get_all_transients_count(),
+			'size_estimate' => $transients_cleaner->get_transients_size(),
+			'expired_transients' => $transients_cleaner->get_expired_transients(),
+			'using_external_cache' => false,
+		);
+
+		return $this->format_response(
+			true,
+			$data,
+			__( 'Transient list retrieved successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Get orphaned data summary.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function get_orphaned( $request ) {
+		$orphaned_cleaner = new Orphaned_Cleaner();
+
+		$data = array(
+			'orphaned_postmeta' => array(
+				'count' => count( $orphaned_cleaner->find_orphaned_postmeta() ),
+			),
+			'orphaned_commentmeta' => array(
+				'count' => count( $orphaned_cleaner->find_orphaned_commentmeta() ),
+			),
+			'orphaned_termmeta' => array(
+				'count' => count( $orphaned_cleaner->find_orphaned_termmeta() ),
+			),
+			'orphaned_relationships' => array(
+				'count' => count( $orphaned_cleaner->find_orphaned_relationships() ),
+			),
+		);
+
+		return $this->format_response(
+			true,
+			$data,
+			__( 'Orphaned data summary retrieved successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Execute cleanup by type.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function clean( $request ) {
+		$type    = $request->get_param( 'type' );
+		$options = $request->get_param( 'options' );
+
+		if ( empty( $options ) || ! is_array( $options ) ) {
+			$options = array();
+		}
+
+		$result = null;
+
+		switch ( $type ) {
+			case 'revisions':
+				$result = $this->clean_revisions( $options );
+				break;
+
+			case 'transients':
+				$result = $this->clean_transients( $options );
+				break;
+
+			case 'spam':
+				$result = $this->clean_spam( $options );
+				break;
+
+			case 'trash':
+				$result = $this->clean_trash( $options );
+				break;
+
+			case 'orphaned':
+				$result = $this->clean_orphaned( $options );
+				break;
+
+			default:
+				return $this->format_error_response(
+					new WP_Error(
+						'invalid_type',
+						__( 'Invalid cleanup type specified.', 'wp-admin-health-suite' )
+					),
+					400
+				);
+		}
+
+		if ( is_wp_error( $result ) ) {
+			return $this->format_error_response( $result, 400 );
+		}
+
+		// Log to activity.
+		$this->log_activity( $type, $result );
+
+		return $this->format_response(
+			true,
+			$result,
+			sprintf(
+				/* translators: %s: cleanup type */
+				__( '%s cleanup completed successfully.', 'wp-admin-health-suite' ),
+				ucfirst( $type )
+			)
+		);
+	}
+
+	/**
+	 * Run database optimization.
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function optimize( $request ) {
+		$tables = $request->get_param( 'tables' );
+
+		$optimizer = new Optimizer();
+		$results   = array();
+
+		if ( empty( $tables ) ) {
+			// Optimize all tables.
+			$results = $optimizer->optimize_all_tables();
+		} else {
+			// Optimize specific tables.
+			foreach ( $tables as $table ) {
+				$result = $optimizer->optimize_table( $table );
+				if ( $result ) {
+					$results[] = $result;
+				}
+			}
+		}
+
+		if ( empty( $results ) ) {
+			return $this->format_error_response(
+				new WP_Error(
+					'optimization_failed',
+					__( 'No tables were optimized. Please check the table names.', 'wp-admin-health-suite' )
+				),
+				400
+			);
+		}
+
+		// Calculate total bytes freed.
+		$total_bytes_freed = 0;
+		foreach ( $results as $result ) {
+			$total_bytes_freed += isset( $result['size_reduced'] ) ? $result['size_reduced'] : 0;
+		}
+
+		// Log to activity.
+		$this->log_activity(
+			'optimization',
+			array(
+				'tables_optimized' => count( $results ),
+				'bytes_freed'      => $total_bytes_freed,
+			)
+		);
+
+		return $this->format_response(
+			true,
+			array(
+				'results'           => $results,
+				'tables_optimized'  => count( $results ),
+				'total_bytes_freed' => $total_bytes_freed,
+			),
+			__( 'Database optimization completed successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Clean revisions.
+	 *
+	 * @param array $options Cleanup options.
+	 * @return array|WP_Error Cleanup results or error.
+	 */
+	private function clean_revisions( $options ) {
+		$revisions_manager = new Revisions_Manager();
+
+		$keep_per_post = isset( $options['keep_per_post'] ) ? absint( $options['keep_per_post'] ) : 0;
+
+		$result = $revisions_manager->delete_all_revisions( $keep_per_post );
+
+		return array(
+			'type'         => 'revisions',
+			'deleted'      => $result['deleted'],
+			'bytes_freed'  => $result['bytes_freed'],
+			'keep_per_post' => $keep_per_post,
+		);
+	}
+
+	/**
+	 * Clean transients.
+	 *
+	 * @param array $options Cleanup options.
+	 * @return array|WP_Error Cleanup results or error.
+	 */
+	private function clean_transients( $options ) {
+		$transients_cleaner = new Transients_Cleaner();
+
+		$expired_only      = isset( $options['expired_only'] ) ? (bool) $options['expired_only'] : true;
+		$exclude_patterns  = isset( $options['exclude_patterns'] ) && is_array( $options['exclude_patterns'] ) ? $options['exclude_patterns'] : array();
+
+		if ( $expired_only ) {
+			$result = $transients_cleaner->delete_expired_transients( $exclude_patterns );
+		} else {
+			$result = $transients_cleaner->delete_all_transients( $exclude_patterns );
+		}
+
+		return array(
+			'type'            => 'transients',
+			'deleted'         => $result['deleted'],
+			'bytes_freed'     => $result['bytes_freed'],
+			'expired_only'    => $expired_only,
+			'exclude_patterns' => $exclude_patterns,
+		);
+	}
+
+	/**
+	 * Clean spam comments.
+	 *
+	 * @param array $options Cleanup options.
+	 * @return array|WP_Error Cleanup results or error.
+	 */
+	private function clean_spam( $options ) {
+		$trash_cleaner = new Trash_Cleaner();
+
+		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : 0;
+
+		$result = $trash_cleaner->delete_spam_comments( $older_than_days );
+
+		return array(
+			'type'            => 'spam',
+			'deleted'         => $result['deleted'],
+			'errors'          => $result['errors'],
+			'older_than_days' => $older_than_days,
+		);
+	}
+
+	/**
+	 * Clean trash (posts and comments).
+	 *
+	 * @param array $options Cleanup options.
+	 * @return array|WP_Error Cleanup results or error.
+	 */
+	private function clean_trash( $options ) {
+		$trash_cleaner = new Trash_Cleaner();
+
+		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : 0;
+		$post_types      = isset( $options['post_types'] ) && is_array( $options['post_types'] ) ? $options['post_types'] : array();
+
+		// Delete trashed posts.
+		$posts_result = $trash_cleaner->delete_trashed_posts( $post_types, $older_than_days );
+
+		// Delete trashed comments.
+		$comments_result = $trash_cleaner->delete_trashed_comments( $older_than_days );
+
+		return array(
+			'type'              => 'trash',
+			'posts_deleted'     => $posts_result['deleted'],
+			'posts_errors'      => $posts_result['errors'],
+			'comments_deleted'  => $comments_result['deleted'],
+			'comments_errors'   => $comments_result['errors'],
+			'older_than_days'   => $older_than_days,
+			'post_types'        => $post_types,
+		);
+	}
+
+	/**
+	 * Clean orphaned data.
+	 *
+	 * @param array $options Cleanup options.
+	 * @return array|WP_Error Cleanup results or error.
+	 */
+	private function clean_orphaned( $options ) {
+		$orphaned_cleaner = new Orphaned_Cleaner();
+
+		$types = isset( $options['types'] ) && is_array( $options['types'] ) ? $options['types'] : array( 'postmeta', 'commentmeta', 'termmeta', 'relationships' );
+
+		$results = array(
+			'type' => 'orphaned',
+		);
+
+		if ( in_array( 'postmeta', $types, true ) ) {
+			$results['postmeta_deleted'] = $orphaned_cleaner->delete_orphaned_postmeta();
+		}
+
+		if ( in_array( 'commentmeta', $types, true ) ) {
+			$results['commentmeta_deleted'] = $orphaned_cleaner->delete_orphaned_commentmeta();
+		}
+
+		if ( in_array( 'termmeta', $types, true ) ) {
+			$results['termmeta_deleted'] = $orphaned_cleaner->delete_orphaned_termmeta();
+		}
+
+		if ( in_array( 'relationships', $types, true ) ) {
+			$results['relationships_deleted'] = $orphaned_cleaner->delete_orphaned_relationships();
+		}
+
+		return $results;
+	}
+
+	/**
+	 * Log activity to scan history.
+	 *
+	 * @param string $type   The cleanup/operation type.
+	 * @param array  $result The result data.
+	 * @return void
+	 */
+	private function log_activity( $type, $result ) {
+		global $wpdb;
+
+		$table_name = $wpdb->prefix . 'wpha_scan_history';
+
+		// Check if table exists.
+		$table_exists = $wpdb->get_var(
+			$wpdb->prepare(
+				'SHOW TABLES LIKE %s',
+				$table_name
+			)
+		);
+
+		if ( $table_exists !== $table_name ) {
+			return;
+		}
+
+		// Determine items found and cleaned.
+		$items_found   = 0;
+		$items_cleaned = 0;
+		$bytes_freed   = 0;
+
+		switch ( $type ) {
+			case 'revisions':
+				$items_found   = isset( $result['deleted'] ) ? $result['deleted'] : 0;
+				$items_cleaned = $items_found;
+				$bytes_freed   = isset( $result['bytes_freed'] ) ? $result['bytes_freed'] : 0;
+				break;
+
+			case 'transients':
+				$items_found   = isset( $result['deleted'] ) ? $result['deleted'] : 0;
+				$items_cleaned = $items_found;
+				$bytes_freed   = isset( $result['bytes_freed'] ) ? $result['bytes_freed'] : 0;
+				break;
+
+			case 'spam':
+				$items_found   = isset( $result['deleted'] ) ? $result['deleted'] : 0;
+				$items_cleaned = $items_found;
+				break;
+
+			case 'trash':
+				$items_found   = ( isset( $result['posts_deleted'] ) ? $result['posts_deleted'] : 0 ) + ( isset( $result['comments_deleted'] ) ? $result['comments_deleted'] : 0 );
+				$items_cleaned = $items_found;
+				break;
+
+			case 'orphaned':
+				$items_found   = ( isset( $result['postmeta_deleted'] ) ? $result['postmeta_deleted'] : 0 ) +
+								( isset( $result['commentmeta_deleted'] ) ? $result['commentmeta_deleted'] : 0 ) +
+								( isset( $result['termmeta_deleted'] ) ? $result['termmeta_deleted'] : 0 ) +
+								( isset( $result['relationships_deleted'] ) ? $result['relationships_deleted'] : 0 );
+				$items_cleaned = $items_found;
+				break;
+
+			case 'optimization':
+				$items_found   = isset( $result['tables_optimized'] ) ? $result['tables_optimized'] : 0;
+				$items_cleaned = $items_found;
+				$bytes_freed   = isset( $result['bytes_freed'] ) ? $result['bytes_freed'] : 0;
+				break;
+		}
+
+		$scan_type = 'database_' . $type;
+
+		$wpdb->insert(
+			$table_name,
+			array(
+				'scan_type'     => sanitize_text_field( $scan_type ),
+				'items_found'   => absint( $items_found ),
+				'items_cleaned' => absint( $items_cleaned ),
+				'bytes_freed'   => absint( $bytes_freed ),
+				'created_at'    => current_time( 'mysql' ),
+			),
+			array( '%s', '%d', '%d', '%d', '%s' )
+		);
+	}
+
+	/**
+	 * Sanitize options parameter.
+	 *
+	 * @param mixed $value The value to sanitize.
+	 * @return array Sanitized options array.
+	 */
+	public function sanitize_options( $value ) {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$sanitized = array();
+
+		foreach ( $value as $key => $val ) {
+			$key = sanitize_key( $key );
+
+			if ( is_array( $val ) ) {
+				$sanitized[ $key ] = array_map( 'sanitize_text_field', $val );
+			} elseif ( is_bool( $val ) ) {
+				$sanitized[ $key ] = (bool) $val;
+			} elseif ( is_numeric( $val ) ) {
+				$sanitized[ $key ] = absint( $val );
+			} else {
+				$sanitized[ $key ] = sanitize_text_field( $val );
+			}
+		}
+
+		return $sanitized;
+	}
+
+	/**
+	 * Sanitize table names array.
+	 *
+	 * @param mixed $value The value to sanitize.
+	 * @return array Sanitized table names array.
+	 */
+	public function sanitize_table_names( $value ) {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$sanitized = array();
+
+		foreach ( $value as $table_name ) {
+			$table_name = sanitize_text_field( $table_name );
+
+			// Only allow tables with WordPress prefix.
+			if ( 0 === strpos( $table_name, $wpdb->prefix ) ) {
+				$sanitized[] = $table_name;
+			}
+		}
+
+		return $sanitized;
+	}
+}
