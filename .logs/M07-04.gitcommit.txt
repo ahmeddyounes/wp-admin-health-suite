@@ -1,0 +1,8 @@
+[main b89a7e2] M07-04: implement
+ 8 files changed, 1555 insertions(+), 40 deletions(-)
+ create mode 100644 .logs/M07-03.gitcommit.txt
+ create mode 100644 .logs/M07-04.claude.impl.last.md
+ create mode 100644 .logs/M07-04.claude.impl.raw.txt
+ create mode 100644 .plans/M07-04.md
+ create mode 100644 .t2/handoff/M07-04.md
+
