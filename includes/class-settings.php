@@ -89,12 +89,63 @@ class Settings {
 	private function define_fields() {
 		$this->fields = array(
 			// General settings.
+			'health_score_cache_duration' => array(
+				'section'     => 'general',
+				'title'       => __( 'Health Score Cache Duration (hours)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 1,
+				'sanitize'    => 'integer',
+				'description' => __( 'How long to cache health score calculations (1-24 hours).', 'wp-admin-health-suite' ),
+				'min'         => 1,
+				'max'         => 24,
+			),
 			'enable_dashboard_widget' => array(
 				'section'  => 'general',
 				'title'    => __( 'Enable Dashboard Widget', 'wp-admin-health-suite' ),
 				'type'     => 'checkbox',
 				'default'  => true,
 				'sanitize' => 'boolean',
+			),
+			'admin_bar_menu'          => array(
+				'section'  => 'general',
+				'title'    => __( 'Show Admin Bar Menu', 'wp-admin-health-suite' ),
+				'type'     => 'checkbox',
+				'default'  => true,
+				'sanitize' => 'boolean',
+			),
+			'notification_email'      => array(
+				'section'     => 'general',
+				'title'       => __( 'Notification Email', 'wp-admin-health-suite' ),
+				'type'        => 'email',
+				'default'     => '',
+				'sanitize'    => 'email',
+				'description' => __( 'Email address for health notifications.', 'wp-admin-health-suite' ),
+			),
+			'enable_logging'          => array(
+				'section'     => 'general',
+				'title'       => __( 'Enable Logging', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Enable system logging for monitoring and debugging.', 'wp-admin-health-suite' ),
+			),
+			'log_retention_days'      => array(
+				'section'     => 'general',
+				'title'       => __( 'Log Retention Days', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 7,
+				'sanitize'    => 'integer',
+				'description' => __( 'Days to retain logs before automatic cleanup (7-90).', 'wp-admin-health-suite' ),
+				'min'         => 7,
+				'max'         => 90,
+			),
+			'delete_data_on_uninstall' => array(
+				'section'     => 'general',
+				'title'       => __( 'Delete Data on Uninstall', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Remove all plugin data when uninstalling.', 'wp-admin-health-suite' ),
 			),
 			'health_score_threshold'  => array(
 				'section'     => 'general',
@@ -210,16 +261,6 @@ class Settings {
 				'default'  => false,
 				'sanitize' => 'boolean',
 			),
-			'log_retention_days'        => array(
-				'section'     => 'performance',
-				'title'       => __( 'Log Retention Days', 'wp-admin-health-suite' ),
-				'type'        => 'number',
-				'default'     => 7,
-				'sanitize'    => 'integer',
-				'description' => __( 'Days to retain performance logs.', 'wp-admin-health-suite' ),
-				'min'         => 1,
-				'max'         => 90,
-			),
 
 			// Scheduling settings.
 			'enable_scheduling'         => array(
@@ -262,14 +303,6 @@ class Settings {
 				'default'     => false,
 				'sanitize'    => 'boolean',
 				'description' => __( 'Enable detailed logging for debugging.', 'wp-admin-health-suite' ),
-			),
-			'delete_data_on_uninstall'  => array(
-				'section'     => 'advanced',
-				'title'       => __( 'Delete Data on Uninstall', 'wp-admin-health-suite' ),
-				'type'        => 'checkbox',
-				'default'     => false,
-				'sanitize'    => 'boolean',
-				'description' => __( 'Remove all plugin data when uninstalling.', 'wp-admin-health-suite' ),
 			),
 			'batch_size'                => array(
 				'section'     => 'advanced',
@@ -388,6 +421,15 @@ class Settings {
 				);
 				break;
 
+			case 'email':
+				printf(
+					'<input type="email" id="%s" name="%s" value="%s" class="regular-text" />',
+					esc_attr( $id ),
+					esc_attr( $name ),
+					esc_attr( $value )
+				);
+				break;
+
 			case 'select':
 				printf(
 					'<select id="%s" name="%s">',
@@ -443,6 +485,14 @@ class Settings {
 
 				case 'text':
 					$sanitized[ $field_id ] = sanitize_text_field( $value );
+					break;
+
+				case 'email':
+					$sanitized[ $field_id ] = sanitize_email( $value );
+					// Validate email format - if invalid, use default.
+					if ( ! empty( $sanitized[ $field_id ] ) && ! is_email( $sanitized[ $field_id ] ) ) {
+						$sanitized[ $field_id ] = $field['default'];
+					}
 					break;
 
 				case 'select':
