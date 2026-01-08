@@ -1,0 +1,9 @@
+[main 444f232] M09-03: implement
+ 7 files changed, 1021 insertions(+), 3 deletions(-)
+ create mode 100644 .logs/M09-02.gitcommit.txt
+ create mode 100644 .logs/M09-03.claude.impl.last.md
+ create mode 100644 .logs/M09-03.claude.impl.raw.txt
+ create mode 100644 .plans/M09-03.md
+ create mode 100644 .t2/handoff/M09-03.md
+ create mode 100644 tests/unit/test-media-scanner.php
+
