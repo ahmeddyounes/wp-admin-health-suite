@@ -41,5 +41,13 @@
 		"assets/js/dist/",
 		"node_modules/",
 		"*.min.js"
+	],
+	"overrides": [
+		{
+			"files": ["**/*.test.js", "**/*.test.jsx"],
+			"env": {
+				"jest": true
+			}
+		}
 	]
 }

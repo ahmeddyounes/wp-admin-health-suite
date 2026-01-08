@@ -20,6 +20,17 @@ module.exports = {
 		'assets/js/**/*.{js,jsx}',
 		'!assets/js/dist/**',
 		'!assets/js/entries/**',
+		'!**/*.test.{js,jsx}',
 		'!**/node_modules/**',
 	],
+	coverageDirectory: 'coverage',
+	coverageReporters: ['text', 'lcov', 'html'],
+	coverageThreshold: {
+		global: {
+			branches: 70,
+			functions: 70,
+			lines: 70,
+			statements: 70,
+		},
+	},
 };

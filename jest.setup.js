@@ -1,6 +1,9 @@
 // Jest setup file for additional configuration
 // Add any global test setup here
 
+// Import testing library matchers
+import '@testing-library/jest-dom';
+
 // Mock WordPress globals
 global.wp = {
 	apiFetch: jest.fn(),
