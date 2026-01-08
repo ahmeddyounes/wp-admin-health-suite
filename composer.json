@@ -9,6 +9,8 @@
     "composer/installers": "^1.0 || ^2.0"
   },
   "require-dev": {
+    "phpunit/phpunit": "^9.5",
+    "yoast/phpunit-polyfills": "^1.0",
     "phpdocumentor/phpdocumentor": "^3.0"
   },
   "autoload": {
@@ -16,11 +18,20 @@
       "WPAdminHealth\\": "includes/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "WPAdminHealth\\Tests\\": "tests/"
+    }
+  },
   "config": {
     "optimize-autoloader": true,
-    "sort-packages": true
+    "sort-packages": true,
+    "allow-plugins": {
+      "composer/installers": true
+    }
   },
   "scripts": {
+    "test": "phpunit",
     "docs": "phpdoc run -c phpdoc.xml",
     "docs:clear": "rm -rf docs/api .phpdoc"
   },

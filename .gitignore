@@ -24,3 +24,9 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Test artifacts
+.phpunit.result.cache
+tests/_output/
+coverage/
+clover.xml

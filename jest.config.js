@@ -11,6 +11,11 @@ module.exports = {
 		'**/__tests__/**/*.(test|spec).(js|jsx)',
 		'**/*.(test|spec).(js|jsx)',
 	],
+	testPathIgnorePatterns: [
+		'/node_modules/',
+		'/vendor/',
+		'/tests/',
+	],
 	collectCoverageFrom: [
 		'assets/js/**/*.{js,jsx}',
 		'!assets/js/dist/**',
