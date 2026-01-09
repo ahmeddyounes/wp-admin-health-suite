@@ -30,3 +30,4 @@ Thumbs.db
 tests/_output/
 coverage/
 clover.xml
+/vendor/

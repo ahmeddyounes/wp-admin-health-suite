@@ -1,7 +1,7 @@
 /**
  * Tests for MetricCard Component
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React from 'react';
@@ -35,33 +35,70 @@ describe('MetricCard', () => {
 	});
 
 	it('displays trend indicator for up trend', () => {
-		render(<MetricCard title="Test" value={100} trend="up" trendValue="5.2" />);
+		render(
+			<MetricCard title="Test" value={100} trend="up" trendValue="5.2" />
+		);
 		expect(screen.getByText(/↑ 5.2%/)).toBeInTheDocument();
 	});
 
 	it('displays trend indicator for down trend', () => {
-		render(<MetricCard title="Test" value={100} trend="down" trendValue="3.1" />);
+		render(
+			<MetricCard
+				title="Test"
+				value={100}
+				trend="down"
+				trendValue="3.1"
+			/>
+		);
 		expect(screen.getByText(/↓ 3.1%/)).toBeInTheDocument();
 	});
 
 	it('displays trend indicator for neutral trend', () => {
-		render(<MetricCard title="Test" value={100} trend="neutral" trendValue="0" />);
+		render(
+			<MetricCard
+				title="Test"
+				value={100}
+				trend="neutral"
+				trendValue="0"
+			/>
+		);
 		expect(screen.getByText(/→ 0%/)).toBeInTheDocument();
 	});
 
 	it('handles invalid trend by defaulting to neutral', () => {
-		render(<MetricCard title="Test" value={100} trend="invalid" trendValue="5" />);
+		render(
+			<MetricCard
+				title="Test"
+				value={100}
+				trend="invalid"
+				trendValue="5"
+			/>
+		);
 		expect(screen.getByText(/→ 5%/)).toBeInTheDocument();
 	});
 
 	it('does not display trend value when null', () => {
-		const { container } = render(<MetricCard title="Test" value={100} trend="up" trendValue={null} />);
+		const { container } = render(
+			<MetricCard title="Test" value={100} trend="up" trendValue={null} />
+		);
 		expect(container.textContent).not.toMatch(/%/);
 	});
 
 	it('renders with correct aria-label', () => {
-		render(<MetricCard title="Database Size" value={250} unit="MB" trendValue="5.2" trend="up" />);
-		expect(screen.getByLabelText(/Database Size: 250 MB, trend up by 5.2 percent/)).toBeInTheDocument();
+		render(
+			<MetricCard
+				title="Database Size"
+				value={250}
+				unit="MB"
+				trendValue="5.2"
+				trend="up"
+			/>
+		);
+		expect(
+			screen.getByLabelText(
+				/Database Size: 250 MB, trend up by 5.2 percent/
+			)
+		).toBeInTheDocument();
 	});
 
 	it('renders as button role when onClick is provided', () => {
@@ -84,7 +121,9 @@ describe('MetricCard', () => {
 
 	it('has onKeyPress handler when clickable', () => {
 		const handleClick = jest.fn();
-		const { container } = render(<MetricCard title="Test" value={100} onClick={handleClick} />);
+		const { container } = render(
+			<MetricCard title="Test" value={100} onClick={handleClick} />
+		);
 		const button = screen.getByRole('button');
 		// Verify the button has the onKeyPress prop attached (keyboard accessibility)
 		expect(button).toHaveProperty('onkeypress');
@@ -103,12 +142,18 @@ describe('MetricCard', () => {
 
 	it('uses default icon when not specified', () => {
 		const { container } = render(<MetricCard title="Test" value={100} />);
-		expect(container.querySelector('.dashicons-chart-bar')).toBeInTheDocument();
+		expect(
+			container.querySelector('.dashicons-chart-bar')
+		).toBeInTheDocument();
 	});
 
 	it('uses custom icon when specified', () => {
-		const { container } = render(<MetricCard title="Test" value={100} icon="dashicons-database" />);
-		expect(container.querySelector('.dashicons-database')).toBeInTheDocument();
+		const { container } = render(
+			<MetricCard title="Test" value={100} icon="dashicons-database" />
+		);
+		expect(
+			container.querySelector('.dashicons-database')
+		).toBeInTheDocument();
 	});
 
 	it('renders icon with aria-hidden', () => {

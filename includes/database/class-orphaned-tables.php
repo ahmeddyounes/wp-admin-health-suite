@@ -276,15 +276,123 @@ class Orphaned_Tables {
 	}
 
 	/**
-	 * Generate a confirmation hash for a table.
+	 * Check if a table is orphaned (no known owner).
+	 *
+	 * Re-verifies orphaned status to prevent TOCTOU race conditions.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $table_name The table name to check.
+	 * @return bool True if table is orphaned, false otherwise.
+	 */
+	private function is_table_orphaned( $table_name ) {
+		global $wpdb;
+
+		// Verify table exists.
+		$exists = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s",
+				DB_NAME,
+				$table_name
+			)
+		);
+
+		if ( ! $exists ) {
+			return false; // Table doesn't exist.
+		}
+
+		// Verify not a core table.
+		$core_tables = $this->get_known_core_tables();
+		if ( in_array( $table_name, $core_tables, true ) ) {
+			return false;
+		}
+
+		// Verify not a registered plugin table.
+		$plugin_tables = $this->get_registered_plugin_tables();
+		if ( in_array( $table_name, $plugin_tables, true ) ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Acquire a deletion lock for a table.
+	 *
+	 * Prevents concurrent deletion attempts on the same table.
+	 * Uses atomic option insertion to prevent TOCTOU race conditions.
+	 *
+	 * @since 1.1.0
 	 *
 	 * @param string $table_name The table name.
-	 * @return string The confirmation hash.
+	 * @return bool True if lock acquired, false if already locked.
+	 */
+	private function acquire_deletion_lock( $table_name ) {
+		global $wpdb;
+
+		$lock_key   = 'wpha_table_delete_lock_' . md5( $table_name );
+		$lock_value = uniqid( 'lock_', true );
+		$expiry     = time() + 30; // Lock expires in 30 seconds.
+
+		// Use INSERT IGNORE for atomic lock acquisition.
+		// This is atomic - only succeeds if the key doesn't exist.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload)
+				VALUES (%s, %s, 'no')",
+				'_transient_' . $lock_key,
+				$lock_value . ':' . $expiry
+			)
+		);
+
+		// If insert failed (row exists), check if the existing lock has expired.
+		if ( 0 === $result ) {
+			$existing = get_transient( $lock_key );
+			if ( $existing ) {
+				$parts = explode( ':', $existing );
+				if ( count( $parts ) === 2 && (int) $parts[1] < time() ) {
+					// Lock expired - delete and retry.
+					delete_transient( $lock_key );
+					return $this->acquire_deletion_lock( $table_name );
+				}
+			}
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Release a deletion lock for a table.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $table_name The table name.
+	 * @return void
+	 */
+	private function release_deletion_lock( $table_name ) {
+		$lock_key = 'wpha_table_delete_lock_' . md5( $table_name );
+		delete_transient( $lock_key );
+	}
+
+	/**
+	 * Generate a confirmation hash for a table.
+	 *
+	 * Uses HMAC-SHA256 for cryptographically secure hash generation.
+	 * The hash prevents unauthorized table deletion by requiring a valid token.
+	 *
+	 * @param string $table_name The table name.
+	 * @return string The confirmation hash (32 hex characters).
 	 */
 	private function generate_confirmation_hash( $table_name ) {
-		// Use a combination of table name and a salt for security.
-		$salt = defined( 'AUTH_KEY' ) ? AUTH_KEY : 'wpha_salt';
-		return substr( md5( $table_name . $salt ), 0, 8 );
+		// Use HMAC-SHA256 with AUTH_KEY as the secret key for proper security.
+		// HMAC prevents length extension attacks and is cryptographically secure.
+		$secret_key = defined( 'AUTH_KEY' ) ? AUTH_KEY : 'wpha_default_key_' . ABSPATH;
+		$hash       = hash_hmac( 'sha256', $table_name, $secret_key );
+
+		// Return first 32 characters (128 bits) - sufficient for CSRF-like protection.
+		return substr( $hash, 0, 32 );
 	}
 
 	/**
@@ -329,24 +437,6 @@ class Orphaned_Tables {
 			);
 		}
 
-		// Double-check table is not a core table.
-		$core_tables = $this->get_known_core_tables();
-		if ( in_array( $table_name, $core_tables, true ) ) {
-			return array(
-				'success' => false,
-				'message' => __( 'Cannot delete core WordPress table.', 'wp-admin-health-suite' ),
-			);
-		}
-
-		// Get table info before deletion for logging.
-		$table_info = $this->get_table_info( $table_name );
-		if ( ! $table_info ) {
-			return array(
-				'success' => false,
-				'message' => __( 'Table does not exist.', 'wp-admin-health-suite' ),
-			);
-		}
-
 		// Sanitize table name (allow only alphanumeric, underscores).
 		if ( ! preg_match( '/^[a-zA-Z0-9_]+$/', $table_name ) ) {
 			return array(
@@ -355,34 +445,75 @@ class Orphaned_Tables {
 			);
 		}
 
-		// Drop the table.
-		// Using backticks and direct query since $wpdb->prepare doesn't support table names.
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		$result = $wpdb->query( "DROP TABLE IF EXISTS `{$table_name}`" );
-
-		if ( false === $result ) {
+		// Acquire deletion lock to prevent concurrent deletion attempts.
+		if ( ! $this->acquire_deletion_lock( $table_name ) ) {
 			return array(
 				'success' => false,
-				'message' => sprintf(
-					/* translators: %s: database error message */
-					__( 'Failed to delete table: %s', 'wp-admin-health-suite' ),
-					$wpdb->last_error
-				),
+				'message' => __( 'Another deletion is in progress for this table. Please try again.', 'wp-admin-health-suite' ),
 			);
 		}
 
-		// Log the deletion.
-		$this->log_table_deletion( $table_name, $table_info );
+		try {
+			// Re-verify table is still orphaned (TOCTOU protection).
+			// This prevents race conditions where a plugin claims the table
+			// between the initial check and the deletion.
+			if ( ! $this->is_table_orphaned( $table_name ) ) {
+				return array(
+					'success' => false,
+					'message' => __( 'Table is no longer orphaned (may have been claimed by a plugin). Cannot delete.', 'wp-admin-health-suite' ),
+				);
+			}
 
-		return array(
-			'success' => true,
-			'message' => sprintf(
-				/* translators: %s: table name */
-				__( 'Table %s has been successfully deleted.', 'wp-admin-health-suite' ),
-				$table_name
-			),
-			'size_freed' => absint( $table_info['size_bytes'] ),
-		);
+			// Get table info before deletion for logging.
+			$table_info = $this->get_table_info( $table_name );
+			if ( ! $table_info ) {
+				return array(
+					'success' => false,
+					'message' => __( 'Table does not exist.', 'wp-admin-health-suite' ),
+				);
+			}
+
+			// Drop the table.
+			// Using backticks and direct query since $wpdb->prepare doesn't support table names.
+			// Additional escaping with esc_sql() for security.
+			$escaped_table = esc_sql( $table_name );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$result = $wpdb->query( "DROP TABLE IF EXISTS `{$escaped_table}`" );
+
+			if ( false === $result ) {
+				// Log the full error details securely for debugging.
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log(
+					sprintf(
+						'[WP Admin Health Suite] Table deletion failed for "%s": %s',
+						$table_name,
+						$wpdb->last_error
+					)
+				);
+
+				// Return a generic message to avoid information disclosure.
+				return array(
+					'success' => false,
+					'message' => __( 'Failed to delete table due to a database error. Please check the error logs for details.', 'wp-admin-health-suite' ),
+				);
+			}
+
+			// Log the deletion.
+			$this->log_table_deletion( $table_name, $table_info );
+
+			return array(
+				'success' => true,
+				'message' => sprintf(
+					/* translators: %s: table name */
+					__( 'Table %s has been successfully deleted.', 'wp-admin-health-suite' ),
+					$table_name
+				),
+				'size_freed' => absint( $table_info['size_bytes'] ),
+			);
+		} finally {
+			// Always release the lock, even if an error occurred.
+			$this->release_deletion_lock( $table_name );
+		}
 	}
 
 	/**

@@ -9,6 +9,8 @@
 
 namespace WPAdminHealth\Media;
 
+use WPAdminHealth\Contracts\ScannerInterface;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -19,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  */
-class Scanner {
+class Scanner implements ScannerInterface {
 
 	/**
 	 * Batch size for processing attachments.
@@ -103,8 +105,8 @@ class Scanner {
 	/**
 	 * Get the total size of all media attachments.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Total size in bytes.
 	 */
 	public function get_media_total_size() {
@@ -112,6 +114,9 @@ class Scanner {
 
 		$total_size = 0;
 		$batch_offset = 0;
+
+		// Get total count once to avoid N+1 query issue.
+		$total_count = $this->get_media_count();
 
 		while ( true ) {
 			$query = $wpdb->prepare(
@@ -137,7 +142,6 @@ class Scanner {
 					// Add sizes of thumbnails.
 					$metadata = wp_get_attachment_metadata( $attachment_id );
 					if ( ! empty( $metadata['sizes'] ) ) {
-						$upload_dir = wp_upload_dir();
 						$base_dir = trailingslashit( dirname( $file_path ) );
 
 						foreach ( $metadata['sizes'] as $size_data ) {
@@ -155,7 +159,6 @@ class Scanner {
 			$batch_offset += $this->batch_size;
 
 			// Update progress.
-			$total_count = $this->get_media_count();
 			if ( $total_count > 0 ) {
 				$progress = min( 100, ( $batch_offset / $total_count ) * 100 );
 				set_transient( $this->transient_prefix . 'progress', $progress, HOUR_IN_SECONDS );
@@ -168,8 +171,8 @@ class Scanner {
 	/**
 	 * Find unused media attachments.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array of unused attachment IDs.
 	 */
 	public function find_unused_media() {
@@ -180,6 +183,9 @@ class Scanner {
 
 		// Initialize exclusions manager.
 		$exclusions = new Exclusions();
+
+		// Get total count once to avoid N+1 query issue.
+		$total_count = $this->get_media_count();
 
 		while ( true ) {
 			$query = $wpdb->prepare(
@@ -211,7 +217,6 @@ class Scanner {
 			$batch_offset += $this->batch_size;
 
 			// Update progress.
-			$total_count = $this->get_media_count();
 			if ( $total_count > 0 ) {
 				$progress = min( 100, ( $batch_offset / $total_count ) * 100 );
 				set_transient( $this->transient_prefix . 'progress', $progress, HOUR_IN_SECONDS );
@@ -222,12 +227,24 @@ class Scanner {
 	}
 
 	/**
+	 * Check if a specific attachment is in use.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return bool True if in use, false otherwise.
+	 */
+	public function is_attachment_in_use( int $attachment_id ): bool {
+		return $this->is_attachment_used( $attachment_id );
+	}
+
+	/**
 	 * Check if an attachment is used anywhere.
 	 *
 	 * @param int $attachment_id Attachment ID to check.
 	 * @return bool True if used, false otherwise.
 	 */
-	private function is_attachment_used( $attachment_id ) {
+	private function is_attachment_used( $attachment_id ): bool {
 		global $wpdb;
 
 		// Check if it's a featured image.
@@ -333,8 +350,8 @@ class Scanner {
 	/**
 	 * Find duplicate files based on file hash.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array of duplicate file groups.
 	 */
 	public function find_duplicate_files() {
@@ -343,6 +360,9 @@ class Scanner {
 		$duplicates = array();
 		$file_hashes = array();
 		$batch_offset = 0;
+
+		// Get total count once to avoid N+1 query issue.
+		$total_count = $this->get_media_count();
 
 		while ( true ) {
 			$query = $wpdb->prepare(
@@ -378,7 +398,6 @@ class Scanner {
 			$batch_offset += $this->batch_size;
 
 			// Update progress.
-			$total_count = $this->get_media_count();
 			if ( $total_count > 0 ) {
 				$progress = min( 100, ( $batch_offset / $total_count ) * 100 );
 				set_transient( $this->transient_prefix . 'progress', $progress, HOUR_IN_SECONDS );
@@ -391,8 +410,8 @@ class Scanner {
 	/**
 	 * Find large files above a specified size.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @param int $min_size_mb Minimum file size in MB.
 	 * @return array Array of attachment IDs with their sizes.
 	 */
@@ -402,6 +421,9 @@ class Scanner {
 		$min_size_bytes = $min_size_mb * 1024 * 1024;
 		$large_files = array();
 		$batch_offset = 0;
+
+		// Get total count once to avoid N+1 query issue.
+		$total_count = $this->get_media_count();
 
 		while ( true ) {
 			$query = $wpdb->prepare(
@@ -436,7 +458,6 @@ class Scanner {
 			$batch_offset += $this->batch_size;
 
 			// Update progress.
-			$total_count = $this->get_media_count();
 			if ( $total_count > 0 ) {
 				$progress = min( 100, ( $batch_offset / $total_count ) * 100 );
 				set_transient( $this->transient_prefix . 'progress', $progress, HOUR_IN_SECONDS );
@@ -449,8 +470,8 @@ class Scanner {
 	/**
 	 * Find images missing alt text.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array of attachment IDs missing alt text.
 	 */
 	public function find_missing_alt_text() {
@@ -458,6 +479,9 @@ class Scanner {
 
 		$missing_alt = array();
 		$batch_offset = 0;
+
+		// Get total count once to avoid N+1 query issue.
+		$total_count = $this->get_media_count();
 
 		while ( true ) {
 			$query = $wpdb->prepare(
@@ -487,7 +511,6 @@ class Scanner {
 			$batch_offset += $this->batch_size;
 
 			// Update progress.
-			$total_count = $this->get_media_count();
 			if ( $total_count > 0 ) {
 				$progress = min( 100, ( $batch_offset / $total_count ) * 100 );
 				set_transient( $this->transient_prefix . 'progress', $progress, HOUR_IN_SECONDS );
@@ -500,12 +523,255 @@ class Scanner {
 	/**
 	 * Get the current scan progress.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Progress percentage (0-100).
 	 */
 	public function get_scan_progress() {
 		$progress = get_transient( $this->transient_prefix . 'progress' );
 		return $progress !== false ? absint( $progress ) : 0;
+	}
+
+	/**
+	 * Scan for unused media files.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $batch_size Number of attachments to scan per batch.
+	 * @param int $offset     Starting offset for pagination.
+	 * @return array{
+	 *     unused: array<int>,
+	 *     scanned: int,
+	 *     total: int,
+	 *     has_more: bool
+	 * } Scan results.
+	 */
+	public function scan_unused_media( int $batch_size = 100, int $offset = 0 ): array {
+		global $wpdb;
+
+		$total = $this->get_media_count();
+		$unused = array();
+
+		// Initialize exclusions manager.
+		$exclusions = new Exclusions();
+
+		$query = $wpdb->prepare(
+			"SELECT ID FROM {$wpdb->posts}
+			WHERE post_type = %s
+			LIMIT %d OFFSET %d",
+			'attachment',
+			$batch_size,
+			$offset
+		);
+
+		$attachments = $wpdb->get_col( $query );
+		$scanned = count( $attachments );
+
+		foreach ( $attachments as $attachment_id ) {
+			// Skip excluded items.
+			if ( $exclusions->is_excluded( $attachment_id ) ) {
+				continue;
+			}
+
+			if ( ! $this->is_attachment_used( $attachment_id ) ) {
+				$unused[] = (int) $attachment_id;
+			}
+		}
+
+		return array(
+			'unused'   => $unused,
+			'scanned'  => $offset + $scanned,
+			'total'    => $total,
+			'has_more' => ( $offset + $scanned ) < $total,
+		);
+	}
+
+	/**
+	 * Scan for duplicate media files.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $method Detection method: 'hash', 'filename', or 'both'.
+	 * @return array<string, array<int>> Array of hash/name => attachment IDs.
+	 */
+	public function scan_duplicate_media( string $method = 'hash' ): array {
+		// For now, use the existing hash-based implementation.
+		// The method parameter is reserved for future extension.
+		return $this->find_duplicate_files();
+	}
+
+	/**
+	 * Scan for large media files.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $threshold_kb Size threshold in kilobytes.
+	 * @return array<int, array{id: int, size: int, file: string}> Large file data.
+	 */
+	public function scan_large_media( int $threshold_kb = 1000 ): array {
+		// Convert KB to MB for the existing method.
+		$threshold_mb = $threshold_kb / 1024;
+		$large_files = $this->find_large_files( $threshold_mb );
+
+		// Transform to match interface return type.
+		$result = array();
+		foreach ( $large_files as $file ) {
+			$result[] = array(
+				'id'   => (int) $file['id'],
+				'size' => (int) $file['size'],
+				'file' => $file['path'],
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Get the total count of media files.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return int Total number of attachments.
+	 */
+	public function get_total_media_count(): int {
+		return $this->get_media_count();
+	}
+
+	/**
+	 * Get the total size of all media files.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return int Total size in bytes.
+	 */
+	public function get_total_media_size(): int {
+		return $this->get_media_total_size();
+	}
+
+	/**
+	 * Get usage locations for an attachment.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return array<array{type: string, id: int, title: string}> Usage locations.
+	 */
+	public function get_attachment_usage( int $attachment_id ): array {
+		global $wpdb;
+
+		$usages = array();
+
+		// Check featured image usage.
+		$featured_posts = $wpdb->get_col( $wpdb->prepare(
+			"SELECT post_id FROM {$wpdb->postmeta}
+			WHERE meta_key = %s AND meta_value = %d",
+			'_thumbnail_id',
+			$attachment_id
+		) );
+
+		foreach ( $featured_posts as $post_id ) {
+			$post = get_post( $post_id );
+			if ( $post ) {
+				$usages[] = array(
+					'type'  => 'featured_image',
+					'id'    => (int) $post_id,
+					'title' => $post->post_title,
+				);
+			}
+		}
+
+		// Check post content usage.
+		$attachment_url = wp_get_attachment_url( $attachment_id );
+		if ( $attachment_url ) {
+			$upload_dir = wp_upload_dir();
+			$attachment_path = str_replace( $upload_dir['baseurl'], '', $attachment_url );
+
+			$content_posts = $wpdb->get_col( $wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts}
+				WHERE post_status NOT IN ('trash', 'auto-draft')
+				AND post_content LIKE %s
+				LIMIT 20",
+				'%' . $wpdb->esc_like( $attachment_path ) . '%'
+			) );
+
+			foreach ( $content_posts as $post_id ) {
+				$post = get_post( $post_id );
+				if ( $post ) {
+					$usages[] = array(
+						'type'  => 'content',
+						'id'    => (int) $post_id,
+						'title' => $post->post_title,
+					);
+				}
+			}
+		}
+
+		// Check parent attachment.
+		$post = get_post( $attachment_id );
+		if ( $post && $post->post_parent > 0 ) {
+			$parent = get_post( $post->post_parent );
+			if ( $parent && 'trash' !== $parent->post_status ) {
+				$usages[] = array(
+					'type'  => 'parent',
+					'id'    => (int) $parent->ID,
+					'title' => $parent->post_title,
+				);
+			}
+		}
+
+		return $usages;
+	}
+
+	/**
+	 * Get a summary of the media library.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return array{
+	 *     total_count: int,
+	 *     total_size: int,
+	 *     unused_count: int,
+	 *     unused_size: int,
+	 *     duplicate_count: int,
+	 *     large_count: int
+	 * } Media summary statistics.
+	 */
+	public function get_media_summary(): array {
+		$total_count = $this->get_media_count();
+		$total_size = $this->get_media_total_size();
+
+		// Get unused media.
+		$unused = $this->find_unused_media();
+		$unused_count = count( $unused );
+
+		// Calculate unused size.
+		$unused_size = 0;
+		foreach ( $unused as $attachment_id ) {
+			$file_path = get_attached_file( $attachment_id );
+			if ( $file_path && file_exists( $file_path ) ) {
+				$unused_size += filesize( $file_path );
+			}
+		}
+
+		// Get duplicate count.
+		$duplicates = $this->find_duplicate_files();
+		$duplicate_count = 0;
+		foreach ( $duplicates as $ids ) {
+			// Count duplicates (excluding original).
+			$duplicate_count += count( $ids ) - 1;
+		}
+
+		// Get large files count (files > 1MB).
+		$large_files = $this->find_large_files( 1 );
+		$large_count = count( $large_files );
+
+		return array(
+			'total_count'     => $total_count,
+			'total_size'      => $total_size,
+			'unused_count'    => $unused_count,
+			'unused_size'     => $unused_size,
+			'duplicate_count' => $duplicate_count,
+			'large_count'     => $large_count,
+		);
 	}
 }

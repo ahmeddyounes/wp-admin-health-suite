@@ -1,7 +1,7 @@
 /**
  * Tests for QuickActions Component
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React from 'react';
@@ -46,11 +46,19 @@ describe('QuickActions', () => {
 
 	it('renders action buttons with correct icons', () => {
 		const { container } = render(<QuickActions />);
-		expect(container.querySelector('.dashicons-backup')).toBeInTheDocument();
+		expect(
+			container.querySelector('.dashicons-backup')
+		).toBeInTheDocument();
 		expect(container.querySelector('.dashicons-trash')).toBeInTheDocument();
-		expect(container.querySelector('.dashicons-images-alt2')).toBeInTheDocument();
-		expect(container.querySelector('.dashicons-database')).toBeInTheDocument();
-		expect(container.querySelector('.dashicons-search')).toBeInTheDocument();
+		expect(
+			container.querySelector('.dashicons-images-alt2')
+		).toBeInTheDocument();
+		expect(
+			container.querySelector('.dashicons-database')
+		).toBeInTheDocument();
+		expect(
+			container.querySelector('.dashicons-search')
+		).toBeInTheDocument();
 	});
 
 	it('shows confirmation modal for actions that require confirmation', () => {
@@ -59,7 +67,9 @@ describe('QuickActions', () => {
 		fireEvent.click(cleanRevisionsButton);
 
 		expect(screen.getByText('Confirm Clean Revisions')).toBeInTheDocument();
-		expect(screen.getByText(/Are you sure you want to proceed/)).toBeInTheDocument();
+		expect(
+			screen.getByText(/Are you sure you want to proceed/)
+		).toBeInTheDocument();
 	});
 
 	it('does not show confirmation modal for actions that do not require confirmation', async () => {
@@ -73,7 +83,9 @@ describe('QuickActions', () => {
 		fireEvent.click(fullScanButton);
 
 		await waitFor(() => {
-			expect(screen.queryByText(/Confirm Full Scan/)).not.toBeInTheDocument();
+			expect(
+				screen.queryByText(/Confirm Full Scan/)
+			).not.toBeInTheDocument();
 		});
 	});
 
@@ -87,7 +99,9 @@ describe('QuickActions', () => {
 		const cancelButton = screen.getByText('Cancel');
 		fireEvent.click(cancelButton);
 
-		expect(screen.queryByText('Confirm Clean Revisions')).not.toBeInTheDocument();
+		expect(
+			screen.queryByText('Confirm Clean Revisions')
+		).not.toBeInTheDocument();
 	});
 
 	it('closes modal when clicking outside', () => {
@@ -100,7 +114,9 @@ describe('QuickActions', () => {
 		const overlay = screen.getByRole('dialog');
 		fireEvent.click(overlay);
 
-		expect(screen.queryByText('Confirm Clean Revisions')).not.toBeInTheDocument();
+		expect(
+			screen.queryByText('Confirm Clean Revisions')
+		).not.toBeInTheDocument();
 	});
 
 	it('executes action when Confirm is clicked', async () => {
@@ -192,7 +208,10 @@ describe('QuickActions', () => {
 		fireEvent.click(fullScanButton);
 
 		await waitFor(() => {
-			expect(fullScanButton.closest('[role="button"]')).toHaveAttribute('aria-busy', 'true');
+			expect(fullScanButton.closest('[role="button"]')).toHaveAttribute(
+				'aria-busy',
+				'true'
+			);
 		});
 	});
 
@@ -218,7 +237,9 @@ describe('QuickActions', () => {
 
 	it('has keyboard event handlers for accessibility', () => {
 		render(<QuickActions />);
-		const cleanRevisionsButton = screen.getByText('Clean Revisions').closest('[role="button"]');
+		const cleanRevisionsButton = screen
+			.getByText('Clean Revisions')
+			.closest('[role="button"]');
 
 		// Verify the button has keyboard handlers attached (keyboard accessibility)
 		expect(cleanRevisionsButton).toHaveProperty('onkeypress');
@@ -237,7 +258,9 @@ describe('QuickActions', () => {
 			screen.getByLabelText(/Clean Revisions: Remove old post revisions/)
 		).toBeInTheDocument();
 		expect(
-			screen.getByLabelText(/Clear Transients: Delete expired and orphaned/)
+			screen.getByLabelText(
+				/Clear Transients: Delete expired and orphaned/
+			)
 		).toBeInTheDocument();
 	});
 
@@ -279,7 +302,9 @@ describe('QuickActions', () => {
 		fireEvent.click(fullScanButton);
 
 		await waitFor(() => {
-			expect(screen.getByText('Full Scan completed successfully')).toBeInTheDocument();
+			expect(
+				screen.getByText('Full Scan completed successfully')
+			).toBeInTheDocument();
 		});
 	});
 
@@ -294,7 +319,9 @@ describe('QuickActions', () => {
 		fireEvent.click(fullScanButton);
 
 		await waitFor(() => {
-			expect(screen.getByText('Failed to execute Full Scan')).toBeInTheDocument();
+			expect(
+				screen.getByText('Failed to execute Full Scan')
+			).toBeInTheDocument();
 		});
 	});
 });

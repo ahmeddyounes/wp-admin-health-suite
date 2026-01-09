@@ -4,7 +4,7 @@
  * Main entry point for the performance admin page.
  * Imports and initializes page-specific functionality.
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React from 'react';

@@ -1,7 +1,7 @@
 /**
  * Tests for ActivityTimeline Component
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React from 'react';
@@ -149,7 +149,10 @@ describe('ActivityTimeline', () => {
 
 	it('retries fetch when Try Again is clicked', async () => {
 		wp.apiFetch.mockRejectedValueOnce(new Error('Network error'));
-		wp.apiFetch.mockResolvedValueOnce({ success: true, data: mockActivities });
+		wp.apiFetch.mockResolvedValueOnce({
+			success: true,
+			data: mockActivities,
+		});
 
 		render(<ActivityTimeline />);
 
@@ -172,7 +175,9 @@ describe('ActivityTimeline', () => {
 
 		await waitFor(() => {
 			expect(screen.getByText('No Activity Yet')).toBeInTheDocument();
-			expect(screen.getByText(/Get started by running your first scan/)).toBeInTheDocument();
+			expect(
+				screen.getByText(/Get started by running your first scan/)
+			).toBeInTheDocument();
 		});
 	});
 
@@ -190,9 +195,15 @@ describe('ActivityTimeline', () => {
 		const { container } = render(<ActivityTimeline />);
 
 		await waitFor(() => {
-			expect(container.querySelector('.dashicons-database')).toBeInTheDocument();
-			expect(container.querySelector('.dashicons-format-image')).toBeInTheDocument();
-			expect(container.querySelector('.dashicons-performance')).toBeInTheDocument();
+			expect(
+				container.querySelector('.dashicons-database')
+			).toBeInTheDocument();
+			expect(
+				container.querySelector('.dashicons-format-image')
+			).toBeInTheDocument();
+			expect(
+				container.querySelector('.dashicons-performance')
+			).toBeInTheDocument();
 		});
 	});
 
@@ -212,7 +223,9 @@ describe('ActivityTimeline', () => {
 		const { container } = render(<ActivityTimeline />);
 
 		await waitFor(() => {
-			expect(container.querySelector('.dashicons-admin-generic')).toBeInTheDocument();
+			expect(
+				container.querySelector('.dashicons-admin-generic')
+			).toBeInTheDocument();
 		});
 	});
 

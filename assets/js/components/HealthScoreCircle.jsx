@@ -3,7 +3,7 @@
  *
  * A React component that displays a health score as an animated circular progress indicator.
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -22,11 +22,11 @@ const GRADE_COLORS = {
 /**
  * HealthScoreCircle Component
  *
- * @param {Object} props - Component props
- * @param {number} props.score - Health score from 0 to 100
- * @param {string} props.grade - Letter grade (A, B, C, D, or F)
+ * @param {Object}  props         - Component props
+ * @param {number}  props.score   - Health score from 0 to 100
+ * @param {string}  props.grade   - Letter grade (A, B, C, D, or F)
  * @param {boolean} props.loading - Whether the component is in loading state
- * @returns {JSX.Element} Rendered component
+ * @return {JSX.Element} Rendered component
  */
 const HealthScoreCircle = ({ score = 0, grade = 'F', loading = false }) => {
 	const [animatedScore, setAnimatedScore] = useState(0);
@@ -54,6 +54,7 @@ const HealthScoreCircle = ({ score = 0, grade = 'F', loading = false }) => {
 
 		/**
 		 * Animate the score count up using requestAnimationFrame
+		 * @param timestamp
 		 */
 		const animate = (timestamp) => {
 			if (!startTimeRef.current) {
@@ -167,7 +168,7 @@ const HealthScoreCircle = ({ score = 0, grade = 'F', loading = false }) => {
 							style={{
 								fontSize: '48px',
 								fontWeight: 'bold',
-								color: color,
+								color,
 								lineHeight: '1',
 								marginBottom: '4px',
 							}}

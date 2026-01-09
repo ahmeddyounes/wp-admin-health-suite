@@ -10,6 +10,7 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\SettingsInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -51,6 +52,17 @@ class Performance_Controller extends REST_Controller {
 	 * @var int
 	 */
 	const CACHE_EXPIRATION = 5 * MINUTE_IN_SECONDS;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param SettingsInterface|null $settings Optional settings instance for dependency injection.
+	 */
+	public function __construct( ?SettingsInterface $settings = null ) {
+		parent::__construct( $settings );
+	}
 
 	/**
 	 * Register routes for the controller.

@@ -1,0 +1,77 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (faa690f)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 711 files (chunk 1/4)...
+[STARTED] package.json — 711 files (chunk 2/4)...
+[STARTED] package.json — 711 files (chunk 3/4)...
+[STARTED] package.json — 710 files (chunk 4/4)...
+[STARTED] *.{js,jsx} — 21 files
+[STARTED] *.{json,css,scss,md} — 70 files
+[STARTED] *.{js,jsx} — 33 files
+[STARTED] *.{json,css,scss,md} — 13 files
+[STARTED] *.{js,jsx} — 31 files
+[STARTED] *.{json,css,scss,md} — 24 files
+[STARTED] *.{js,jsx} — 1 file
+[STARTED] *.{json,css,scss,md} — 33 files
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 13 files
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 24 files
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 33 files
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 70 files
+[FAILED] eslint --fix [FAILED]
+[FAILED] eslint --fix [FAILED]
+[FAILED] eslint --fix [SIGKILL]
+[FAILED] eslint --fix [SIGKILL]
+[FAILED] eslint --fix [SIGKILL]
+[FAILED] eslint --fix [SIGKILL]
+[FAILED] eslint --fix [SIGKILL]
+[FAILED] eslint --fix [SIGKILL]
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[SKIPPED] Skipped because of errors from tasks.
+[STARTED] Reverting to original state because of errors...
+[COMPLETED] Reverting to original state because of errors...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+
+✖ eslint --fix:
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/tests/Core/Files/File/GetDeclarationNameJSTest.js
+  2:5  error  Parsing error: Missing semicolon. (2:5)
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+✖ eslint --fix failed to spawn:
+Command was terminated with SIGKILL: eslint --fix /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/admin.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/charts.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/ActivityTimeline.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/ActivityTimeline.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/HealthScoreCircle.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/HealthScoreCircle.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/MetricCard.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/MetricCard.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/QuickActions.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/QuickActions.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/Recommendations.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/Recommendations.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/database-health.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/dashboard.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/database-health.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/media-audit.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/performance.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/settings.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/media-audit.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/performance.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/utils/accessibility.js
+undefined
+
+✖ eslint --fix failed to spawn:
+Command was terminated with SIGKILL: eslint --fix /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Commenting/DocCommentUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Commenting/DocCommentUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Commenting/FixmeUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Commenting/TodoUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/ControlStructures/InlineControlStructureUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/ControlStructures/InlineControlStructureUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/ControlStructures/InlineControlStructureUnitTest.3.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Debug/ClosureLinterUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Debug/ESLintUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Debug/JSHintUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNewlineUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNewlineUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNewlineUnitTest.3.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNoNewlineUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNoNewlineUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNoNewlineUnitTest.3.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/LineEndingsUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Formatting/MultipleStatementAlignmentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Formatting/SpaceAfterNotUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/PHP/LowerCaseConstantUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Strings/UnnecessaryStringConcatUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/VersionControl/GitMergeConflictUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/WhiteSpace/DisallowSpaceIndentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/WhiteSpace/DisallowTabIndentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/WhiteSpace/IncrementDecrementSpacingUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/WhiteSpace/ScopeIndentUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/MySource/Tests/Debug/FirebugConsoleUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/MySource/Tests/Objects/AssignThisUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/MySource/Tests/Objects/CreateWidgetTypeCallbackUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/MySource/Tests/Strings/JoinStringsUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/PEAR/Tests/ControlStructures/MultiLineConditionUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/PEAR/Tests/Functions/FunctionCallSignatureUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/PEAR/Tests/Functions/FunctionDeclarationUnitTest.js
+undefined
+
+✖ eslint --fix failed to spawn:
+Command was terminated with SIGKILL: eslint --fix /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Classes/DuplicatePropertyUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/DocCommentAlignmentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/FileCommentUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/FileCommentUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/InlineCommentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/LongConditionClosingCommentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/PostStatementCommentUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/PostStatementCommentUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/ControlStructures/ControlSignatureUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/ControlStructures/ForLoopDeclarationUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/ControlStructures/ForLoopDeclarationUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/ControlStructures/SwitchDeclarationUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Debug/JSLintUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Debug/JavaScriptLintUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Formatting/OperatorBracketUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Functions/MultiLineFunctionDeclarationUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Objects/DisallowObjectStringIndexUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Objects/ObjectMemberCommaUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Operators/ComparisonOperatorUsageUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/PHP/DisallowInlineIfUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/PHP/DisallowSizeFunctionsInLoopsUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/ControlStructureSpacingUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/FunctionClosingBraceSpaceUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/FunctionOpeningBraceSpaceUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/LogicalOperatorSpacingUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/OperatorSpacingUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/PropertyLabelSpacingUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/SemicolonSpacingUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/SuperfluousWhitespaceUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/SuperfluousWhitespaceUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/SuperfluousWhitespaceUnitTest.3.js
+undefined
+husky - pre-commit script failed (code 1)

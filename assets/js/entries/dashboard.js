@@ -4,7 +4,7 @@
  * Main entry point for the dashboard admin page.
  * Imports and initializes React components and page-specific functionality.
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React from 'react';

@@ -11,6 +11,36 @@ define( 'WP_ADMIN_HEALTH_TESTS_DIR', __DIR__ );
 // Composer autoloader
 require_once dirname( __DIR__ ) . '/vendor/autoload.php';
 
+// Register test namespace autoloader for Mocks and other test classes.
+spl_autoload_register( function ( $class ) {
+	$prefix = 'WPAdminHealth\\Tests\\';
+	$len    = strlen( $prefix );
+
+	if ( strncmp( $prefix, $class, $len ) !== 0 ) {
+		return;
+	}
+
+	$relative_class = substr( $class, $len );
+
+	// Map namespace components to lowercase directories for WordPress conventions.
+	$path_parts = explode( '\\', $relative_class );
+	$file_name  = array_pop( $path_parts );
+
+	// Convert directory parts to lowercase.
+	$path_parts = array_map( 'strtolower', $path_parts );
+
+	// Build the file path.
+	$file_path = WP_ADMIN_HEALTH_TESTS_DIR;
+	if ( ! empty( $path_parts ) ) {
+		$file_path .= '/' . implode( '/', $path_parts );
+	}
+	$file = $file_path . '/' . $file_name . '.php';
+
+	if ( file_exists( $file ) ) {
+		require $file;
+	}
+} );
+
 // Get WordPress tests directory
 $_tests_dir = getenv( 'WP_TESTS_DIR' );
 

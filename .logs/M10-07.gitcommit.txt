@@ -1,0 +1,556 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (7133386)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 707 files (chunk 1/4)...
+[STARTED] package.json — 707 files (chunk 2/4)...
+[STARTED] package.json — 706 files (chunk 3/4)...
+[STARTED] package.json — 706 files (chunk 4/4)...
+[STARTED] *.{js,jsx} — 20 files
+[STARTED] *.{json,css,scss,md} — 61 files
+[STARTED] *.{js,jsx} — 33 files
+[STARTED] *.{json,css,scss,md} — 13 files
+[STARTED] *.{js,jsx} — 32 files
+[STARTED] *.{json,css,scss,md} — 24 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 33 files
+[SKIPPED] *.{js,jsx} — no files
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 13 files
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 24 files
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 33 files
+[COMPLETED] package.json — 706 files (chunk 4/4)...
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 61 files
+[FAILED] eslint --fix [FAILED]
+[FAILED] eslint --fix [FAILED]
+[FAILED] eslint --fix [SIGKILL]
+[FAILED] eslint --fix [SIGKILL]
+[FAILED] eslint --fix [SIGKILL]
+[FAILED] eslint --fix [SIGKILL]
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[SKIPPED] Skipped because of errors from tasks.
+[STARTED] Reverting to original state because of errors...
+[COMPLETED] Reverting to original state because of errors...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+
+✖ eslint --fix:
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Classes/DuplicatePropertyUnitTest.js
+  10:2  error  Parsing error: Unexpected token, expected "," (10:2)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/DocCommentAlignmentUnitTest.js
+  70:9  error  Parsing error: Identifier 'myFunction' has already been declared. (70:9)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/FileCommentUnitTest.1.js
+   5:1  error  At most one access-control tag may be present on a jsdoc block  jsdoc/check-access
+  23:1  error  Invalid JSDoc tag name "subpkg"                                 jsdoc/check-tag-names
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/FileCommentUnitTest.2.js
+  10:5  error  Parsing error: Missing semicolon. (10:5)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/InlineCommentUnitTest.js
+  122:0  error  Parsing error: Unexpected token (122:0)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/LongConditionClosingCommentUnitTest.js
+    1:10  error    Identifier 'long_function' is not in camel case  camelcase
+    1:10  warning  'long_function' is defined but never used        no-unused-vars
+    3:9   error    'longFunction' is not defined                    no-undef
+   10:9   error    'variable' is not defined                        no-undef
+   12:13  error    'variable' is not defined                        no-undef
+   17:13  error    'variable' is not defined                        no-undef
+   26:9   error    'longFunction' is not defined                    no-undef
+   33:9   error    'variable' is not defined                        no-undef
+   35:13  error    'variable' is not defined                        no-undef
+   40:13  error    'variable' is not defined                        no-undef
+   49:9   error    'longFunction' is not defined                    no-undef
+   56:9   error    'variable' is not defined                        no-undef
+   58:13  error    'variable' is not defined                        no-undef
+   63:13  error    'variable' is not defined                        no-undef
+   74:9   error    'longFunction' is not defined                    no-undef
+   81:9   error    'variable' is not defined                        no-undef
+   83:13  error    'variable' is not defined                        no-undef
+   88:13  error    'variable' is not defined                        no-undef
+  100:6   error    'variable' is not defined                        no-undef
+  100:18  error    'variable' is not defined                        no-undef
+  100:33  error    'variable' is not defined                        no-undef
+  123:6   error    'variable' is not defined                        no-undef
+  123:18  error    'variable' is not defined                        no-undef
+  123:33  error    'variable' is not defined                        no-undef
+  133:10  error    'val' is not defined                             no-undef
+  133:18  error    'val' is not defined                             no-undef
+  133:28  error    'val' is not defined                             no-undef
+  146:8   error    'variable' is not defined                        no-undef
+  169:8   error    'variable' is not defined                        no-undef
+  179:12  error    'something' is not defined                       no-undef
+  192:5   error    'longFunction' is not defined                    no-undef
+  199:5   error    'variable' is not defined                        no-undef
+  201:9   error    'variable' is not defined                        no-undef
+  206:9   error    'variable' is not defined                        no-undef
+  215:5   error    'longFunction' is not defined                    no-undef
+  222:5   error    'variable' is not defined                        no-undef
+  224:9   error    'variable' is not defined                        no-undef
+  229:9   error    'variable' is not defined                        no-undef
+  240:6   error    'variable' is not defined                        no-undef
+  240:18  error    'variable' is not defined                        no-undef
+  240:33  error    'variable' is not defined                        no-undef
+  263:8   error    'variable' is not defined                        no-undef
+  286:8   error    'variable' is not defined                        no-undef
+  330:12  error    'condition' is not defined                       no-undef
+  374:5   error    'something' is not defined                       no-undef
+  377:12  error    'somethingElse' is not defined                   no-undef
+  403:9   error    'something' is not defined                       no-undef
+  442:5   error    'condition' is not defined                       no-undef
+  443:5   error    'condition' is not defined                       no-undef
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/PostStatementCommentUnitTest.1.js
+   1:10  warning  'test' is defined but never used           no-unused-vars
+   1:15  warning  'id' is defined but never used             no-unused-vars
+   1:19  warning  'buttons' is defined but never used        no-unused-vars
+   3:5   warning  Unexpected alert                           no-alert
+   4:5   warning  Unexpected alert                           no-alert
+   9:7   warning  'good' is assigned a value but never used  no-unused-vars
+  11:1   error    'mig' is not defined                       no-undef
+  13:10  warning  'cb' is defined but never used             no-unused-vars
+  18:18  warning  'id' is defined but never used             no-unused-vars
+  25:1   error    'dfx' is not defined                       no-undef
+  25:34  warning  'iframe' is defined but never used         no-unused-vars
+  28:12  error    'doc' is not defined                       no-undef
+  33:5   error    'condition' is not defined                 no-undef
+  34:8   error    'anotherCondition' is not defined          no-undef
+  35:5   error    'condition' is not defined                 no-undef
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Commenting/PostStatementCommentUnitTest.2.js
+  2:7  warning  'i' is assigned a value but never used  no-unused-vars
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/ControlStructures/ControlSignatureUnitTest.js
+    2:1   error  'i' is not defined                   no-undef
+    4:5   error  'i' is not defined                   no-undef
+    5:10  error  'i' is not defined                   no-undef
+    9:5   error  'i' is not defined                   no-undef
+   10:10  error  'i' is not defined                   no-undef
+   14:5   error  'i' is not defined                   no-undef
+   16:8   error  'i' is not defined                   no-undef
+   18:6   error  'i' is not defined                   no-undef
+   18:22  error  'i' is not defined                   no-undef
+   21:5   error  'i' is not defined                   no-undef
+   22:8   error  'i' is not defined                   no-undef
+   24:8   error  'i' is not defined                   no-undef
+   25:5   error  'i' is not defined                   no-undef
+   28:7   error  'i' is not defined                   no-undef
+   29:5   error  'i' is not defined                   no-undef
+   32:8   error  'i' is not defined                   no-undef
+   32:17  error  'i' is not defined                   no-undef
+   34:6   error  'i' is not defined                   no-undef
+   34:13  error  'i' is not defined                   no-undef
+   34:20  error  'i' is not defined                   no-undef
+   35:5   error  'i' is not defined                   no-undef
+   38:5   error  'i' is not defined                   no-undef
+   38:12  error  'i' is not defined                   no-undef
+   38:19  error  'i' is not defined                   no-undef
+   39:5   error  'i' is not defined                   no-undef
+   42:6   error  'i' is not defined                   no-undef
+   42:13  error  'i' is not defined                   no-undef
+   42:20  error  'i' is not defined                   no-undef
+   42:27  error  'i' is not defined                   no-undef
+   44:5   error  'i' is not defined                   no-undef
+   44:7   error  Expected '===' and instead saw '=='  eqeqeq
+   45:5   error  'i' is not defined                   no-undef
+   48:4   error  'i' is not defined                   no-undef
+   48:6   error  Expected '===' and instead saw '=='  eqeqeq
+   49:5   error  'i' is not defined                   no-undef
+   52:5   error  'i' is not defined                   no-undef
+   52:7   error  Expected '===' and instead saw '=='  eqeqeq
+   52:15  error  'i' is not defined                   no-undef
+   54:5   error  'i' is not defined                   no-undef
+   54:7   error  Expected '===' and instead saw '=='  eqeqeq
+   55:5   error  'i' is not defined                   no-undef
+   57:5   error  'i' is not defined                   no-undef
+   60:5   error  'i' is not defined                   no-undef
+   60:7   error  Expected '===' and instead saw '=='  eqeqeq
+   61:5   error  'i' is not defined                   no-undef
+   63:5   error  'i' is not defined                   no-undef
+   66:5   error  'i' is not defined                   no-undef
+   66:7   error  Expected '===' and instead saw '=='  eqeqeq
+   66:15  error  'i' is not defined                   no-undef
+   66:31  error  'i' is not defined                   no-undef
+   68:5   error  'i' is not defined                   no-undef
+   68:7   error  Expected '===' and instead saw '=='  eqeqeq
+   69:5   error  'i' is not defined                   no-undef
+   70:12  error  'i' is not defined                   no-undef
+   70:14  error  Expected '===' and instead saw '=='  eqeqeq
+   71:5   error  'i' is not defined                   no-undef
+   74:5   error  'i' is not defined                   no-undef
+   74:7   error  Expected '===' and instead saw '=='  eqeqeq
+   75:5   error  'i' is not defined                   no-undef
+   76:12  error  'i' is not defined                   no-undef
+   76:14  error  Expected '===' and instead saw '=='  eqeqeq
+   77:5   error  'i' is not defined                   no-undef
+   80:5   error  'i' is not defined                   no-undef
+   80:7   error  Expected '===' and instead saw '=='  eqeqeq
+   80:15  error  'i' is not defined                   no-undef
+   80:33  error  'i' is not defined                   no-undef
+   80:35  error  Expected '===' and instead saw '=='  eqeqeq
+   80:43  error  'i' is not defined                   no-undef
+   82:5   error  'i' is not defined                   no-undef
+   82:7   error  Expected '===' and instead saw '=='  eqeqeq
+   83:5   error  'i' is not defined                   no-undef
+   86:5   error  'i' is not defined                   no-undef
+   86:7   error  Expected '===' and instead saw '=='  eqeqeq
+   87:5   error  'i' is not defined                   no-undef
+   90:5   error  'i' is not defined                   no-undef
+   90:7   error  Expected '===' and instead saw '=='  eqeqeq
+   91:5   error  'i' is not defined                   no-undef
+   94:5   error  'i' is not defined                   no-undef
+   94:7   error  Expected '===' and instead saw '=='  eqeqeq
+   96:5   error  'i' is not defined                   no-undef
+   99:5   error  'i' is not defined                   no-undef
+   99:7   error  Expected '===' and instead saw '=='  eqeqeq
+  103:5   error  'code' is not defined                no-undef
+  108:7   error  'code' is not defined                no-undef
+  112:6   error  'i' is not defined                   no-undef
+  113:10  error  'i' is not defined                   no-undef
+  115:5   error  'i' is not defined                   no-undef
+  117:5   error  'i' is not defined                   no-undef
+  131:5   error  '$' is not defined                   no-undef
+  131:33  error  Expected '===' and instead saw '=='  eqeqeq
+  132:5   error  '$' is not defined                   no-undef
+  134:5   error  '$' is not defined                   no-undef
+  134:33  error  Expected '===' and instead saw '=='  eqeqeq
+  135:5   error  '$foo' is not defined                no-undef
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/ControlStructures/ForLoopDeclarationUnitTest.1.js
+    2:6    error  Unexpected var, use let or const instead  no-var
+   12:6    error  Unexpected var, use let or const instead  no-var
+   12:10   error  'i' is already defined                    no-redeclare
+   19:7    error  Unexpected var, use let or const instead  no-var
+   19:11   error  'i' is already defined                    no-redeclare
+   23:1    error  'dfx' is not defined                      no-undef
+   26:9    error  'dfx' is not defined                      no-undef
+   26:19   error  'widget' is not defined                   no-undef
+   27:9    error  'widget' is not defined                   no-undef
+   27:71   error  'widget' is not defined                   no-undef
+   27:151  error  'widget' is not defined                   no-undef
+   31:6    error  Unexpected var, use let or const instead  no-var
+   31:10   error  'i' is already defined                    no-redeclare
+   33:6    error  Unexpected var, use let or const instead  no-var
+   33:10   error  'i' is already defined                    no-redeclare
+   36:6    error  Unexpected var, use let or const instead  no-var
+   36:10   error  'i' is already defined                    no-redeclare
+   38:1    error  Unreachable code                          no-unreachable
+   38:6    error  Unexpected var, use let or const instead  no-var
+   38:10   error  'i' is already defined                    no-redeclare
+   43:6    error  Unexpected var, use let or const instead  no-var
+   43:10   error  'i' is already defined                    no-redeclare
+   44:7    error  Unexpected var, use let or const instead  no-var
+   44:11   error  'i' is already defined                    no-redeclare
+   45:8    error  Unexpected var, use let or const instead  no-var
+   45:12   error  'i' is already defined                    no-redeclare
+  121:40   error  'widget' is not defined                   no-undef
+  121:92   error  'widget' is not defined                   no-undef
+  121:111  error  Unreachable code                          no-unreachable
+  122:40   error  'widget' is not defined                   no-undef
+  122:88   error  'widget' is not defined                   no-undef
+  122:111  error  Unreachable code                          no-unreachable
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/ControlStructures/ForLoopDeclarationUnitTest.2.js
+  3:0  error  Parsing error: Unexpected token, expected "(" (3:0)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/ControlStructures/SwitchDeclarationUnitTest.js
+  85:4  error  Parsing error: Unexpected token (85:4)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Debug/JSLintUnitTest.js
+  1:1  warning  Unexpected alert  no-alert
+  2:1  warning  Unexpected alert  no-alert
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Debug/JavaScriptLintUnitTest.js
+  1:1  warning  Unexpected alert  no-alert
+  2:1  warning  Unexpected alert  no-alert
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Formatting/OperatorBracketUnitTest.js
+  74:0  error  Parsing error: 'return' outside of function. (74:0)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Functions/MultiLineFunctionDeclarationUnitTest.js
+  19:9  error  Parsing error: Identifier 'blah' has already been declared. (19:9)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Objects/DisallowObjectStringIndexUnitTest.js
+  23:9  error  Parsing error: Identifier 'test' has already been declared. (23:9)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Objects/ObjectMemberCommaUnitTest.js
+   3:1   error    'addTypeFormatButton' is not defined         no-undef
+   7:1   error    Unexpected var, use let or const instead     no-var
+   9:7   warning  'y' is assigned a value but never used       no-unused-vars
+  12:13  warning  'arg' is defined but never used              no-unused-vars
+  17:7   warning  'z' is assigned a value but never used       no-unused-vars
+  20:13  warning  'arg' is defined but never used              no-unused-vars
+  25:1   error    Unexpected var, use let or const instead     no-var
+  25:5   error    'x' is already defined                       no-redeclare
+  25:5   warning  'x' is assigned a value but never used       no-unused-vars
+  29:1   error    'AssetListingEditWidgetType' is not defined  no-undef
+  30:9   warning  'data' is defined but never used             no-unused-vars
+  30:15  warning  'assetid' is defined but never used          no-unused-vars
+  30:24  warning  'editables' is defined but never used        no-unused-vars
+  35:1   error    'AssetListingEditWidgetType' is not defined  no-undef
+  36:9   warning  'data' is defined but never used             no-unused-vars
+  36:15  warning  'assetid' is defined but never used          no-unused-vars
+  36:24  warning  'editables' is defined but never used        no-unused-vars
+  41:1   error    'AssetListingEditWidgetType' is not defined  no-undef
+  43:9   warning  'data' is defined but never used             no-unused-vars
+  43:15  warning  'assetid' is defined but never used          no-unused-vars
+  43:24  warning  'editables' is defined but never used        no-unused-vars
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/Operators/ComparisonOperatorUsageUnitTest.js
+   1:5   error  'value' is not defined               no-undef
+   1:15  error  'TRUE' is not defined                no-undef
+   2:12  error  'value' is not defined               no-undef
+   2:22  error  'FALSE' is not defined               no-undef
+   5:5   error  'value' is not defined               no-undef
+   5:11  error  Expected '===' and instead saw '=='  eqeqeq
+   5:14  error  'TRUE' is not defined                no-undef
+   6:12  error  'value' is not defined               no-undef
+   6:18  error  Expected '===' and instead saw '=='  eqeqeq
+   6:21  error  'FALSE' is not defined               no-undef
+   9:5   error  'value' is not defined               no-undef
+  10:13  error  'value' is not defined               no-undef
+  13:5   error  'value' is not defined               no-undef
+  13:27  error  'TRUE' is not defined                no-undef
+  14:12  error  'myFunction' is not defined          no-undef
+  14:23  error  'value' is not defined               no-undef
+  14:34  error  'FALSE' is not defined               no-undef
+  17:5   error  'value' is not defined               no-undef
+  17:23  error  Expected '===' and instead saw '=='  eqeqeq
+  17:26  error  'TRUE' is not defined                no-undef
+  18:12  error  'myFunction' is not defined          no-undef
+  18:23  error  'value' is not defined               no-undef
+  18:30  error  Expected '===' and instead saw '=='  eqeqeq
+  18:33  error  'FALSE' is not defined               no-undef
+  21:5   error  'value' is not defined               no-undef
+  22:13  error  'myFunction' is not defined          no-undef
+  22:24  error  'value' is not defined               no-undef
+  25:5   error  'value' is not defined               no-undef
+  25:15  error  'TRUE' is not defined                no-undef
+  25:23  error  'other' is not defined               no-undef
+  25:33  error  'FALSE' is not defined               no-undef
+  28:5   error  'value' is not defined               no-undef
+  28:11  error  Expected '===' and instead saw '=='  eqeqeq
+  28:14  error  'TRUE' is not defined                no-undef
+  28:22  error  'other' is not defined               no-undef
+  28:28  error  Expected '===' and instead saw '=='  eqeqeq
+  28:31  error  'FALSE' is not defined               no-undef
+  31:5   error  'value' is not defined               no-undef
+  31:15  error  'other' is not defined               no-undef
+  34:5   error  'one' is not defined                 no-undef
+  34:13  error  'TRUE' is not defined                no-undef
+  34:21  error  'two' is not defined                 no-undef
+  34:29  error  'TRUE' is not defined                no-undef
+  34:37  error  'three' is not defined               no-undef
+  34:47  error  'FALSE' is not defined               no-undef
+  34:56  error  'four' is not defined                no-undef
+  34:65  error  'TRUE' is not defined                no-undef
+  37:5   error  'one' is not defined                 no-undef
+  37:12  error  'two' is not defined                 no-undef
+  37:20  error  'three' is not defined               no-undef
+  37:29  error  'four' is not defined                no-undef
+  40:8   error  'one' is not defined                 no-undef
+  40:12  error  Expected '===' and instead saw '=='  eqeqeq
+  43:8   error  'one' is not defined                 no-undef
+  47:10  error  'one' is not defined                 no-undef
+  47:14  error  Expected '===' and instead saw '=='  eqeqeq
+  50:10  error  'one' is not defined                 no-undef
+  52:6   error  'one' is not defined                 no-undef
+  52:16  error  'one' is not defined                 no-undef
+  52:20  error  Expected '!==' and instead saw '!='  eqeqeq
+  52:26  error  'one' is not defined                 no-undef
+  55:6   error  'one' is not defined                 no-undef
+  55:16  error  'one' is not defined                 no-undef
+  55:27  error  'one' is not defined                 no-undef
+  58:6   error  'type' is not defined                no-undef
+  58:14  error  'types' is not defined               no-undef
+  61:1   error  'variable' is not defined            no-undef
+  61:13  error  'variable2' is not defined           no-undef
+  61:35  error  'variable1' is not defined           no-undef
+  63:1   error  'variable' is not defined            no-undef
+  63:13  error  'variable2' is not defined           no-undef
+  63:23  error  Expected '===' and instead saw '=='  eqeqeq
+  63:34  error  'variable1' is not defined           no-undef
+  65:1   error  'variable' is not defined            no-undef
+  65:13  error  'variable2' is not defined           no-undef
+  65:36  error  'variable1' is not defined           no-undef
+  67:1   error  'variable' is not defined            no-undef
+  67:13  error  'variable2' is not defined           no-undef
+  67:23  error  Expected '===' and instead saw '=='  eqeqeq
+  67:35  error  'variable1' is not defined           no-undef
+  69:1   error  'variable' is not defined            no-undef
+  69:13  error  'variable2' is not defined           no-undef
+  69:32  error  'variable1' is not defined           no-undef
+  71:1   error  'variable' is not defined            no-undef
+  71:13  error  'variable2' is not defined           no-undef
+  71:23  error  Expected '===' and instead saw '=='  eqeqeq
+  71:31  error  'variable1' is not defined           no-undef
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/PHP/DisallowInlineIfUnitTest.js
+  1:1   error  'x' is not defined   no-undef
+  1:6   error  'x' is not defined   no-undef
+  1:8   error  'a' is not defined   no-undef
+  1:10  error  'x' is not defined   no-undef
+  2:1   error  'id' is not defined  no-undef
+  2:6   error  'id' is not defined  no-undef
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/PHP/DisallowSizeFunctionsInLoopsUnitTest.js
+   1:6   error    Unexpected var, use let or const instead     no-var
+   1:21  error    'permissions' is not defined                 no-undef
+   5:17  error    'permissions' is not defined                 no-undef
+   6:10  warning  'length' is assigned a value but never used  no-unused-vars
+  11:6   error    Unexpected var, use let or const instead     no-var
+  11:10  error    'i' is already defined                       no-redeclare
+  12:11  warning  'x' is assigned a value but never used       no-unused-vars
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/ControlStructureSpacingUnitTest.js
+  19:12  error  Parsing error: Missing semicolon. (19:12)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/FunctionClosingBraceSpaceUnitTest.js
+  120:4  error  Parsing error: Unexpected keyword 'this'. (120:4)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/FunctionOpeningBraceSpaceUnitTest.js
+    1:10  warning  'FuncOne' is defined but never used                 no-unused-vars
+    8:1   error    'Testing' is not defined                            no-undef
+   30:10  warning  'FuncFour' is defined but never used                no-unused-vars
+   37:1   error    'AbstractAttributeEditorWidgetType' is not defined  no-undef
+   44:14  warning  'data' is defined but never used                    no-unused-vars
+   46:15  warning  'x' is assigned a value but never used              no-unused-vars
+   48:17  warning  Unexpected alert                                    no-alert
+   58:10  warning  'test' is defined but never used                    no-unused-vars
+   60:11  warning  'y' is assigned a value but never used              no-unused-vars
+   62:9   warning  Unexpected alert                                    no-alert
+   69:7   warning  'myFunc' is assigned a value but never used         no-unused-vars
+   73:5   error    'blah' is not defined                               no-undef
+   73:13  error    'y' is not defined                                  no-undef
+   75:9   warning  Unexpected alert                                    no-alert
+   76:8   error    'z' is not defined                                  no-undef
+   78:5   error    'blah' is not defined                               no-undef
+   78:23  warning  Unexpected alert                                    no-alert
+   84:1   error    'HelpWidgetType' is not defined                     no-undef
+   87:11  warning  'y' is assigned a value but never used              no-unused-vars
+   91:13  warning  Unexpected alert                                    no-alert
+   99:1   error    'CustomFormEditWidgetType' is not defined           no-undef
+  103:15  warning  'settings' is assigned a value but never used       no-unused-vars
+  111:15  warning  'self' is assigned a value but never used           no-unused-vars
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/LogicalOperatorSpacingUnitTest.js
+   3:5   error  'foo' is not defined  no-undef
+   3:12  error  'bar' is not defined  no-undef
+   4:5   error  'foo' is not defined  no-undef
+   4:10  error  'bar' is not defined  no-undef
+   4:17  error  'baz' is not defined  no-undef
+   5:5   error  'foo' is not defined  no-undef
+   5:11  error  'bar' is not defined  no-undef
+   5:16  error  'baz' is not defined  no-undef
+   6:5   error  'foo' is not defined  no-undef
+   6:15  error  'bar' is not defined  no-undef
+   6:24  error  'baz' is not defined  no-undef
+   9:5   error  'foo' is not defined  no-undef
+  10:5   error  'bar' is not defined  no-undef
+  11:8   error  'baz' is not defined  no-undef
+  15:5   error  'foo' is not defined  no-undef
+  16:5   error  'bar' is not defined  no-undef
+  17:7   error  'baz' is not defined  no-undef
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/OperatorSpacingUnitTest.js
+  61:4  error  Parsing error: 'return' outside of function. (61:4)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/PropertyLabelSpacingUnitTest.js
+   1:1   error    Unexpected var, use let or const instead       no-var
+   6:9   warning  Unexpected alert                               no-alert
+   7:16  error    'a' is not defined                             no-undef
+  16:1   error    'id' is not defined                            no-undef
+  16:6   error    'id' is not defined                            no-undef
+  18:1   error    Identifier 'outer_loop' is not in camel case   camelcase
+  19:6   error    'i' is not defined                             no-undef
+  19:11  error    'i' is not defined                             no-undef
+  19:16  error    'i' is not defined                             no-undef
+  20:9   error    'j' is not defined                             no-undef
+  20:14  error    'j' is not defined                             no-undef
+  20:19  error    'j' is not defined                             no-undef
+  21:11  error    'j' is not defined                             no-undef
+  21:12  error    Expected '===' and instead saw '=='            eqeqeq
+  22:16  error    Identifier 'outer_loop' is not in camel case   camelcase
+  25:1   warning  Unexpected alert                               no-alert
+  27:1   error    Identifier 'even_number' is not in camel case  camelcase
+  27:19  error    'i' is not defined                             no-undef
+  27:26  error    Expected '===' and instead saw '=='            eqeqeq
+  28:9   error    'i' is not defined                             no-undef
+  28:11  error    Expected '===' and instead saw '=='            eqeqeq
+  29:15  error    Identifier 'even_number' is not in camel case  camelcase
+  32:9   error    'blah' is not defined                          no-undef
+  33:10  error    'dfx' is not defined                           no-undef
+  34:24  error    'shiftKey' is not defined                      no-undef
+  37:13  error    'blah' is not defined                          no-undef
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/SemicolonSpacingUnitTest.js
+   1:1   error    Unexpected var, use let or const instead  no-var
+   3:9   warning  Unexpected alert                          no-alert
+   4:16  error    'a' is not defined                        no-undef
+   8:1   error    'id' is not defined                       no-undef
+   8:6   error    'id' is not defined                       no-undef
+  10:6   error    'i' is not defined                        no-undef
+  10:14  error    'i' is not defined                        no-undef
+  10:20  error    'i' is not defined                        no-undef
+  11:9   error    'j' is not defined                        no-undef
+  11:14  error    'j' is not defined                        no-undef
+  11:20  error    'j' is not defined                        no-undef
+  12:11  error    'j' is not defined                        no-undef
+  12:12  error    Expected '===' and instead saw '=='       eqeqeq
+  16:1   warning  Unexpected alert                          no-alert
+  19:1   error    Unexpected var, use let or const instead  no-var
+  19:11  error    'a' is not defined                        no-undef
+  21:1   error    Unexpected var, use let or const instead  no-var
+  21:5   error    'sum' is already defined                  no-redeclare
+  21:11  error    'a' is not defined                        no-undef
+  24:1   error    Unexpected var, use let or const instead  no-var
+  24:5   error    'sum' is already defined                  no-redeclare
+  24:5   warning  'sum' is assigned a value but never used  no-unused-vars
+  24:11  error    'a' is not defined                        no-undef
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/SuperfluousWhitespaceUnitTest.1.js
+  46:9  error  Parsing error: Identifier 'myFunction2' has already been declared. (46:9)
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/SuperfluousWhitespaceUnitTest.2.js
+  1:1  warning  Unexpected alert  no-alert
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Squiz/Tests/WhiteSpace/SuperfluousWhitespaceUnitTest.3.js
+  1:1  warning  Unexpected alert  no-alert
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/tests/Core/Files/File/GetDeclarationNameJSTest.js
+  2:5  error  Parsing error: Missing semicolon. (2:5)
+
+✖ 423 problems (370 errors, 53 warnings)
+
+
+✖ eslint --fix failed to spawn:
+Command was terminated with SIGKILL: eslint --fix /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Commenting/DocCommentUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Commenting/DocCommentUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Commenting/FixmeUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Commenting/TodoUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/ControlStructures/InlineControlStructureUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/ControlStructures/InlineControlStructureUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/ControlStructures/InlineControlStructureUnitTest.3.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Debug/ClosureLinterUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Debug/ESLintUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Debug/JSHintUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNewlineUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNewlineUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNewlineUnitTest.3.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNoNewlineUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNoNewlineUnitTest.2.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/EndFileNoNewlineUnitTest.3.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Files/LineEndingsUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Formatting/MultipleStatementAlignmentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Formatting/SpaceAfterNotUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/PHP/LowerCaseConstantUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/Strings/UnnecessaryStringConcatUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/VersionControl/GitMergeConflictUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/WhiteSpace/DisallowSpaceIndentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/WhiteSpace/DisallowTabIndentUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/WhiteSpace/IncrementDecrementSpacingUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/Generic/Tests/WhiteSpace/ScopeIndentUnitTest.1.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/MySource/Tests/Debug/FirebugConsoleUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/MySource/Tests/Objects/AssignThisUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/MySource/Tests/Objects/CreateWidgetTypeCallbackUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/MySource/Tests/Strings/JoinStringsUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/PEAR/Tests/ControlStructures/MultiLineConditionUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/PEAR/Tests/Functions/FunctionCallSignatureUnitTest.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/vendor/squizlabs/php_codesniffer/src/Standards/PEAR/Tests/Functions/FunctionDeclarationUnitTest.js
+undefined
+
+✖ eslint --fix failed to spawn:
+Command was terminated with SIGKILL: eslint --fix /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/admin.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/charts.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/ActivityTimeline.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/ActivityTimeline.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/HealthScoreCircle.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/HealthScoreCircle.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/MetricCard.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/MetricCard.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/QuickActions.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/QuickActions.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/Recommendations.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/Recommendations.test.jsx /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/database-health.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/dashboard.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/database-health.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/media-audit.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/performance.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/entries/settings.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/media-audit.js /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/performance.js
+undefined
+husky - pre-commit script failed (code 1)

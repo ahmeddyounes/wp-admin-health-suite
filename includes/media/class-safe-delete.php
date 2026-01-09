@@ -44,12 +44,122 @@ class Safe_Delete {
 
 	/**
 	 * Constructor.
- * @since 1.0.0
- *
+	 *
+	 * @since 1.0.0
 	 */
 	public function __construct() {
 		global $wpdb;
 		$this->table_name = $wpdb->prefix . 'wpha_deleted_media';
+	}
+
+	/**
+	 * Normalize a file path by resolving . and .. segments without requiring the file to exist.
+	 *
+	 * Unlike realpath(), this function works on non-existent paths and doesn't follow symlinks,
+	 * making it safe for security validation.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $path The path to normalize.
+	 * @return string|false Normalized path or false if path is invalid.
+	 */
+	private function normalize_path( string $path ) {
+		// Reject paths with null bytes (potential security bypass).
+		if ( strpos( $path, "\0" ) !== false ) {
+			return false;
+		}
+
+		// Normalize directory separators.
+		$path = str_replace( '\\', '/', $path );
+
+		// Must be absolute path.
+		if ( empty( $path ) || $path[0] !== '/' ) {
+			return false;
+		}
+
+		$parts     = array();
+		$segments  = explode( '/', $path );
+
+		foreach ( $segments as $segment ) {
+			if ( '' === $segment || '.' === $segment ) {
+				continue;
+			}
+			if ( '..' === $segment ) {
+				if ( empty( $parts ) ) {
+					return false; // Attempting to go above root.
+				}
+				array_pop( $parts );
+			} else {
+				$parts[] = $segment;
+			}
+		}
+
+		return '/' . implode( '/', $parts );
+	}
+
+	/**
+	 * Validate that a path is safely within a base directory.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $path     The path to validate.
+	 * @param string $base_dir The base directory that must contain the path.
+	 * @return bool True if path is safely within base_dir, false otherwise.
+	 */
+	private function is_path_within( string $path, string $base_dir ): bool {
+		$normalized_path = $this->normalize_path( $path );
+		$normalized_base = $this->normalize_path( $base_dir );
+
+		if ( false === $normalized_path || false === $normalized_base ) {
+			return false;
+		}
+
+		// Ensure base_dir ends with / for proper prefix matching.
+		$normalized_base = rtrim( $normalized_base, '/' ) . '/';
+
+		// Check if path starts with base_dir.
+		return strpos( $normalized_path . '/', $normalized_base ) === 0;
+	}
+
+	/**
+	 * Get the WordPress uploads directory path.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return string|false The uploads base directory or false on failure.
+	 */
+	private function get_uploads_directory() {
+		$upload_dir = wp_upload_dir();
+		if ( ! empty( $upload_dir['error'] ) ) {
+			return false;
+		}
+		return $upload_dir['basedir'];
+	}
+
+	/**
+	 * Generate a unique filename for trash storage to avoid collisions.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int    $attachment_id The attachment ID.
+	 * @param string $original_name The original filename.
+	 * @param string $prefix        Optional prefix for the filename.
+	 * @return string Unique filename.
+	 */
+	private function generate_unique_trash_name( int $attachment_id, string $original_name, string $prefix = '' ): string {
+		// Use microtime for higher precision and random bytes for uniqueness.
+		$unique_id = sprintf(
+			'%d_%s_%s',
+			$attachment_id,
+			substr( md5( uniqid( (string) wp_rand(), true ) ), 0, 8 ),
+			microtime( true )
+		);
+
+		if ( '' !== $prefix ) {
+			$unique_id .= '_' . $prefix;
+		}
+
+		return $unique_id . '_' . sanitize_file_name( $original_name );
 	}
 
 	/**
@@ -193,7 +303,18 @@ class Safe_Delete {
 
 		// Delete the file from trash.
 		$file_path = $record['file_path'];
+		$trash_dir = $this->get_trash_directory();
+
 		if ( file_exists( $file_path ) ) {
+			// Validate file is within trash directory for security.
+			// Uses normalize_path() instead of realpath() to avoid TOCTOU and non-existent file issues.
+			if ( ! $trash_dir || ! $this->is_path_within( $file_path, $trash_dir ) ) {
+				return array(
+					'success' => false,
+					'message' => 'Invalid file path for deletion.',
+				);
+			}
+
 			if ( ! unlink( $file_path ) ) {
 				return array(
 					'success' => false,
@@ -207,7 +328,10 @@ class Safe_Delete {
 		if ( ! empty( $metadata['thumbnails_in_trash'] ) ) {
 			foreach ( $metadata['thumbnails_in_trash'] as $thumb_path ) {
 				if ( file_exists( $thumb_path ) ) {
-					unlink( $thumb_path );
+					// Validate thumbnail is within trash directory for security.
+					if ( $trash_dir && $this->is_path_within( $thumb_path, $trash_dir ) ) {
+						unlink( $thumb_path );
+					}
 				}
 			}
 		}
@@ -260,9 +384,36 @@ class Safe_Delete {
 			);
 		}
 
-		$metadata = json_decode( $record['metadata'], true );
-		$trash_file_path = $record['file_path'];
-		$original_file_path = $metadata['file_path'];
+		$metadata           = json_decode( $record['metadata'], true );
+		$trash_file_path    = $record['file_path'];
+		$original_file_path = $metadata['file_path'] ?? '';
+
+		// Security: Validate paths to prevent directory traversal attacks.
+		$trash_dir   = $this->get_trash_directory();
+		$uploads_dir = $this->get_uploads_directory();
+
+		if ( ! $trash_dir || ! $uploads_dir ) {
+			return array(
+				'success' => false,
+				'message' => 'Unable to verify directory paths.',
+			);
+		}
+
+		// Validate trash file is within trash directory.
+		if ( ! $this->is_path_within( $trash_file_path, $trash_dir ) ) {
+			return array(
+				'success' => false,
+				'message' => 'Invalid trash file path.',
+			);
+		}
+
+		// Validate original path is within uploads directory.
+		if ( ! $this->is_path_within( $original_file_path, $uploads_dir ) ) {
+			return array(
+				'success' => false,
+				'message' => 'Invalid restore destination path.',
+			);
+		}
 
 		// Restore main file.
 		if ( ! file_exists( $trash_file_path ) ) {
@@ -289,6 +440,14 @@ class Safe_Delete {
 		// Restore thumbnails.
 		if ( ! empty( $metadata['thumbnails_in_trash'] ) ) {
 			foreach ( $metadata['thumbnails_in_trash'] as $trash_thumb => $original_thumb ) {
+				// Security: Validate thumbnail paths before restore.
+				if ( ! $this->is_path_within( $trash_thumb, $trash_dir ) ) {
+					continue; // Skip invalid trash paths.
+				}
+				if ( ! $this->is_path_within( $original_thumb, $uploads_dir ) ) {
+					continue; // Skip invalid destination paths.
+				}
+
 				if ( file_exists( $trash_thumb ) ) {
 					$original_thumb_dir = dirname( $original_thumb );
 					if ( ! is_dir( $original_thumb_dir ) ) {
@@ -504,8 +663,8 @@ class Safe_Delete {
 			return false;
 		}
 
-		$file_name = basename( $file_path );
-		$unique_name = $attachment_id . '_' . time() . '_' . $file_name;
+		$file_name       = basename( $file_path );
+		$unique_name     = $this->generate_unique_trash_name( (int) $attachment_id, $file_name );
 		$trash_file_path = $trash_dir . '/' . $unique_name;
 
 		if ( ! rename( $file_path, $trash_file_path ) ) {
@@ -547,9 +706,9 @@ class Safe_Delete {
 				continue;
 			}
 
-			$thumb_name = basename( $thumb_path );
-			$unique_thumb_name = $attachment_id . '_' . time() . '_' . $size . '_' . $thumb_name;
-			$trash_thumb_path = $trash_dir . '/' . $unique_thumb_name;
+			$thumb_name        = basename( $thumb_path );
+			$unique_thumb_name = $this->generate_unique_trash_name( (int) $attachment_id, $thumb_name, $size );
+			$trash_thumb_path  = $trash_dir . '/' . $unique_thumb_name;
 
 			if ( rename( $thumb_path, $trash_thumb_path ) ) {
 				$thumbnails[ $trash_thumb_path ] = $thumb_path;

@@ -5,7 +5,7 @@
  * Fetches from REST endpoint and shows the last 10 activities with icons,
  * descriptions, and formatted data.
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React, { useState, useEffect } from 'react';
@@ -34,7 +34,7 @@ const ACTIVITY_DESCRIPTIONS = {
  * Format bytes to human-readable size
  *
  * @param {number} bytes - Number of bytes
- * @returns {string} Formatted size (e.g., "1.5 MB")
+ * @return {string} Formatted size (e.g., "1.5 MB")
  */
 const formatBytes = (bytes) => {
 	if (bytes === 0) return '0 Bytes';
@@ -50,7 +50,7 @@ const formatBytes = (bytes) => {
  * Get relative time using wp.date
  *
  * @param {string} dateString - Date string in ISO format
- * @returns {string} Relative time (e.g., "2 hours ago")
+ * @return {string} Relative time (e.g., "2 hours ago")
  */
 const getRelativeTime = (dateString) => {
 	if (typeof wp !== 'undefined' && wp.date && wp.date.dateI18n) {
@@ -60,17 +60,23 @@ const getRelativeTime = (dateString) => {
 		const diffInSeconds = Math.floor((now - date) / 1000);
 
 		if (diffInSeconds < 60) {
-			return diffInSeconds === 1 ? '1 second ago' : `${diffInSeconds} seconds ago`;
+			return diffInSeconds === 1
+				? '1 second ago'
+				: `${diffInSeconds} seconds ago`;
 		}
 
 		const diffInMinutes = Math.floor(diffInSeconds / 60);
 		if (diffInMinutes < 60) {
-			return diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`;
+			return diffInMinutes === 1
+				? '1 minute ago'
+				: `${diffInMinutes} minutes ago`;
 		}
 
 		const diffInHours = Math.floor(diffInMinutes / 60);
 		if (diffInHours < 24) {
-			return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
+			return diffInHours === 1
+				? '1 hour ago'
+				: `${diffInHours} hours ago`;
 		}
 
 		const diffInDays = Math.floor(diffInHours / 24);
@@ -80,7 +86,9 @@ const getRelativeTime = (dateString) => {
 
 		const diffInMonths = Math.floor(diffInDays / 30);
 		if (diffInMonths < 12) {
-			return diffInMonths === 1 ? '1 month ago' : `${diffInMonths} months ago`;
+			return diffInMonths === 1
+				? '1 month ago'
+				: `${diffInMonths} months ago`;
 		}
 
 		const diffInYears = Math.floor(diffInMonths / 12);
@@ -94,7 +102,7 @@ const getRelativeTime = (dateString) => {
 /**
  * ActivityTimeline Component
  *
- * @returns {JSX.Element} Rendered component
+ * @return {JSX.Element} Rendered component
  */
 const ActivityTimeline = () => {
 	const [activities, setActivities] = useState([]);
@@ -121,7 +129,9 @@ const ActivityTimeline = () => {
 			if (response.success && Array.isArray(response.data)) {
 				setActivities(response.data);
 			} else {
-				throw new Error(response.message || 'Failed to fetch activities');
+				throw new Error(
+					response.message || 'Failed to fetch activities'
+				);
 			}
 		} catch (err) {
 			console.error('Error fetching activities:', err);
@@ -274,7 +284,10 @@ const ActivityTimeline = () => {
 			<div style={containerStyles}>
 				<h2 style={headerStyles}>Recent Activity</h2>
 				<div style={loadingStyles}>
-					<span className="dashicons dashicons-update" style={{ animation: 'rotation 2s infinite linear' }} />
+					<span
+						className="dashicons dashicons-update"
+						style={{ animation: 'rotation 2s infinite linear' }}
+					/>
 					<p>Loading activities...</p>
 				</div>
 			</div>
@@ -287,13 +300,23 @@ const ActivityTimeline = () => {
 			<div style={containerStyles}>
 				<h2 style={headerStyles}>Recent Activity</h2>
 				<div style={errorStyles}>
-					<span className="dashicons dashicons-warning" style={{ fontSize: '48px', marginBottom: '12px' }} />
+					<span
+						className="dashicons dashicons-warning"
+						style={{ fontSize: '48px', marginBottom: '12px' }}
+					/>
 					<p>{error}</p>
 					<button
 						onClick={fetchActivities}
-						style={{ ...ctaButtonStyles, backgroundColor: '#d63638' }}
-						onMouseEnter={(e) => (e.target.style.backgroundColor = '#b32d2e')}
-						onMouseLeave={(e) => (e.target.style.backgroundColor = '#d63638')}
+						style={{
+							...ctaButtonStyles,
+							backgroundColor: '#d63638',
+						}}
+						onMouseEnter={(e) =>
+							(e.target.style.backgroundColor = '#b32d2e')
+						}
+						onMouseLeave={(e) =>
+							(e.target.style.backgroundColor = '#d63638')
+						}
 					>
 						Try Again
 					</button>
@@ -308,10 +331,15 @@ const ActivityTimeline = () => {
 			<div style={containerStyles}>
 				<h2 style={headerStyles}>Recent Activity</h2>
 				<div style={emptyStateStyles}>
-					<div className="dashicons dashicons-chart-line" style={emptyIconStyles} aria-hidden="true" />
+					<div
+						className="dashicons dashicons-chart-line"
+						style={emptyIconStyles}
+						aria-hidden="true"
+					/>
 					<h3 style={emptyTitleStyles}>No Activity Yet</h3>
 					<p style={emptyMessageStyles}>
-						Get started by running your first scan to see your site&apos;s health metrics.
+						Get started by running your first scan to see your
+						site&apos;s health metrics.
 					</p>
 					<button
 						onClick={() => {
@@ -320,8 +348,12 @@ const ActivityTimeline = () => {
 							fetchActivities();
 						}}
 						style={ctaButtonStyles}
-						onMouseEnter={(e) => (e.target.style.backgroundColor = '#135e96')}
-						onMouseLeave={(e) => (e.target.style.backgroundColor = '#2271b1')}
+						onMouseEnter={(e) =>
+							(e.target.style.backgroundColor = '#135e96')
+						}
+						onMouseLeave={(e) =>
+							(e.target.style.backgroundColor = '#2271b1')
+						}
 					>
 						Run Your First Scan
 					</button>
@@ -334,10 +366,14 @@ const ActivityTimeline = () => {
 	return (
 		<div style={containerStyles}>
 			<h2 style={headerStyles}>Recent Activity</h2>
-			<ul style={timelineStyles} role="list">
+			<ul style={timelineStyles}>
 				{activities.map((activity, index) => {
-					const icon = ACTIVITY_ICONS[activity.scan_type] || 'dashicons-admin-generic';
-					const description = ACTIVITY_DESCRIPTIONS[activity.scan_type] || activity.scan_type;
+					const icon =
+						ACTIVITY_ICONS[activity.scan_type] ||
+						'dashicons-admin-generic';
+					const description =
+						ACTIVITY_DESCRIPTIONS[activity.scan_type] ||
+						activity.scan_type;
 					const isLast = index === activities.length - 1;
 
 					return (
@@ -350,7 +386,11 @@ const ActivityTimeline = () => {
 						>
 							{/* Icon */}
 							<div style={iconContainerStyles}>
-								<span className={`dashicons ${icon}`} style={iconStyles} aria-hidden="true" />
+								<span
+									className={`dashicons ${icon}`}
+									style={iconStyles}
+									aria-hidden="true"
+								/>
 							</div>
 
 							{/* Content */}
@@ -359,18 +399,38 @@ const ActivityTimeline = () => {
 								<div style={detailsStyles}>
 									{activity.items_cleaned > 0 && (
 										<span style={detailItemStyles}>
-											<span className="dashicons dashicons-yes-alt" style={{ fontSize: '14px', color: '#00a32a' }} />
-											{activity.items_cleaned} {activity.items_cleaned === 1 ? 'item' : 'items'} affected
+											<span
+												className="dashicons dashicons-yes-alt"
+												style={{
+													fontSize: '14px',
+													color: '#00a32a',
+												}}
+											/>
+											{activity.items_cleaned}{' '}
+											{activity.items_cleaned === 1
+												? 'item'
+												: 'items'}{' '}
+											affected
 										</span>
 									)}
 									{activity.bytes_freed > 0 && (
 										<span style={detailItemStyles}>
-											<span className="dashicons dashicons-cloud" style={{ fontSize: '14px', color: '#2271b1' }} />
-											{formatBytes(activity.bytes_freed)} freed
+											<span
+												className="dashicons dashicons-cloud"
+												style={{
+													fontSize: '14px',
+													color: '#2271b1',
+												}}
+											/>
+											{formatBytes(activity.bytes_freed)}{' '}
+											freed
 										</span>
 									)}
 								</div>
-								<time style={timestampStyles} dateTime={activity.created_at}>
+								<time
+									style={timestampStyles}
+									dateTime={activity.created_at}
+								>
 									{getRelativeTime(activity.created_at)}
 								</time>
 							</div>

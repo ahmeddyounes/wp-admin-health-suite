@@ -65,6 +65,7 @@ class Assets {
 	 */
 	private function init_hooks() {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+		add_filter( 'script_loader_tag', array( $this, 'add_async_defer_attributes' ), 10, 3 );
 
 		/**
 		 * Fires after assets initialization.
@@ -119,7 +120,9 @@ class Assets {
 	 * @return void
 	 */
 	private function enqueue_admin_styles() {
-		// Enqueue main admin CSS.
+		$screen = get_current_screen();
+
+		// Enqueue main admin CSS (always load on plugin pages).
 		wp_enqueue_style(
 			'wpha-admin-css',
 			$this->plugin_url . 'assets/css/admin.css',
@@ -128,41 +131,27 @@ class Assets {
 			'all'
 		);
 
-		// Enqueue dashboard CSS.
-		wp_enqueue_style(
-			'wpha-dashboard-css',
-			$this->plugin_url . 'assets/css/dashboard.css',
-			array(),
-			$this->get_asset_version( 'assets/css/dashboard.css' ),
-			'all'
+		// Lazy load page-specific CSS based on current screen.
+		$css_map = array(
+			'toplevel_page_admin-health'                  => 'dashboard.css',
+			'admin-health_page_admin-health-database'     => 'database-health.css',
+			'admin-health_page_admin-health-media'        => 'media-audit.css',
+			'admin-health_page_admin-health-performance'  => 'performance.css',
 		);
 
-		// Enqueue database health CSS.
-		wp_enqueue_style(
-			'wpha-database-health-css',
-			$this->plugin_url . 'assets/css/database-health.css',
-			array(),
-			$this->get_asset_version( 'assets/css/database-health.css' ),
-			'all'
-		);
+		// Only load the CSS for the current page.
+		if ( isset( $css_map[ $screen->id ] ) ) {
+			$css_file = $css_map[ $screen->id ];
+			$handle = 'wpha-' . str_replace( '.css', '', $css_file ) . '-css';
 
-		// Enqueue media audit CSS.
-		wp_enqueue_style(
-			'wpha-media-audit-css',
-			$this->plugin_url . 'assets/css/media-audit.css',
-			array(),
-			$this->get_asset_version( 'assets/css/media-audit.css' ),
-			'all'
-		);
-
-		// Enqueue performance CSS.
-		wp_enqueue_style(
-			'wpha-performance-css',
-			$this->plugin_url . 'assets/css/performance.css',
-			array(),
-			$this->get_asset_version( 'assets/css/performance.css' ),
-			'all'
-		);
+			wp_enqueue_style(
+				$handle,
+				$this->plugin_url . 'assets/css/' . $css_file,
+				array( 'wpha-admin-css' ),
+				$this->get_asset_version( 'assets/css/' . $css_file ),
+				'all'
+			);
+		}
 	}
 
 	/**
@@ -203,7 +192,7 @@ class Assets {
 		// Enqueue page-specific bundle
 		$bundle_path      = 'assets/js/dist/' . $bundle_name . '.bundle.js';
 		$bundle_asset     = $this->get_asset_data( $bundle_name );
-		$bundle_deps      = array_merge( array( 'react', 'react-dom' ), $bundle_asset['dependencies'] );
+		$bundle_deps      = array_merge( array( 'react', 'react-dom', 'wp-i18n' ), $bundle_asset['dependencies'] );
 
 		// Add vendor bundle as dependency if it exists
 		if ( file_exists( $this->plugin_path . 'assets/js/dist/vendor.bundle.js' ) ) {
@@ -216,6 +205,13 @@ class Assets {
 			$bundle_deps,
 			$this->get_asset_version( $bundle_path ),
 			true
+		);
+
+		// Set script translations for wp.i18n support.
+		wp_set_script_translations(
+			'wpha-' . $bundle_name . '-js',
+			'wp-admin-health-suite',
+			$this->plugin_path . 'languages'
 		);
 
 		// Localize script with data.
@@ -240,7 +236,7 @@ class Assets {
 				'rest_url'   => rest_url(),
 				'plugin_url' => $this->plugin_url,
 				'i18n'       => array(
-					'loading'       => __( 'Loading...', 'wp-admin-health-suite' ),
+					'loading'       => __( 'Loading…', 'wp-admin-health-suite' ),
 					'error'         => __( 'An error occurred.', 'wp-admin-health-suite' ),
 					'success'       => __( 'Success!', 'wp-admin-health-suite' ),
 					'confirm'       => __( 'Are you sure?', 'wp-admin-health-suite' ),
@@ -249,7 +245,7 @@ class Assets {
 					'delete'        => __( 'Delete', 'wp-admin-health-suite' ),
 					'refresh'       => __( 'Refresh', 'wp-admin-health-suite' ),
 					'no_data'       => __( 'No data available.', 'wp-admin-health-suite' ),
-					'processing'    => __( 'Processing...', 'wp-admin-health-suite' ),
+					'processing'    => __( 'Processing…', 'wp-admin-health-suite' ),
 					'analyze'       => __( 'Analyze', 'wp-admin-health-suite' ),
 					'clean'         => __( 'Clean', 'wp-admin-health-suite' ),
 					'revisions'     => __( 'Post Revisions', 'wp-admin-health-suite' ),
@@ -308,5 +304,41 @@ class Assets {
 
 		// Use plugin version in production.
 		return $this->version;
+	}
+
+	/**
+	 * Add async/defer attributes to script tags for better performance.
+	 *
+	 * Non-critical scripts are loaded with defer to improve page load time.
+	 * This ensures scripts don't block the rendering of the page.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $tag    The script tag HTML.
+	 * @param string $handle The script handle.
+	 * @param string $src    The script source URL.
+	 * @return string Modified script tag.
+	 */
+	public function add_async_defer_attributes( $tag, $handle, $src ) {
+		// Only apply to our plugin scripts.
+		if ( strpos( $handle, 'wpha-' ) !== 0 ) {
+			return $tag;
+		}
+
+		// Don't defer vendor bundle or critical dependencies.
+		$no_defer_scripts = array(
+			'wpha-vendor-js',
+		);
+
+		if ( in_array( $handle, $no_defer_scripts, true ) ) {
+			return $tag;
+		}
+
+		// Add defer attribute for non-critical scripts.
+		if ( strpos( $tag, ' defer' ) === false ) {
+			$tag = str_replace( ' src=', ' defer src=', $tag );
+		}
+
+		return $tag;
 	}
 }

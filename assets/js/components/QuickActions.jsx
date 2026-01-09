@@ -6,10 +6,11 @@
  * Includes confirmation modals for destructive actions, progress indicators,
  * and toast notifications.
  *
- * @package WPAdminHealth
+ * @package
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { announcer, FocusManager } from '../utils/accessibility';
 
 /**
  * Actions configuration array
@@ -26,7 +27,8 @@ const ACTIONS = [
 		id: 'clean-revisions',
 		label: 'Clean Revisions',
 		icon: 'dashicons-backup',
-		description: 'Remove old post revisions to reduce database size and improve performance',
+		description:
+			'Remove old post revisions to reduce database size and improve performance',
 		action: 'clean_revisions',
 		confirmRequired: true,
 	},
@@ -42,7 +44,8 @@ const ACTIONS = [
 		id: 'find-unused-media',
 		label: 'Find Unused Media',
 		icon: 'dashicons-images-alt2',
-		description: 'Scan for media files that are not attached to any posts or pages',
+		description:
+			'Scan for media files that are not attached to any posts or pages',
 		action: 'find_unused_media',
 		confirmRequired: false,
 	},
@@ -50,7 +53,8 @@ const ACTIONS = [
 		id: 'optimize-tables',
 		label: 'Optimize Tables',
 		icon: 'dashicons-database',
-		description: 'Optimize database tables to reclaim unused space and improve query performance',
+		description:
+			'Optimize database tables to reclaim unused space and improve query performance',
 		action: 'optimize_tables',
 		confirmRequired: true,
 	},
@@ -58,7 +62,8 @@ const ACTIONS = [
 		id: 'full-scan',
 		label: 'Full Scan',
 		icon: 'dashicons-search',
-		description: 'Run a comprehensive health scan to identify all potential issues',
+		description:
+			'Run a comprehensive health scan to identify all potential issues',
 		action: 'full_scan',
 		confirmRequired: false,
 	},
@@ -67,13 +72,51 @@ const ACTIONS = [
 /**
  * QuickActions Component
  *
- * @returns {JSX.Element} Rendered component
+ * @return {JSX.Element} Rendered component
  */
 const QuickActions = () => {
 	const [activeAction, setActiveAction] = useState(null);
 	const [showConfirmModal, setShowConfirmModal] = useState(false);
 	const [executingAction, setExecutingAction] = useState(null);
 	const [toasts, setToasts] = useState([]);
+	const modalRef = useRef(null);
+	const previousFocusRef = useRef(null);
+	const removeFocusTrapRef = useRef(null);
+
+	/**
+	 * Set up focus trap when modal opens
+	 */
+	useEffect(() => {
+		if (showConfirmModal && modalRef.current) {
+			// Save current focus
+			previousFocusRef.current = FocusManager.saveFocus();
+
+			// Set up focus trap
+			removeFocusTrapRef.current = FocusManager.trapFocus(
+				modalRef.current
+			);
+
+			// Announce modal opening to screen readers
+			announcer.announce(
+				`Confirmation dialog opened for ${activeAction?.label || 'action'}`
+			);
+		} else if (!showConfirmModal && removeFocusTrapRef.current) {
+			// Remove focus trap
+			removeFocusTrapRef.current();
+			removeFocusTrapRef.current = null;
+
+			// Restore focus
+			if (previousFocusRef.current) {
+				FocusManager.restoreFocus(previousFocusRef.current);
+			}
+		}
+
+		return () => {
+			if (removeFocusTrapRef.current) {
+				removeFocusTrapRef.current();
+			}
+		};
+	}, [showConfirmModal, activeAction]);
 
 	/**
 	 * Handle action button click
@@ -114,12 +157,20 @@ const QuickActions = () => {
 			const data = await response.json();
 
 			if (response.ok && data.success) {
-				showToast('success', data.message || `${action.label} completed successfully`);
+				const successMsg =
+					data.message || `${action.label} completed successfully`;
+				showToast('success', successMsg);
+				announcer.announceSuccess(successMsg);
 			} else {
-				showToast('error', data.message || `Failed to execute ${action.label}`);
+				const errorMsg =
+					data.message || `Failed to execute ${action.label}`;
+				showToast('error', errorMsg);
+				announcer.announceError(errorMsg);
 			}
 		} catch (error) {
-			showToast('error', `Error executing ${action.label}: ${error.message}`);
+			const errorMsg = `Error executing ${action.label}: ${error.message}`;
+			showToast('error', errorMsg);
+			announcer.announceError(errorMsg);
 		} finally {
 			setExecutingAction(null);
 		}
@@ -128,7 +179,7 @@ const QuickActions = () => {
 	/**
 	 * Show a toast notification
 	 *
-	 * @param {string} type - 'success' or 'error'
+	 * @param {string} type    - 'success' or 'error'
 	 * @param {string} message - The message to display
 	 */
 	const showToast = (type, message) => {
@@ -147,9 +198,24 @@ const QuickActions = () => {
 	 * Close the confirmation modal
 	 */
 	const handleCloseModal = () => {
+		announcer.announce('Confirmation dialog closed');
 		setShowConfirmModal(false);
 		setActiveAction(null);
 	};
+
+	/**
+	 * Handle escape key to close modal
+	 */
+	useEffect(() => {
+		const handleEscape = (e) => {
+			if (e.key === 'Escape' && showConfirmModal) {
+				handleCloseModal();
+			}
+		};
+
+		document.addEventListener('keydown', handleEscape);
+		return () => document.removeEventListener('keydown', handleEscape);
+	}, [showConfirmModal]);
 
 	/**
 	 * Confirm and execute the action
@@ -162,6 +228,8 @@ const QuickActions = () => {
 
 	/**
 	 * Handle keyboard navigation for action buttons
+	 * @param e
+	 * @param action
 	 */
 	const handleKeyPress = (e, action) => {
 		if (e.key === 'Enter' || e.key === ' ') {
@@ -172,6 +240,7 @@ const QuickActions = () => {
 
 	/**
 	 * Dismiss a toast notification
+	 * @param toastId
 	 */
 	const dismissToast = (toastId) => {
 		setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
@@ -388,14 +457,23 @@ const QuickActions = () => {
 							title={action.description}
 							aria-label={`${action.label}: ${action.description}`}
 							aria-busy={isExecuting}
-							onClick={() => !isExecuting && handleActionClick(action)}
-							onKeyPress={(e) => !isExecuting && handleKeyPress(e, action)}
+							onClick={() =>
+								!isExecuting && handleActionClick(action)
+							}
+							onKeyPress={(e) =>
+								!isExecuting && handleKeyPress(e, action)
+							}
 							style={{
 								...buttonStyles,
 								...(isExecuting ? buttonDisabledStyles : {}),
 							}}
 						>
-							{isExecuting && <div style={spinnerStyles} aria-label="Loading" />}
+							{isExecuting && (
+								<div
+									style={spinnerStyles}
+									aria-label="Loading"
+								/>
+							)}
 
 							<span
 								className={`dashicons ${action.icon}`}
@@ -431,6 +509,7 @@ const QuickActions = () => {
 					aria-describedby="modal-description"
 				>
 					<div
+						ref={modalRef}
 						className="quick-action-modal"
 						style={modalStyles}
 						onClick={(e) => e.stopPropagation()}
@@ -454,6 +533,7 @@ const QuickActions = () => {
 								onMouseLeave={(e) => {
 									e.target.style.backgroundColor = '#fff';
 								}}
+								aria-label="Cancel action and close dialog"
 							>
 								Cancel
 							</button>
@@ -466,6 +546,7 @@ const QuickActions = () => {
 								onMouseLeave={(e) => {
 									e.target.style.backgroundColor = '#2271b1';
 								}}
+								aria-label={`Confirm and execute ${activeAction.label}`}
 							>
 								Confirm
 							</button>
@@ -483,25 +564,38 @@ const QuickActions = () => {
 							className="quick-action-toast"
 							style={{
 								...toastStyles,
-								...(toast.type === 'success' ? toastSuccessStyles : toastErrorStyles),
+								...(toast.type === 'success'
+									? toastSuccessStyles
+									: toastErrorStyles),
 							}}
 							role="alert"
 							aria-live="polite"
 						>
 							<span
 								className={`dashicons ${
-									toast.type === 'success' ? 'dashicons-yes-alt' : 'dashicons-warning'
+									toast.type === 'success'
+										? 'dashicons-yes-alt'
+										: 'dashicons-warning'
 								}`}
 								style={{
 									fontSize: '20px',
 									width: '20px',
 									height: '20px',
-									color: toast.type === 'success' ? '#00a32a' : '#d63638',
+									color:
+										toast.type === 'success'
+											? '#00a32a'
+											: '#d63638',
 									flexShrink: 0,
 								}}
 								aria-hidden="true"
 							/>
-							<div style={{ flex: 1, fontSize: '14px', color: '#1d2327' }}>
+							<div
+								style={{
+									flex: 1,
+									fontSize: '14px',
+									color: '#1d2327',
+								}}
+							>
 								{toast.message}
 							</div>
 							<button

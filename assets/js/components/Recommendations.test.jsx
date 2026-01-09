@@ -1,7 +1,7 @@
 /**
  * Tests for Recommendations Component
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React from 'react';
@@ -58,7 +58,11 @@ describe('Recommendations', () => {
 			action_params: {
 				endpoint: '/wpha/v1/optimize/images',
 			},
-			steps: ['Scan for large images', 'Compress images', 'Update references'],
+			steps: [
+				'Scan for large images',
+				'Compress images',
+				'Update references',
+			],
 		},
 		{
 			id: 'rec-3',
@@ -89,13 +93,17 @@ describe('Recommendations', () => {
 
 	it('displays loading state correctly', () => {
 		render(<Recommendations recommendations={[]} loading={true} />);
-		expect(screen.getByText('Loading recommendations...')).toBeInTheDocument();
+		expect(
+			screen.getByText('Loading recommendations...')
+		).toBeInTheDocument();
 	});
 
 	it('displays empty state when no recommendations', () => {
 		render(<Recommendations recommendations={[]} />);
 		expect(screen.getByText('All clear!')).toBeInTheDocument();
-		expect(screen.getByText(/Your site health is excellent/)).toBeInTheDocument();
+		expect(
+			screen.getByText(/Your site health is excellent/)
+		).toBeInTheDocument();
 	});
 
 	it('displays correct count of recommendations', () => {
@@ -107,17 +115,23 @@ describe('Recommendations', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 		expect(screen.getByText('Clean up database')).toBeInTheDocument();
 		expect(screen.getByText('Optimize images')).toBeInTheDocument();
-		expect(screen.getByText('Update security settings')).toBeInTheDocument();
+		expect(
+			screen.getByText('Update security settings')
+		).toBeInTheDocument();
 	});
 
 	it('displays recommendation descriptions', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
-		expect(screen.getByText('Remove old revisions to improve performance')).toBeInTheDocument();
+		expect(
+			screen.getByText('Remove old revisions to improve performance')
+		).toBeInTheDocument();
 	});
 
 	it('expands recommendation when clicked', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 		expect(screen.getByText('Steps to resolve:')).toBeInTheDocument();
 		expect(screen.getByText('Backup database')).toBeInTheDocument();
@@ -125,7 +139,9 @@ describe('Recommendations', () => {
 
 	it('collapses recommendation when clicked again', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 
 		// Expand
 		fireEvent.click(firstRecommendation);
@@ -153,7 +169,9 @@ describe('Recommendations', () => {
 		fireEvent.change(sortSelect, { target: { value: 'priority' } });
 
 		const recommendations = screen.getAllByRole('heading', { level: 3 });
-		expect(recommendations[0]).toHaveTextContent('Update security settings'); // priority 95
+		expect(recommendations[0]).toHaveTextContent(
+			'Update security settings'
+		); // priority 95
 		expect(recommendations[1]).toHaveTextContent('Clean up database'); // priority 90
 	});
 
@@ -166,12 +184,19 @@ describe('Recommendations', () => {
 		const recommendations = screen.getAllByRole('heading', { level: 3 });
 		expect(recommendations[0]).toHaveTextContent('Clean up database'); // database
 		expect(recommendations[1]).toHaveTextContent('Optimize images'); // media
-		expect(recommendations[2]).toHaveTextContent('Update security settings'); // security
+		expect(recommendations[2]).toHaveTextContent(
+			'Update security settings'
+		); // security
 	});
 
 	it('calls onRefresh when refresh button is clicked', () => {
 		const onRefresh = jest.fn();
-		render(<Recommendations recommendations={mockRecommendations} onRefresh={onRefresh} />);
+		render(
+			<Recommendations
+				recommendations={mockRecommendations}
+				onRefresh={onRefresh}
+			/>
+		);
 
 		const refreshButton = screen.getByText('Refresh');
 		fireEvent.click(refreshButton);
@@ -182,7 +207,9 @@ describe('Recommendations', () => {
 	it('displays dismiss button when recommendation is expanded', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 
 		expect(screen.getByText('Dismiss')).toBeInTheDocument();
@@ -192,7 +219,9 @@ describe('Recommendations', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
 		// Expand first recommendation
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 
 		// Click dismiss
@@ -208,19 +237,26 @@ describe('Recommendations', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
 		// Expand and dismiss first recommendation
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 		const dismissButton = screen.getByText('Dismiss');
 		fireEvent.click(dismissButton);
 
 		// Check localStorage
-		const dismissed = JSON.parse(localStorageMock.getItem('wpha_dismissed_recommendations'));
+		const dismissed = JSON.parse(
+			localStorageMock.getItem('wpha_dismissed_recommendations')
+		);
 		expect(dismissed).toContain('rec-1');
 	});
 
 	it('loads dismissed recommendations from localStorage on mount', () => {
 		// Pre-populate localStorage
-		localStorageMock.setItem('wpha_dismissed_recommendations', JSON.stringify(['rec-1']));
+		localStorageMock.setItem(
+			'wpha_dismissed_recommendations',
+			JSON.stringify(['rec-1'])
+		);
 
 		render(<Recommendations recommendations={mockRecommendations} />);
 
@@ -232,7 +268,9 @@ describe('Recommendations', () => {
 	it('shows Fix Now button for cleanup actions', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 
 		expect(screen.getByText('Fix Now')).toBeInTheDocument();
@@ -241,7 +279,9 @@ describe('Recommendations', () => {
 	it('shows Preview button when recommendation is expanded', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 
 		expect(screen.getByText('Preview')).toBeInTheDocument();
@@ -250,7 +290,9 @@ describe('Recommendations', () => {
 	it('shows Learn More button when recommendation is expanded', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 
 		expect(screen.getByText('Learn More')).toBeInTheDocument();
@@ -259,7 +301,9 @@ describe('Recommendations', () => {
 	it('opens WordPress support when Learn More is clicked', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 
 		const learnMoreButton = screen.getByText('Learn More');
@@ -274,7 +318,9 @@ describe('Recommendations', () => {
 	it('shows alert when Preview is clicked', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 
 		const previewButton = screen.getByText('Preview');
@@ -301,7 +347,9 @@ describe('Recommendations', () => {
 	it('renders steps when recommendation is expanded', () => {
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		const firstRecommendation = screen.getByText('Clean up database').closest('div');
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
 		fireEvent.click(firstRecommendation);
 
 		expect(screen.getByText('Backup database')).toBeInTheDocument();
@@ -311,11 +359,16 @@ describe('Recommendations', () => {
 
 	it('displays "all dismissed" message when all recommendations are dismissed', () => {
 		// Dismiss all recommendations
-		localStorageMock.setItem('wpha_dismissed_recommendations', JSON.stringify(['rec-1', 'rec-2', 'rec-3']));
+		localStorageMock.setItem(
+			'wpha_dismissed_recommendations',
+			JSON.stringify(['rec-1', 'rec-2', 'rec-3'])
+		);
 
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		expect(screen.getByText('All recommendations dismissed')).toBeInTheDocument();
+		expect(
+			screen.getByText('All recommendations dismissed')
+		).toBeInTheDocument();
 	});
 
 	it('shows Run New Scan button in empty state when onRefresh is provided', () => {

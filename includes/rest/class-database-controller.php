@@ -10,6 +10,8 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Contracts\AnalyzerInterface;
 use WPAdminHealth\Database\Analyzer;
 use WPAdminHealth\Database\Revisions_Manager;
 use WPAdminHealth\Database\Transients_Cleaner;
@@ -38,6 +40,44 @@ class Database_Controller extends REST_Controller {
 	 * @var string
 	 */
 	protected $rest_base = 'database';
+
+	/**
+	 * Analyzer instance.
+	 *
+	 * @since 1.1.0
+	 * @var AnalyzerInterface|null
+	 */
+	protected ?AnalyzerInterface $analyzer = null;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param SettingsInterface|null $settings Optional settings instance for dependency injection.
+	 * @param AnalyzerInterface|null $analyzer Optional analyzer instance for dependency injection.
+	 */
+	public function __construct( ?SettingsInterface $settings = null, ?AnalyzerInterface $analyzer = null ) {
+		parent::__construct( $settings );
+		$this->analyzer = $analyzer;
+	}
+
+	/**
+	 * Get the analyzer instance.
+	 *
+	 * Falls back to creating a new instance if not injected.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return AnalyzerInterface The analyzer instance.
+	 */
+	protected function get_analyzer(): AnalyzerInterface {
+		if ( null === $this->analyzer ) {
+			$this->analyzer = new Analyzer();
+		}
+
+		return $this->analyzer;
+	}
 
 	/**
 	 * Register routes for the controller.
@@ -173,7 +213,7 @@ class Database_Controller extends REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_stats( $request ) {
-		$analyzer = new Analyzer();
+		$analyzer = $this->get_analyzer();
 
 		$stats = array(
 			'database_size'           => $analyzer->get_database_size(),
@@ -445,7 +485,7 @@ class Database_Controller extends REST_Controller {
 		$revisions_manager = new Revisions_Manager();
 
 		// Use settings as fallback if not provided in options.
-		$settings = Plugin::get_instance()->get_settings();
+		$settings = $this->get_settings();
 		$keep_per_post = isset( $options['keep_per_post'] ) ? absint( $options['keep_per_post'] ) : absint( $settings->get_setting( 'revisions_to_keep', 0 ) );
 
 		if ( $safe_mode ) {
@@ -484,7 +524,7 @@ class Database_Controller extends REST_Controller {
 		$transients_cleaner = new Transients_Cleaner();
 
 		// Use settings as fallback if not provided in options.
-		$settings = Plugin::get_instance()->get_settings();
+		$settings = $this->get_settings();
 		$expired_only      = isset( $options['expired_only'] ) ? (bool) $options['expired_only'] : true;
 
 		// Get exclude patterns from settings if not provided in options.
@@ -538,13 +578,13 @@ class Database_Controller extends REST_Controller {
 		$trash_cleaner = new Trash_Cleaner();
 
 		// Use settings as fallback if not provided in options.
-		$settings = Plugin::get_instance()->get_settings();
+		$settings = $this->get_settings();
 		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : absint( $settings->get_setting( 'auto_clean_spam_days', 0 ) );
 
 		if ( $safe_mode ) {
 			// In safe mode, only return preview data.
-			$analyzer  = new Analyzer();
-			$count     = $analyzer->get_spam_comments_count();
+			$analyzer = $this->get_analyzer();
+			$count    = $analyzer->get_spam_comments_count();
 
 			return array(
 				'type'            => 'spam',
@@ -576,14 +616,14 @@ class Database_Controller extends REST_Controller {
 		$trash_cleaner = new Trash_Cleaner();
 
 		// Use settings as fallback if not provided in options.
-		$settings = Plugin::get_instance()->get_settings();
+		$settings = $this->get_settings();
 		$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : absint( $settings->get_setting( 'auto_clean_trash_days', 0 ) );
 		$post_types      = isset( $options['post_types'] ) && is_array( $options['post_types'] ) ? $options['post_types'] : array();
 
 		if ( $safe_mode ) {
 			// In safe mode, only return preview data.
-			$analyzer     = new Analyzer();
-			$posts_count  = $analyzer->get_trashed_posts_count();
+			$analyzer       = $this->get_analyzer();
+			$posts_count    = $analyzer->get_trashed_posts_count();
 			$comments_count = $analyzer->get_trashed_comments_count();
 
 			return array(

@@ -120,7 +120,8 @@ class Optimizer {
 		$command = $this->get_optimization_command( $engine );
 
 		// Execute optimization.
-		$query  = "$command TABLE `$table_name`";
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names cannot use placeholders, esc_sql used.
+		$query  = "$command TABLE `" . esc_sql( $table_name ) . '`';
 		$result = $wpdb->query( $query );
 
 		if ( false === $result ) {
@@ -182,7 +183,8 @@ class Optimizer {
 		}
 
 		// Execute repair.
-		$query  = "REPAIR TABLE `$table_name`";
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names cannot use placeholders, esc_sql used.
+		$query  = 'REPAIR TABLE `' . esc_sql( $table_name ) . '`';
 		$result = $wpdb->query( $query );
 
 		if ( false === $result ) {
@@ -261,6 +263,12 @@ class Optimizer {
 	 */
 	private function is_wordpress_table( $table_name ) {
 		global $wpdb;
+
+		// Validate table name format (only alphanumeric and underscores allowed).
+		// This prevents SQL injection via maliciously crafted table names.
+		if ( ! preg_match( '/^[a-zA-Z0-9_]+$/', $table_name ) ) {
+			return false;
+		}
 
 		// Check if table starts with WordPress prefix.
 		return 0 === strpos( $table_name, $wpdb->prefix );

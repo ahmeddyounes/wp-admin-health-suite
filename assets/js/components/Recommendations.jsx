@@ -10,7 +10,7 @@
  * - Smooth animations for completion
  * - localStorage persistence for dismissed items
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React, { useState, useEffect } from 'react';
@@ -58,13 +58,17 @@ const CATEGORY_NAMES = {
 /**
  * Recommendations Component
  *
- * @param {Object} props - Component props
- * @param {Array} props.recommendations - Array of recommendation objects from API
- * @param {boolean} props.loading - Loading state
- * @param {Function} props.onRefresh - Callback to refresh recommendations
- * @returns {JSX.Element} Rendered component
+ * @param {Object}   props                 - Component props
+ * @param {Array}    props.recommendations - Array of recommendation objects from API
+ * @param {boolean}  props.loading         - Loading state
+ * @param {Function} props.onRefresh       - Callback to refresh recommendations
+ * @return {JSX.Element} Rendered component
  */
-const Recommendations = ({ recommendations = [], loading = false, onRefresh = null }) => {
+const Recommendations = ({
+	recommendations = [],
+	loading = false,
+	onRefresh = null,
+}) => {
 	const [expandedItems, setExpandedItems] = useState(new Set());
 	const [dismissedItems, setDismissedItems] = useState(new Set());
 	const [filterCategory, setFilterCategory] = useState('all');
@@ -75,7 +79,9 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 	// Load dismissed items from localStorage on mount
 	useEffect(() => {
 		try {
-			const dismissed = localStorage.getItem('wpha_dismissed_recommendations');
+			const dismissed = localStorage.getItem(
+				'wpha_dismissed_recommendations'
+			);
 			if (dismissed) {
 				setDismissedItems(new Set(JSON.parse(dismissed)));
 			}
@@ -87,7 +93,10 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 	// Save dismissed items to localStorage
 	const saveDismissedItems = (items) => {
 		try {
-			localStorage.setItem('wpha_dismissed_recommendations', JSON.stringify([...items]));
+			localStorage.setItem(
+				'wpha_dismissed_recommendations',
+				JSON.stringify([...items])
+			);
 		} catch (error) {
 			console.error('Error saving dismissed recommendations:', error);
 		}
@@ -95,6 +104,7 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 
 	/**
 	 * Toggle expanded state for a recommendation
+	 * @param id
 	 */
 	const toggleExpanded = (id) => {
 		const newExpanded = new Set(expandedItems);
@@ -108,6 +118,7 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 
 	/**
 	 * Dismiss a recommendation
+	 * @param id
 	 */
 	const handleDismiss = (id) => {
 		const newDismissed = new Set(dismissedItems);
@@ -128,9 +139,13 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 
 	/**
 	 * Execute a recommendation action
+	 * @param recommendation
 	 */
 	const handleFixNow = async (recommendation) => {
-		if (!recommendation.action_params || !recommendation.action_params.endpoint) {
+		if (
+			!recommendation.action_params ||
+			!recommendation.action_params.endpoint
+		) {
 			console.error('No action endpoint defined for this recommendation');
 			return;
 		}
@@ -160,7 +175,9 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 			}
 		} catch (error) {
 			console.error('Error executing action:', error);
-			alert(`Failed to execute action: ${error.message || 'Unknown error'}`);
+			alert(
+				`Failed to execute action: ${error.message || 'Unknown error'}`
+			);
 		} finally {
 			setExecutingAction(null);
 		}
@@ -168,14 +185,18 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 
 	/**
 	 * Show preview/impact of action
+	 * @param recommendation
 	 */
 	const handlePreview = (recommendation) => {
 		// Show modal with steps and impact
-		alert(`Preview for: ${recommendation.title}\n\nSteps:\n${recommendation.steps?.join('\n') || 'No steps available'}`);
+		alert(
+			`Preview for: ${recommendation.title}\n\nSteps:\n${recommendation.steps?.join('\n') || 'No steps available'}`
+		);
 	};
 
 	/**
 	 * Open learn more link
+	 * @param recommendation
 	 */
 	const handleLearnMore = (recommendation) => {
 		// For now, we'll open WordPress docs or similar
@@ -187,11 +208,15 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 	 * Filter and sort recommendations
 	 */
 	const getFilteredAndSortedRecommendations = () => {
-		let filtered = recommendations.filter((rec) => !dismissedItems.has(rec.id));
+		let filtered = recommendations.filter(
+			(rec) => !dismissedItems.has(rec.id)
+		);
 
 		// Apply category filter
 		if (filterCategory !== 'all') {
-			filtered = filtered.filter((rec) => rec.category === filterCategory);
+			filtered = filtered.filter(
+				(rec) => rec.category === filterCategory
+			);
 		}
 
 		// Apply sorting
@@ -207,7 +232,10 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 	const filteredRecommendations = getFilteredAndSortedRecommendations();
 
 	// Get unique categories from recommendations
-	const categories = ['all', ...new Set(recommendations.map((rec) => rec.category))];
+	const categories = [
+		'all',
+		...new Set(recommendations.map((rec) => rec.category)),
+	];
 
 	// Styles
 	const containerStyles = {
@@ -325,7 +353,9 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 							animation: 'spin 1s linear infinite',
 						}}
 					/>
-					<p style={{ marginTop: '16px', color: '#646970' }}>Loading recommendations...</p>
+					<p style={{ marginTop: '16px', color: '#646970' }}>
+						Loading recommendations...
+					</p>
 				</div>
 			</div>
 		);
@@ -333,7 +363,9 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 
 	// Empty state
 	if (filteredRecommendations.length === 0) {
-		const allDismissed = recommendations.length > 0 && dismissedItems.size === recommendations.length;
+		const allDismissed =
+			recommendations.length > 0 &&
+			dismissedItems.size === recommendations.length;
 
 		return (
 			<div style={containerStyles}>
@@ -345,10 +377,25 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 						style={emptyIconStyles}
 						aria-hidden="true"
 					/>
-					<h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600', color: '#1d2327' }}>
-						{allDismissed ? 'All recommendations dismissed' : 'All clear!'}
+					<h3
+						style={{
+							margin: '0 0 8px 0',
+							fontSize: '18px',
+							fontWeight: '600',
+							color: '#1d2327',
+						}}
+					>
+						{allDismissed
+							? 'All recommendations dismissed'
+							: 'All clear!'}
 					</h3>
-					<p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#646970' }}>
+					<p
+						style={{
+							margin: '0 0 20px 0',
+							fontSize: '14px',
+							color: '#646970',
+						}}
+					>
 						{allDismissed
 							? 'You have dismissed all recommendations. They will reappear on the next scan if issues persist.'
 							: 'Your site health is excellent! No immediate actions needed.'}
@@ -366,8 +413,12 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 								fontSize: '14px',
 								fontWeight: '500',
 							}}
-							onMouseEnter={(e) => (e.target.style.backgroundColor = '#135e96')}
-							onMouseLeave={(e) => (e.target.style.backgroundColor = '#2271b1')}
+							onMouseEnter={(e) =>
+								(e.target.style.backgroundColor = '#135e96')
+							}
+							onMouseLeave={(e) =>
+								(e.target.style.backgroundColor = '#2271b1')
+							}
 						>
 							Run New Scan
 						</button>
@@ -383,7 +434,9 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 
 			{/* Header */}
 			<div style={headerStyles}>
-				<h2 style={titleStyles}>Recommendations ({filteredRecommendations.length})</h2>
+				<h2 style={titleStyles}>
+					Recommendations ({filteredRecommendations.length})
+				</h2>
 				{onRefresh && (
 					<button
 						onClick={onRefresh}
@@ -400,10 +453,21 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 							alignItems: 'center',
 							gap: '4px',
 						}}
-						onMouseEnter={(e) => (e.target.style.backgroundColor = '#f0f6fc')}
-						onMouseLeave={(e) => (e.target.style.backgroundColor = '#fff')}
+						onMouseEnter={(e) =>
+							(e.target.style.backgroundColor = '#f0f6fc')
+						}
+						onMouseLeave={(e) =>
+							(e.target.style.backgroundColor = '#fff')
+						}
 					>
-						<span className="dashicons dashicons-update" style={{ fontSize: '16px', width: '16px', height: '16px' }} />
+						<span
+							className="dashicons dashicons-update"
+							style={{
+								fontSize: '16px',
+								width: '16px',
+								height: '16px',
+							}}
+						/>
 						Refresh
 					</button>
 				)}
@@ -412,7 +476,14 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 			{/* Controls */}
 			<div style={controlsStyles}>
 				<div style={filterStyles}>
-					<label htmlFor="category-filter" style={{ fontSize: '13px', fontWeight: '500', color: '#1d2327' }}>
+					<label
+						htmlFor="category-filter"
+						style={{
+							fontSize: '13px',
+							fontWeight: '500',
+							color: '#1d2327',
+						}}
+					>
 						Filter:
 					</label>
 					<select
@@ -423,14 +494,23 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 					>
 						{categories.map((cat) => (
 							<option key={cat} value={cat}>
-								{cat === 'all' ? 'All Categories' : CATEGORY_NAMES[cat] || cat}
+								{cat === 'all'
+									? 'All Categories'
+									: CATEGORY_NAMES[cat] || cat}
 							</option>
 						))}
 					</select>
 				</div>
 
 				<div style={filterStyles}>
-					<label htmlFor="sort-by" style={{ fontSize: '13px', fontWeight: '500', color: '#1d2327' }}>
+					<label
+						htmlFor="sort-by"
+						style={{
+							fontSize: '13px',
+							fontWeight: '500',
+							color: '#1d2327',
+						}}
+					>
 						Sort by:
 					</label>
 					<select
@@ -454,7 +534,9 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 					const severity = recommendation.impact_estimate || 'low';
 					const severityColor = SEVERITY_COLORS[severity];
 					const severityIcon = SEVERITY_ICONS[severity];
-					const categoryIcon = CATEGORY_ICONS[recommendation.category] || 'dashicons-admin-generic';
+					const categoryIcon =
+						CATEGORY_ICONS[recommendation.category] ||
+						'dashicons-admin-generic';
 
 					return (
 						<RecommendationItem
@@ -466,12 +548,16 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 							severityColor={severityColor}
 							severityIcon={severityIcon}
 							categoryIcon={categoryIcon}
-							onToggleExpanded={() => toggleExpanded(recommendation.id)}
+							onToggleExpanded={() =>
+								toggleExpanded(recommendation.id)
+							}
 							onFixNow={() => handleFixNow(recommendation)}
 							onPreview={() => handlePreview(recommendation)}
 							onDismiss={() => handleDismiss(recommendation.id)}
 							onLearnMore={() => handleLearnMore(recommendation)}
-							isLast={index === filteredRecommendations.length - 1}
+							isLast={
+								index === filteredRecommendations.length - 1
+							}
 						/>
 					);
 				})}
@@ -482,6 +568,20 @@ const Recommendations = ({ recommendations = [], loading = false, onRefresh = nu
 
 /**
  * Individual Recommendation Item Component
+ * @param root0
+ * @param root0.recommendation
+ * @param root0.isExpanded
+ * @param root0.isExecuting
+ * @param root0.isCompleted
+ * @param root0.severityColor
+ * @param root0.severityIcon
+ * @param root0.categoryIcon
+ * @param root0.onToggleExpanded
+ * @param root0.onFixNow
+ * @param root0.onPreview
+ * @param root0.onDismiss
+ * @param root0.onLearnMore
+ * @param root0.isLast
  */
 const RecommendationItem = ({
 	recommendation,
@@ -501,7 +601,9 @@ const RecommendationItem = ({
 	const itemStyles = {
 		padding: '20px',
 		borderBottom: isLast ? 'none' : '1px solid #f0f0f1',
-		animation: isCompleted ? 'slideOut 0.5s ease-out forwards' : 'slideIn 0.3s ease-out',
+		animation: isCompleted
+			? 'slideOut 0.5s ease-out forwards'
+			: 'slideIn 0.3s ease-out',
 		position: 'relative',
 	};
 
@@ -658,7 +760,10 @@ const RecommendationItem = ({
 			{/* Completed overlay */}
 			{isCompleted && (
 				<div style={completedOverlayStyles}>
-					<span className="dashicons dashicons-yes-alt" style={checkmarkStyles} />
+					<span
+						className="dashicons dashicons-yes-alt"
+						style={checkmarkStyles}
+					/>
 				</div>
 			)}
 
@@ -677,14 +782,25 @@ const RecommendationItem = ({
 				<div style={contentStyles}>
 					<div style={titleRowStyles}>
 						<h3 style={titleStyles}>{recommendation.title}</h3>
-						<span style={badgeStyles}>{recommendation.impact_estimate}</span>
-						<span style={categoryBadgeStyles}>
-							<span className={`dashicons ${severityIcon}`} style={{ fontSize: '12px' }} />
-							{CATEGORY_NAMES[recommendation.category] || recommendation.category}
+						<span style={badgeStyles}>
+							{recommendation.impact_estimate}
 						</span>
-						<span className="dashicons dashicons-arrow-down" style={expandIconStyles} />
+						<span style={categoryBadgeStyles}>
+							<span
+								className={`dashicons ${severityIcon}`}
+								style={{ fontSize: '12px' }}
+							/>
+							{CATEGORY_NAMES[recommendation.category] ||
+								recommendation.category}
+						</span>
+						<span
+							className="dashicons dashicons-arrow-down"
+							style={expandIconStyles}
+						/>
 					</div>
-					<p style={descriptionStyles}>{recommendation.description}</p>
+					<p style={descriptionStyles}>
+						{recommendation.description}
+					</p>
 				</div>
 			</div>
 
@@ -692,22 +808,31 @@ const RecommendationItem = ({
 			{isExpanded && (
 				<div style={detailsStyles}>
 					{/* Steps */}
-					{recommendation.steps && recommendation.steps.length > 0 && (
-						<div>
-							<h4 style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: '600', color: '#1d2327' }}>
-								Steps to resolve:
-							</h4>
-							<ol style={stepsStyles}>
-								{recommendation.steps.map((step, idx) => (
-									<li key={idx}>{step}</li>
-								))}
-							</ol>
-						</div>
-					)}
+					{recommendation.steps &&
+						recommendation.steps.length > 0 && (
+							<div>
+								<h4
+									style={{
+										margin: '0 0 8px 0',
+										fontSize: '13px',
+										fontWeight: '600',
+										color: '#1d2327',
+									}}
+								>
+									Steps to resolve:
+								</h4>
+								<ol style={stepsStyles}>
+									{recommendation.steps.map((step, idx) => (
+										<li key={idx}>{step}</li>
+									))}
+								</ol>
+							</div>
+						)}
 
 					{/* Action Buttons */}
 					<div style={actionsStyles}>
-						{recommendation.action_type === 'cleanup' || recommendation.action_type === 'optimize' ? (
+						{recommendation.action_type === 'cleanup' ||
+						recommendation.action_type === 'optimize' ? (
 							<button
 								onClick={(e) => {
 									e.stopPropagation();
@@ -715,17 +840,33 @@ const RecommendationItem = ({
 								}}
 								disabled={isExecuting}
 								style={primaryButtonStyles}
-								onMouseEnter={(e) => !isExecuting && (e.target.style.backgroundColor = '#135e96')}
-								onMouseLeave={(e) => !isExecuting && (e.target.style.backgroundColor = '#2271b1')}
+								onMouseEnter={(e) =>
+									!isExecuting &&
+									(e.target.style.backgroundColor = '#135e96')
+								}
+								onMouseLeave={(e) =>
+									!isExecuting &&
+									(e.target.style.backgroundColor = '#2271b1')
+								}
 							>
 								{isExecuting ? (
 									<>
-										<span className="dashicons dashicons-update" style={{ fontSize: '16px', animation: 'spin 1s linear infinite' }} />
+										<span
+											className="dashicons dashicons-update"
+											style={{
+												fontSize: '16px',
+												animation:
+													'spin 1s linear infinite',
+											}}
+										/>
 										Executing...
 									</>
 								) : (
 									<>
-										<span className="dashicons dashicons-controls-play" style={{ fontSize: '16px' }} />
+										<span
+											className="dashicons dashicons-controls-play"
+											style={{ fontSize: '16px' }}
+										/>
 										Fix Now
 									</>
 								)}
@@ -738,10 +879,17 @@ const RecommendationItem = ({
 								onPreview();
 							}}
 							style={secondaryButtonStyles}
-							onMouseEnter={(e) => (e.target.style.backgroundColor = '#f0f6fc')}
-							onMouseLeave={(e) => (e.target.style.backgroundColor = '#fff')}
+							onMouseEnter={(e) =>
+								(e.target.style.backgroundColor = '#f0f6fc')
+							}
+							onMouseLeave={(e) =>
+								(e.target.style.backgroundColor = '#fff')
+							}
 						>
-							<span className="dashicons dashicons-visibility" style={{ fontSize: '16px' }} />
+							<span
+								className="dashicons dashicons-visibility"
+								style={{ fontSize: '16px' }}
+							/>
 							Preview
 						</button>
 
@@ -751,10 +899,17 @@ const RecommendationItem = ({
 								onLearnMore();
 							}}
 							style={secondaryButtonStyles}
-							onMouseEnter={(e) => (e.target.style.backgroundColor = '#f0f6fc')}
-							onMouseLeave={(e) => (e.target.style.backgroundColor = '#fff')}
+							onMouseEnter={(e) =>
+								(e.target.style.backgroundColor = '#f0f6fc')
+							}
+							onMouseLeave={(e) =>
+								(e.target.style.backgroundColor = '#fff')
+							}
 						>
-							<span className="dashicons dashicons-external" style={{ fontSize: '16px' }} />
+							<span
+								className="dashicons dashicons-external"
+								style={{ fontSize: '16px' }}
+							/>
 							Learn More
 						</button>
 
@@ -764,10 +919,17 @@ const RecommendationItem = ({
 								onDismiss();
 							}}
 							style={dismissButtonStyles}
-							onMouseEnter={(e) => (e.target.style.backgroundColor = '#f0f0f1')}
-							onMouseLeave={(e) => (e.target.style.backgroundColor = '#fff')}
+							onMouseEnter={(e) =>
+								(e.target.style.backgroundColor = '#f0f0f1')
+							}
+							onMouseLeave={(e) =>
+								(e.target.style.backgroundColor = '#fff')
+							}
 						>
-							<span className="dashicons dashicons-dismiss" style={{ fontSize: '16px' }} />
+							<span
+								className="dashicons dashicons-dismiss"
+								style={{ fontSize: '16px' }}
+							/>
 							Dismiss
 						</button>
 					</div>

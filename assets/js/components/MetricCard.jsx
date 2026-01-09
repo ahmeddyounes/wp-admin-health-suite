@@ -4,7 +4,7 @@
  * A React component that displays metric information with trend indicators.
  * Used in the dashboard to show key metrics like database size, media library count, etc.
  *
- * @package WPAdminHealth
+ * @package
  */
 
 import React from 'react';
@@ -30,15 +30,15 @@ const TREND_COLORS = {
 /**
  * MetricCard Component
  *
- * @param {Object} props - Component props
- * @param {string} props.title - Card title (e.g., "Database Size")
- * @param {number|string} props.value - Main metric value to display
- * @param {string} props.unit - Unit label (e.g., "MB", "count")
- * @param {string} props.trend - Trend direction: 'up', 'down', or 'neutral'
- * @param {string} props.trendValue - Percentage change from last scan (e.g., "5.2" for 5.2%)
- * @param {string} props.icon - Icon class or dashicon name (e.g., "dashicons-database")
- * @param {Function} props.onClick - Click handler for navigation
- * @returns {JSX.Element} Rendered component
+ * @param {Object}        props            - Component props
+ * @param {string}        props.title      - Card title (e.g., "Database Size")
+ * @param {number|string} props.value      - Main metric value to display
+ * @param {string}        props.unit       - Unit label (e.g., "MB", "count")
+ * @param {string}        props.trend      - Trend direction: 'up', 'down', or 'neutral'
+ * @param {string}        props.trendValue - Percentage change from last scan (e.g., "5.2" for 5.2%)
+ * @param {string}        props.icon       - Icon class or dashicon name (e.g., "dashicons-database")
+ * @param {Function}      props.onClick    - Click handler for navigation
+ * @return {JSX.Element} Rendered component
  */
 const MetricCard = ({
 	title,
@@ -50,16 +50,23 @@ const MetricCard = ({
 	onClick = null,
 }) => {
 	// Validate trend direction
-	const validTrend = ['up', 'down', 'neutral'].includes(trend) ? trend : 'neutral';
+	const validTrend = ['up', 'down', 'neutral'].includes(trend)
+		? trend
+		: 'neutral';
 	const trendIndicator = TREND_INDICATORS[validTrend];
 	const trendColor = TREND_COLORS[validTrend];
 
 	// Format trend display
-	const trendDisplay = trendValue !== null ? `${trendIndicator} ${trendValue}%` : trendIndicator;
+	const trendDisplay =
+		trendValue !== null
+			? `${trendIndicator} ${trendValue}%`
+			: trendIndicator;
 
 	// Accessibility label
 	const ariaLabel = `${title}: ${value} ${unit}${
-		trendValue !== null ? `, trend ${validTrend} by ${trendValue} percent` : ''
+		trendValue !== null
+			? `, trend ${validTrend} by ${trendValue} percent`
+			: ''
 	}`;
 
 	// Determine if card should be interactive
@@ -194,7 +201,10 @@ const MetricCard = ({
 					<span style={valueStyles}>{value}</span>
 					{unit && <span style={unitStyles}>{unit}</span>}
 					{trendValue !== null && (
-						<span style={trendStyles} aria-label={`Trend ${validTrend} by ${trendValue} percent`}>
+						<span
+							style={trendStyles}
+							aria-label={`Trend ${validTrend} by ${trendValue} percent`}
+						>
 							{trendDisplay}
 						</span>
 					)}

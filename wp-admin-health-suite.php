@@ -61,11 +61,12 @@ add_action( 'plugins_loaded', __NAMESPACE__ . '\wp_admin_health_init' );
 /**
  * Plugin activation hook.
  *
+ * @param bool $network_wide Whether to activate network-wide.
  * @return void
  */
-function wp_admin_health_activate() {
+function wp_admin_health_activate( $network_wide = false ) {
 	$plugin = Plugin::get_instance();
-	$plugin->activate();
+	$plugin->activate( $network_wide );
 }
 
 register_activation_hook( __FILE__, __NAMESPACE__ . '\wp_admin_health_activate' );

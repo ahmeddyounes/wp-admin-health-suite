@@ -3,10 +3,11 @@
  *
  * Handles database health monitoring, cleanup operations, and table management.
  *
- * @package WPAdminHealth
+ * @param $
+ * @package
  */
 
-(function($) {
+(function ($) {
 	'use strict';
 
 	const DatabaseHealth = {
@@ -32,9 +33,21 @@
 		 * Bind events.
 		 */
 		bindEvents() {
-			$(document).on('click', '.wpha-cleanup-analyze-btn', this.handleAnalyze.bind(this));
-			$(document).on('click', '.wpha-cleanup-clean-btn', this.handleClean.bind(this));
-			$(document).on('click', '.wpha-accordion-header', this.toggleAccordion.bind(this));
+			$(document).on(
+				'click',
+				'.wpha-cleanup-analyze-btn',
+				this.handleAnalyze.bind(this)
+			);
+			$(document).on(
+				'click',
+				'.wpha-cleanup-clean-btn',
+				this.handleClean.bind(this)
+			);
+			$(document).on(
+				'click',
+				'.wpha-accordion-header',
+				this.toggleAccordion.bind(this)
+			);
 		},
 
 		/**
@@ -51,19 +64,22 @@
 		 */
 		loadOverviewData() {
 			wp.apiFetch({
-				path: '/wpha/v1/database/stats'
-			}).then(response => {
-				if (response.success && response.data) {
-					this.renderOverviewCards(response.data);
-				}
-			}).catch(error => {
-				console.error('Error loading overview data:', error);
-				this.hideSkeletons(this.$overviewCards);
-			});
+				path: '/wpha/v1/database/stats',
+			})
+				.then((response) => {
+					if (response.success && response.data) {
+						this.renderOverviewCards(response.data);
+					}
+				})
+				.catch((error) => {
+					console.error('Error loading overview data:', error);
+					this.hideSkeletons(this.$overviewCards);
+				});
 		},
 
 		/**
 		 * Render overview cards.
+		 * @param data
 		 */
 		renderOverviewCards(data) {
 			const dbSize = this.formatBytes(data.database_size);
@@ -79,11 +95,13 @@
 			const cards = [
 				{ value: dbSize, selector: 0 },
 				{ value: tableCount.toString(), selector: 1 },
-				{ value: this.formatBytes(potentialSavings), selector: 2 }
+				{ value: this.formatBytes(potentialSavings), selector: 2 },
 			];
 
-			cards.forEach(card => {
-				const $card = this.$overviewCards.find('.wpha-overview-card').eq(card.selector);
+			cards.forEach((card) => {
+				const $card = this.$overviewCards
+					.find('.wpha-overview-card')
+					.eq(card.selector);
 				$card.find('.wpha-overview-value').text(card.value);
 				$card.find('.wpha-overview-card-skeleton').hide();
 				$card.find('.wpha-overview-card-content').show();
@@ -95,19 +113,22 @@
 		 */
 		loadCleanupModules() {
 			wp.apiFetch({
-				path: '/wpha/v1/database/stats'
-			}).then(response => {
-				if (response.success && response.data) {
-					this.renderCleanupModules(response.data);
-				}
-			}).catch(error => {
-				console.error('Error loading cleanup modules:', error);
-				this.hideSkeletons(this.$cleanupAccordion);
-			});
+				path: '/wpha/v1/database/stats',
+			})
+				.then((response) => {
+					if (response.success && response.data) {
+						this.renderCleanupModules(response.data);
+					}
+				})
+				.catch((error) => {
+					console.error('Error loading cleanup modules:', error);
+					this.hideSkeletons(this.$cleanupAccordion);
+				});
 		},
 
 		/**
 		 * Render cleanup modules.
+		 * @param data
 		 */
 		renderCleanupModules(data) {
 			const modules = [
@@ -116,44 +137,56 @@
 					title: wpAdminHealthData.i18n.revisions || 'Post Revisions',
 					icon: 'dashicons-backup',
 					count: data.revisions_count || 0,
-					size: (data.revisions_count || 0) * 500
+					size: (data.revisions_count || 0) * 500,
 				},
 				{
 					id: 'transients',
 					title: wpAdminHealthData.i18n.transients || 'Transients',
 					icon: 'dashicons-clock',
 					count: data.expired_transients_count || 0,
-					size: (data.expired_transients_count || 0) * 200
+					size: (data.expired_transients_count || 0) * 200,
 				},
 				{
 					id: 'spam',
 					title: wpAdminHealthData.i18n.spam || 'Spam Comments',
 					icon: 'dashicons-dismiss',
 					count: data.spam_comments_count || 0,
-					size: (data.spam_comments_count || 0) * 300
+					size: (data.spam_comments_count || 0) * 300,
 				},
 				{
 					id: 'trash',
-					title: wpAdminHealthData.i18n.trash || 'Trash (Posts & Comments)',
+					title:
+						wpAdminHealthData.i18n.trash ||
+						'Trash (Posts & Comments)',
 					icon: 'dashicons-trash',
-					count: (data.trashed_posts_count || 0) + (data.trashed_comments_count || 0),
-					size: (data.trashed_posts_count || 0) * 1000 + (data.trashed_comments_count || 0) * 300
+					count:
+						(data.trashed_posts_count || 0) +
+						(data.trashed_comments_count || 0),
+					size:
+						(data.trashed_posts_count || 0) * 1000 +
+						(data.trashed_comments_count || 0) * 300,
 				},
 				{
 					id: 'orphaned',
 					title: wpAdminHealthData.i18n.orphaned || 'Orphaned Data',
 					icon: 'dashicons-warning',
-					count: (data.orphaned_postmeta_count || 0) + (data.orphaned_commentmeta_count || 0) + (data.orphaned_termmeta_count || 0),
-					size: 0
-				}
+					count:
+						(data.orphaned_postmeta_count || 0) +
+						(data.orphaned_commentmeta_count || 0) +
+						(data.orphaned_termmeta_count || 0),
+					size: 0,
+				},
 			];
 
-			const html = modules.map(module => this.renderModuleHtml(module)).join('');
+			const html = modules
+				.map((module) => this.renderModuleHtml(module))
+				.join('');
 			this.$cleanupAccordion.html(html);
 		},
 
 		/**
 		 * Render module HTML.
+		 * @param module
 		 */
 		renderModuleHtml(module) {
 			return `
@@ -197,20 +230,25 @@
 
 		/**
 		 * Get module description.
+		 * @param moduleId
 		 */
 		getModuleDescription(moduleId) {
 			const descriptions = {
-				'revisions': 'Post revisions are automatically saved copies of your content. Cleaning old revisions can free up database space.',
-				'transients': 'Transients are temporary cached data. Expired transients are safe to remove.',
-				'spam': 'Spam comments are blocked comments that can be safely removed from your database.',
-				'trash': 'Trashed posts and comments are items in the trash that can be permanently deleted.',
-				'orphaned': 'Orphaned data includes metadata entries with no parent record. This data can be safely removed.'
+				revisions:
+					'Post revisions are automatically saved copies of your content. Cleaning old revisions can free up database space.',
+				transients:
+					'Transients are temporary cached data. Expired transients are safe to remove.',
+				spam: 'Spam comments are blocked comments that can be safely removed from your database.',
+				trash: 'Trashed posts and comments are items in the trash that can be permanently deleted.',
+				orphaned:
+					'Orphaned data includes metadata entries with no parent record. This data can be safely removed.',
 			};
 			return descriptions[moduleId] || '';
 		},
 
 		/**
 		 * Toggle accordion.
+		 * @param e
 		 */
 		toggleAccordion(e) {
 			const $header = $(e.currentTarget);
@@ -229,6 +267,7 @@
 
 		/**
 		 * Handle analyze button click.
+		 * @param e
 		 */
 		handleAnalyze(e) {
 			e.preventDefault();
@@ -239,7 +278,7 @@
 
 			// Load detailed analysis based on module
 			let apiPath = '';
-			switch(moduleId) {
+			switch (moduleId) {
 				case 'revisions':
 					apiPath = '/wpha/v1/database/revisions';
 					break;
@@ -254,21 +293,29 @@
 			}
 
 			wp.apiFetch({
-				path: apiPath
-			}).then(response => {
-				if (response.success) {
-					this.showAnalysisResults($btn.closest('.wpha-accordion-item'), response.data);
-				}
-			}).catch(error => {
-				console.error('Error analyzing:', error);
-				alert(wpAdminHealthData.i18n.error || 'An error occurred.');
-			}).finally(() => {
-				$btn.prop('disabled', false).removeClass('wpha-loading');
-			});
+				path: apiPath,
+			})
+				.then((response) => {
+					if (response.success) {
+						this.showAnalysisResults(
+							$btn.closest('.wpha-accordion-item'),
+							response.data
+						);
+					}
+				})
+				.catch((error) => {
+					console.error('Error analyzing:', error);
+					alert(wpAdminHealthData.i18n.error || 'An error occurred.');
+				})
+				.finally(() => {
+					$btn.prop('disabled', false).removeClass('wpha-loading');
+				});
 		},
 
 		/**
 		 * Show analysis results.
+		 * @param $item
+		 * @param data
 		 */
 		showAnalysisResults($item, data) {
 			const $results = $item.find('.wpha-module-results');
@@ -277,7 +324,7 @@
 			html += '<ul>';
 
 			// Format results based on data structure
-			Object.keys(data).forEach(key => {
+			Object.keys(data).forEach((key) => {
 				if (typeof data[key] === 'number') {
 					html += `<li><strong>${this.formatKey(key)}:</strong> ${data[key]}</li>`;
 				} else if (typeof data[key] === 'string') {
@@ -291,6 +338,7 @@
 
 		/**
 		 * Handle clean button click.
+		 * @param e
 		 */
 		handleClean(e) {
 			e.preventDefault();
@@ -299,7 +347,8 @@
 			const $item = $btn.closest('.wpha-accordion-item');
 
 			// Confirm before cleaning
-			const confirmMsg = wpAdminHealthData.i18n.confirmCleanup ||
+			const confirmMsg =
+				wpAdminHealthData.i18n.confirmCleanup ||
 				'Are you sure you want to clean this data? This action cannot be undone.';
 
 			if (!confirm(confirmMsg)) {
@@ -311,6 +360,8 @@
 
 		/**
 		 * Execute cleanup operation.
+		 * @param $item
+		 * @param moduleId
 		 */
 		executeCleanup($item, moduleId) {
 			const $progress = $item.find('.wpha-module-progress');
@@ -338,36 +389,42 @@
 				method: 'POST',
 				data: {
 					type: moduleId,
-					options: this.getCleanupOptions(moduleId)
-				}
-			}).then(response => {
-				clearInterval(progressInterval);
-				$progressFill.css('width', '100%');
+					options: this.getCleanupOptions(moduleId),
+				},
+			})
+				.then((response) => {
+					clearInterval(progressInterval);
+					$progressFill.css('width', '100%');
 
-				setTimeout(() => {
+					setTimeout(() => {
+						$progress.hide();
+						if (response.success) {
+							this.showCleanupResults($item, response.data);
+							// Reload data to update counts
+							this.loadData();
+						}
+					}, 500);
+				})
+				.catch((error) => {
+					clearInterval(progressInterval);
+					console.error('Error cleaning:', error);
 					$progress.hide();
-					if (response.success) {
-						this.showCleanupResults($item, response.data);
-						// Reload data to update counts
-						this.loadData();
-					}
-				}, 500);
-			}).catch(error => {
-				clearInterval(progressInterval);
-				console.error('Error cleaning:', error);
-				$progress.hide();
-				$actions.show();
-				alert(wpAdminHealthData.i18n.error || 'An error occurred during cleanup.');
-			});
+					$actions.show();
+					alert(
+						wpAdminHealthData.i18n.error ||
+							'An error occurred during cleanup.'
+					);
+				});
 		},
 
 		/**
 		 * Get cleanup options for module.
+		 * @param moduleId
 		 */
 		getCleanupOptions(moduleId) {
 			const options = {};
 
-			switch(moduleId) {
+			switch (moduleId) {
 				case 'revisions':
 					options.keep_per_post = 2; // Keep 2 most recent revisions
 					break;
@@ -379,7 +436,12 @@
 					options.older_than_days = 0; // Clean all
 					break;
 				case 'orphaned':
-					options.types = ['postmeta', 'commentmeta', 'termmeta', 'relationships'];
+					options.types = [
+						'postmeta',
+						'commentmeta',
+						'termmeta',
+						'relationships',
+					];
 					break;
 			}
 
@@ -388,13 +450,16 @@
 
 		/**
 		 * Show cleanup results.
+		 * @param $item
+		 * @param data
 		 */
 		showCleanupResults($item, data) {
 			const $results = $item.find('.wpha-module-results');
 			const $actions = $item.find('.wpha-module-actions');
 
 			let html = '<div class="wpha-cleanup-results wpha-success">';
-			html += '<h4><span class="dashicons dashicons-yes-alt"></span> Cleanup Completed</h4>';
+			html +=
+				'<h4><span class="dashicons dashicons-yes-alt"></span> Cleanup Completed</h4>';
 			html += '<ul>';
 
 			// Format results
@@ -434,19 +499,26 @@
 		 */
 		loadTableList() {
 			wp.apiFetch({
-				path: '/wpha/v1/database/stats'
-			}).then(response => {
-				if (response.success && response.data && response.data.table_sizes) {
-					this.renderTableList(response.data.table_sizes);
-				}
-			}).catch(error => {
-				console.error('Error loading table list:', error);
-				this.hideSkeletons(this.$tableList);
-			});
+				path: '/wpha/v1/database/stats',
+			})
+				.then((response) => {
+					if (
+						response.success &&
+						response.data &&
+						response.data.table_sizes
+					) {
+						this.renderTableList(response.data.table_sizes);
+					}
+				})
+				.catch((error) => {
+					console.error('Error loading table list:', error);
+					this.hideSkeletons(this.$tableList);
+				});
 		},
 
 		/**
 		 * Render table list.
+		 * @param tables
 		 */
 		renderTableList(tables) {
 			let html = '<table class="wp-list-table widefat fixed striped">';
@@ -459,7 +531,7 @@
 			html += '</tr></thead>';
 			html += '<tbody>';
 
-			tables.forEach(table => {
+			tables.forEach((table) => {
 				html += '<tr>';
 				html += `<td><strong>${table.name}</strong></td>`;
 				html += `<td>${table.rows || 0}</td>`;
@@ -475,28 +547,37 @@
 
 		/**
 		 * Format bytes to human readable.
+		 * @param bytes
 		 */
 		formatBytes(bytes) {
 			if (bytes === 0) return '0 Bytes';
 			const k = 1024;
 			const sizes = ['Bytes', 'KB', 'MB', 'GB'];
 			const i = Math.floor(Math.log(bytes) / Math.log(k));
-			return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+			return (
+				Math.round((bytes / Math.pow(k, i)) * 100) / 100 +
+				' ' +
+				sizes[i]
+			);
 		},
 
 		/**
 		 * Format key to human readable.
+		 * @param key
 		 */
 		formatKey(key) {
-			return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+			return key
+				.replace(/_/g, ' ')
+				.replace(/\b\w/g, (l) => l.toUpperCase());
 		},
 
 		/**
 		 * Hide skeleton loaders.
+		 * @param $container
 		 */
 		hideSkeletons($container) {
 			$container.find('[class*="-skeleton"]').hide();
-		}
+		},
 	};
 
 	// Initialize on document ready
@@ -505,5 +586,4 @@
 			DatabaseHealth.init();
 		}
 	});
-
 })(jQuery);

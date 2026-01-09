@@ -9,29 +9,63 @@
     "composer/installers": "^1.0 || ^2.0"
   },
   "require-dev": {
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpdocumentor/phpdocumentor": "^3.0",
+    "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan": "^2.1",
     "phpunit/phpunit": "^9.5",
-    "yoast/phpunit-polyfills": "^1.0",
-    "phpdocumentor/phpdocumentor": "^3.0"
+    "squizlabs/php_codesniffer": "^3.13",
+    "szepeviktor/phpstan-wordpress": "^2.0",
+    "wp-coding-standards/wpcs": "^3.3",
+    "yoast/phpunit-polyfills": "^1.0"
   },
   "autoload": {
     "psr-4": {
       "WPAdminHealth\\": "includes/"
-    }
+    },
+    "classmap": [
+      "includes/database/",
+      "includes/integrations/",
+      "includes/media/",
+      "includes/rest/",
+      "includes/performance/",
+      "includes/ai/"
+    ]
   },
   "autoload-dev": {
     "psr-4": {
       "WPAdminHealth\\Tests\\": "tests/"
-    }
+    },
+    "classmap": [
+      "tests/unit/",
+      "tests/unit-standalone/",
+      "tests/integration/",
+      "tests/Mocks/",
+      "tests/factories/"
+    ]
   },
   "config": {
     "optimize-autoloader": true,
     "sort-packages": true,
     "allow-plugins": {
-      "composer/installers": true
+      "composer/installers": true,
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "phpstan/extension-installer": true
     }
   },
   "scripts": {
     "test": "phpunit",
+    "test:standalone": "phpunit --configuration phpunit-standalone.xml",
+    "test:all": [
+      "@test:standalone"
+    ],
+    "phpcs": "phpcs",
+    "phpcbf": "phpcbf",
+    "phpstan": "phpstan analyse --memory-limit=256M",
+    "lint:php": "phpcs",
+    "lint:php:fix": "phpcbf",
+    "analyse": "phpstan analyse --memory-limit=256M",
     "docs": "phpdoc run -c phpdoc.xml",
     "docs:clear": "rm -rf docs/api .phpdoc"
   },

@@ -10,6 +10,7 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Health_Calculator;
 
 // Exit if accessed directly.
@@ -50,6 +51,44 @@ class Dashboard_Controller extends REST_Controller {
 	 * @var int
 	 */
 	const CACHE_EXPIRATION = 5 * MINUTE_IN_SECONDS;
+
+	/**
+	 * Health calculator instance.
+	 *
+	 * @since 1.1.0
+	 * @var Health_Calculator|null
+	 */
+	protected ?Health_Calculator $health_calculator = null;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param SettingsInterface|null $settings          Optional settings instance for dependency injection.
+	 * @param Health_Calculator|null $health_calculator Optional health calculator instance for dependency injection.
+	 */
+	public function __construct( ?SettingsInterface $settings = null, ?Health_Calculator $health_calculator = null ) {
+		parent::__construct( $settings );
+		$this->health_calculator = $health_calculator;
+	}
+
+	/**
+	 * Get the health calculator instance.
+	 *
+	 * Falls back to creating a new instance if not injected.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return Health_Calculator The health calculator instance.
+	 */
+	protected function get_health_calculator(): Health_Calculator {
+		if ( null === $this->health_calculator ) {
+			$this->health_calculator = new Health_Calculator();
+		}
+
+		return $this->health_calculator;
+	}
 
 	/**
 	 * Register routes for the controller.
@@ -196,7 +235,7 @@ class Dashboard_Controller extends REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_health_score( $request ) {
-		$health_calculator = new Health_Calculator();
+		$health_calculator = $this->get_health_calculator();
 
 		// Get overall score and factors.
 		$health_data = $health_calculator->calculate_overall_score();
@@ -375,7 +414,7 @@ class Dashboard_Controller extends REST_Controller {
 		delete_transient( self::STATS_CACHE_KEY );
 
 		// Clear health score cache since data has changed.
-		$health_calculator = new Health_Calculator();
+		$health_calculator = $this->get_health_calculator();
 		$health_calculator->clear_cache();
 
 		return $this->format_response(
@@ -484,13 +523,26 @@ class Dashboard_Controller extends REST_Controller {
 				);
 
 			case 'optimize_tables':
-				// Get all tables.
-				$tables = $wpdb->get_results( 'SHOW TABLES', ARRAY_N );
+				// Get all tables using INFORMATION_SCHEMA for security.
+				$tables = $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT table_name
+						FROM information_schema.TABLES
+						WHERE table_schema = %s
+						AND table_name LIKE %s",
+						DB_NAME,
+						$wpdb->esc_like( $wpdb->prefix ) . '%'
+					)
+				);
 				$optimized = 0;
 
-				foreach ( $tables as $table ) {
-					$table_name = $table[0];
-					$wpdb->query( "OPTIMIZE TABLE {$table_name}" );
+				foreach ( $tables as $table_name ) {
+					// Validate table name format (only alphanumeric, underscores allowed).
+					if ( ! preg_match( '/^[a-zA-Z0-9_]+$/', $table_name ) ) {
+						continue;
+					}
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names cannot use placeholders, esc_sql and backticks used.
+					$wpdb->query( 'OPTIMIZE TABLE `' . esc_sql( $table_name ) . '`' );
 					$optimized++;
 				}
 

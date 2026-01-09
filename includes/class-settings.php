@@ -7,6 +7,8 @@
 
 namespace WPAdminHealth;
 
+use WPAdminHealth\Contracts\SettingsInterface;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -17,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  */
-class Settings {
+class Settings implements SettingsInterface {
 
 	/**
 	 * Option name for storing plugin settings.
@@ -924,8 +926,24 @@ class Settings {
 			wp_die( esc_html__( 'No file uploaded.', 'wp-admin-health-suite' ) );
 		}
 
+		// Validate file type - must be JSON.
+		$file_extension = pathinfo( $_FILES['import_file']['name'], PATHINFO_EXTENSION );
+		if ( 'json' !== strtolower( $file_extension ) ) {
+			wp_die( esc_html__( 'Invalid file type. Please upload a JSON file.', 'wp-admin-health-suite' ) );
+		}
+
+		// Validate file size - maximum 1MB.
+		if ( $_FILES['import_file']['size'] > 1048576 ) {
+			wp_die( esc_html__( 'File too large. Maximum 1MB allowed.', 'wp-admin-health-suite' ) );
+		}
+
+		// Validate it's actually an uploaded file.
+		if ( ! is_uploaded_file( $_FILES['import_file']['tmp_name'] ) ) {
+			wp_die( esc_html__( 'Invalid file upload.', 'wp-admin-health-suite' ) );
+		}
+
 		// Read and decode JSON.
-		$json = file_get_contents( $_FILES['import_file']['tmp_name'] );
+		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		$data = json_decode( $json, true );
 
 		if ( json_last_error() !== JSON_ERROR_NONE || ! isset( $data['settings'] ) ) {

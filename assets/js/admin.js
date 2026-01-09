@@ -4,17 +4,24 @@
  * Core admin JavaScript for WP Admin Health Suite.
  * Provides utilities, API wrapper, notifications, event system, and error handling.
  *
- * @package WPAdminHealth
+ * @param window
+ * @param $
+ * @package
  */
 
-(function(window, $) {
+(function (window, $) {
 	'use strict';
 
 	// Ensure wp.apiFetch is available
 	const apiFetch = window.wp && window.wp.apiFetch;
 	if (!apiFetch) {
-		console.error('wp.apiFetch is not available. Admin functionality may be limited.');
+		console.error(
+			'wp.apiFetch is not available. Admin functionality may be limited.'
+		);
 	}
+
+	// Ensure wp.i18n is available for translations
+	const { __ } = window.wp.i18n || { __: (text) => text };
 
 	/**
 	 * Main WPAdminHealth namespace
@@ -40,7 +47,7 @@
 		 * @param {string} endpoint - API endpoint path
 		 * @return {string} Full API path
 		 */
-		buildPath: function(endpoint) {
+		buildPath(endpoint) {
 			// Remove leading slash if present
 			endpoint = endpoint.replace(/^\//, '');
 			return `/${this.namespace}/${endpoint}`;
@@ -50,13 +57,13 @@
 		 * Make GET request
 		 *
 		 * @param {string} endpoint - API endpoint
-		 * @param {Object} params - Query parameters
+		 * @param {Object} params   - Query parameters
 		 * @return {Promise} API response promise
 		 */
-		get: function(endpoint, params = {}) {
+		get(endpoint, params = {}) {
 			return this.request(endpoint, {
 				method: 'GET',
-				params: params
+				params,
 			});
 		},
 
@@ -64,13 +71,13 @@
 		 * Make POST request
 		 *
 		 * @param {string} endpoint - API endpoint
-		 * @param {Object} data - Request body data
+		 * @param {Object} data     - Request body data
 		 * @return {Promise} API response promise
 		 */
-		post: function(endpoint, data = {}) {
+		post(endpoint, data = {}) {
 			return this.request(endpoint, {
 				method: 'POST',
-				data: data
+				data,
 			});
 		},
 
@@ -78,13 +85,13 @@
 		 * Make PUT request
 		 *
 		 * @param {string} endpoint - API endpoint
-		 * @param {Object} data - Request body data
+		 * @param {Object} data     - Request body data
 		 * @return {Promise} API response promise
 		 */
-		put: function(endpoint, data = {}) {
+		put(endpoint, data = {}) {
 			return this.request(endpoint, {
 				method: 'PUT',
-				data: data
+				data,
 			});
 		},
 
@@ -92,13 +99,13 @@
 		 * Make DELETE request
 		 *
 		 * @param {string} endpoint - API endpoint
-		 * @param {Object} data - Request body data
+		 * @param {Object} data     - Request body data
 		 * @return {Promise} API response promise
 		 */
-		delete: function(endpoint, data = {}) {
+		delete(endpoint, data = {}) {
 			return this.request(endpoint, {
 				method: 'DELETE',
-				data: data
+				data,
 			});
 		},
 
@@ -106,13 +113,20 @@
 		 * Generic request method with retry logic
 		 *
 		 * @param {string} endpoint - API endpoint
-		 * @param {Object} options - Request options
-		 * @param {number} retries - Number of retries attempted
+		 * @param {Object} options  - Request options
+		 * @param {number} retries  - Number of retries attempted
 		 * @return {Promise} API response promise
 		 */
-		request: function(endpoint, options = {}, retries = 0) {
+		request(endpoint, options = {}, retries = 0) {
 			if (!apiFetch) {
-				return Promise.reject(new Error('wp.apiFetch is not available'));
+				return Promise.reject(
+					new Error(
+						__(
+							'wp.apiFetch is not available',
+							'wp-admin-health-suite'
+						)
+					)
+				);
 			}
 
 			const path = this.buildPath(endpoint);
@@ -120,27 +134,28 @@
 
 			// Merge with default options
 			const requestOptions = {
-				path: path,
+				path,
 				method: options.method || 'GET',
-				...options
+				...options,
 			};
 
-			return apiFetch(requestOptions)
-				.catch(error => {
-					// Handle retry for network errors or 5xx errors
-					if (retries < maxRetries && this.shouldRetry(error)) {
-						const delay = Math.pow(2, retries) * 1000; // Exponential backoff
-						return new Promise(resolve => {
-							setTimeout(() => {
-								resolve(this.request(endpoint, options, retries + 1));
-							}, delay);
-						});
-					}
+			return apiFetch(requestOptions).catch((error) => {
+				// Handle retry for network errors or 5xx errors
+				if (retries < maxRetries && this.shouldRetry(error)) {
+					const delay = Math.pow(2, retries) * 1000; // Exponential backoff
+					return new Promise((resolve) => {
+						setTimeout(() => {
+							resolve(
+								this.request(endpoint, options, retries + 1)
+							);
+						}, delay);
+					});
+				}
 
-					// Transform error to user-friendly message
-					const errorMessage = ErrorHandler.getUserFriendlyMessage(error);
-					throw new Error(errorMessage);
-				});
+				// Transform error to user-friendly message
+				const errorMessage = ErrorHandler.getUserFriendlyMessage(error);
+				throw new Error(errorMessage);
+			});
 		},
 
 		/**
@@ -149,12 +164,12 @@
 		 * @param {Error} error - Error object
 		 * @return {boolean} True if should retry
 		 */
-		shouldRetry: function(error) {
+		shouldRetry(error) {
 			// Retry on network errors or server errors (5xx)
 			if (!error.response) return true;
 			const status = error.response?.status || 0;
 			return status >= 500 && status < 600;
-		}
+		},
 	};
 
 	// ============================================================================
@@ -173,13 +188,13 @@
 		/**
 		 * Initialize toast container
 		 */
-		init: function() {
+		init() {
 			if (this.container) return;
 
 			this.container = $('<div>', {
-				'class': 'wpha-toast-container',
+				class: 'wpha-toast-container',
 				'aria-live': 'polite',
-				'aria-atomic': 'true'
+				'aria-atomic': 'true',
 			});
 
 			$('body').append(this.container);
@@ -188,30 +203,30 @@
 		/**
 		 * Show toast notification
 		 *
-		 * @param {string} message - Message to display
-		 * @param {string} type - Type: success, error, warning, info
+		 * @param {string} message  - Message to display
+		 * @param {string} type     - Type: success, error, warning, info
 		 * @param {number} duration - Duration in milliseconds (0 = no auto-dismiss)
 		 * @return {jQuery} Toast element
 		 */
-		show: function(message, type = 'info', duration = 5000) {
+		show(message, type = 'info', duration = 5000) {
 			this.init();
 
 			const toast = $('<div>', {
-				'class': `wpha-toast wpha-toast-${type}`,
-				'role': 'alert'
+				class: `wpha-toast wpha-toast-${type}`,
+				role: 'alert',
 			});
 
 			const icon = this.getIcon(type);
 			const content = $('<div>', {
-				'class': 'wpha-toast-content',
-				'html': `<span class="wpha-toast-icon">${icon}</span><span class="wpha-toast-message">${message}</span>`
+				class: 'wpha-toast-content',
+				html: `<span class="wpha-toast-icon">${icon}</span><span class="wpha-toast-message">${message}</span>`,
 			});
 
 			const closeBtn = $('<button>', {
-				'class': 'wpha-toast-close',
-				'type': 'button',
-				'aria-label': 'Close',
-				'html': '&times;'
+				class: 'wpha-toast-close',
+				type: 'button',
+				'aria-label': __('Close', 'wp-admin-health-suite'),
+				html: '&times;',
 			});
 
 			closeBtn.on('click', () => this.dismiss(toast));
@@ -235,7 +250,7 @@
 		 *
 		 * @param {jQuery} toast - Toast element to dismiss
 		 */
-		dismiss: function(toast) {
+		dismiss(toast) {
 			toast.removeClass('wpha-toast-show');
 			setTimeout(() => toast.remove(), 300);
 		},
@@ -246,34 +261,36 @@
 		 * @param {string} type - Toast type
 		 * @return {string} Icon HTML
 		 */
-		getIcon: function(type) {
+		getIcon(type) {
 			const icons = {
-				'success': '&#10004;',
-				'error': '&#10006;',
-				'warning': '&#9888;',
-				'info': '&#8505;'
+				success: '&#10004;',
+				error: '&#10006;',
+				warning: '&#9888;',
+				info: '&#8505;',
 			};
 			return icons[type] || icons.info;
 		},
 
 		/**
 		 * Convenience methods
+		 * @param message
+		 * @param duration
 		 */
-		success: function(message, duration = 5000) {
+		success(message, duration = 5000) {
 			return this.show(message, 'success', duration);
 		},
 
-		error: function(message, duration = 7000) {
+		error(message, duration = 7000) {
 			return this.show(message, 'error', duration);
 		},
 
-		warning: function(message, duration = 6000) {
+		warning(message, duration = 6000) {
 			return this.show(message, 'warning', duration);
 		},
 
-		info: function(message, duration = 5000) {
+		info(message, duration = 5000) {
 			return this.show(message, 'info', duration);
-		}
+		},
 	};
 
 	// ============================================================================
@@ -290,15 +307,15 @@
 		 * @param {Object} options - Modal options
 		 * @return {Promise} Promise that resolves to true/false
 		 */
-		confirm: function(options = {}) {
+		confirm(options = {}) {
 			const defaults = {
-				title: wpAdminHealthData?.i18n?.confirm || 'Confirm',
-				message: 'Are you sure?',
-				confirmText: wpAdminHealthData?.i18n?.confirm || 'Confirm',
-				cancelText: wpAdminHealthData?.i18n?.cancel || 'Cancel',
+				title: __('Confirm', 'wp-admin-health-suite'),
+				message: __('Are you sure?', 'wp-admin-health-suite'),
+				confirmText: __('Confirm', 'wp-admin-health-suite'),
+				cancelText: __('Cancel', 'wp-admin-health-suite'),
 				confirmClass: 'button-primary',
 				cancelClass: 'button-secondary',
-				danger: false
+				danger: false,
 			};
 
 			const settings = $.extend({}, defaults, options);
@@ -313,46 +330,46 @@
 		/**
 		 * Create modal element
 		 *
-		 * @param {Object} settings - Modal settings
-		 * @param {Function} resolve - Promise resolve function
+		 * @param {Object}   settings - Modal settings
+		 * @param {Function} resolve  - Promise resolve function
 		 * @return {jQuery} Modal element
 		 */
-		createModal: function(settings, resolve) {
+		createModal(settings, resolve) {
 			const overlay = $('<div>', {
-				'class': 'wpha-modal-overlay',
-				'role': 'dialog',
+				class: 'wpha-modal-overlay',
+				role: 'dialog',
 				'aria-modal': 'true',
-				'aria-labelledby': 'wpha-modal-title'
+				'aria-labelledby': 'wpha-modal-title',
 			});
 
 			const modal = $('<div>', {
-				'class': 'wpha-modal'
+				class: 'wpha-modal',
 			});
 
 			const header = $('<div>', {
-				'class': 'wpha-modal-header',
-				'html': `<h3 id="wpha-modal-title">${settings.title}</h3>`
+				class: 'wpha-modal-header',
+				html: `<h3 id="wpha-modal-title">${settings.title}</h3>`,
 			});
 
 			const body = $('<div>', {
-				'class': 'wpha-modal-body',
-				'html': `<p>${settings.message}</p>`
+				class: 'wpha-modal-body',
+				html: `<p>${settings.message}</p>`,
 			});
 
 			const footer = $('<div>', {
-				'class': 'wpha-modal-footer'
+				class: 'wpha-modal-footer',
 			});
 
 			const confirmBtn = $('<button>', {
-				'class': `button ${settings.confirmClass} ${settings.danger ? 'wpha-danger' : ''}`,
-				'type': 'button',
-				'text': settings.confirmText
+				class: `button ${settings.confirmClass} ${settings.danger ? 'wpha-danger' : ''}`,
+				type: 'button',
+				text: settings.confirmText,
 			});
 
 			const cancelBtn = $('<button>', {
-				'class': `button ${settings.cancelClass}`,
-				'type': 'button',
-				'text': settings.cancelText
+				class: `button ${settings.cancelClass}`,
+				type: 'button',
+				text: settings.cancelText,
 			});
 
 			confirmBtn.on('click', () => {
@@ -393,11 +410,11 @@
 		 *
 		 * @param {jQuery} overlay - Modal overlay element
 		 */
-		closeModal: function(overlay) {
+		closeModal(overlay) {
 			overlay.removeClass('wpha-modal-show');
 			$(document).off('keydown.wpha-modal');
 			setTimeout(() => overlay.remove(), 300);
-		}
+		},
 	};
 
 	// ============================================================================
@@ -416,16 +433,16 @@
 		/**
 		 * Create progress tracker
 		 *
-		 * @param {string} id - Unique tracker ID
+		 * @param {string} id      - Unique tracker ID
 		 * @param {Object} options - Tracker options
 		 * @return {Object} Progress tracker instance
 		 */
-		create: function(id, options = {}) {
+		create(id, options = {}) {
 			const defaults = {
-				title: 'Processing...',
+				title: __('Processing…', 'wp-admin-health-suite'),
 				message: '',
 				showPercentage: true,
-				container: null
+				container: null,
 			};
 
 			const settings = $.extend({}, defaults, options);
@@ -444,42 +461,42 @@
 		/**
 		 * Build tracker element
 		 *
-		 * @param {string} id - Tracker ID
+		 * @param {string} id       - Tracker ID
 		 * @param {Object} settings - Tracker settings
 		 * @return {Object} Tracker object
 		 */
-		buildTracker: function(id, settings) {
+		buildTracker(id, settings) {
 			const element = $('<div>', {
-				'class': 'wpha-progress-tracker',
-				'id': `wpha-progress-${id}`,
-				'role': 'progressbar',
+				class: 'wpha-progress-tracker',
+				id: `wpha-progress-${id}`,
+				role: 'progressbar',
 				'aria-valuenow': '0',
 				'aria-valuemin': '0',
-				'aria-valuemax': '100'
+				'aria-valuemax': '100',
 			});
 
 			const title = $('<div>', {
-				'class': 'wpha-progress-title',
-				'text': settings.title
+				class: 'wpha-progress-title',
+				text: settings.title,
 			});
 
 			const message = $('<div>', {
-				'class': 'wpha-progress-message',
-				'text': settings.message
+				class: 'wpha-progress-message',
+				text: settings.message,
 			});
 
 			const barContainer = $('<div>', {
-				'class': 'wpha-progress-bar-container'
+				class: 'wpha-progress-bar-container',
 			});
 
 			const bar = $('<div>', {
-				'class': 'wpha-progress-bar',
-				'style': 'width: 0%'
+				class: 'wpha-progress-bar',
+				style: 'width: 0%',
 			});
 
 			const percentage = $('<div>', {
-				'class': 'wpha-progress-percentage',
-				'text': '0%'
+				class: 'wpha-progress-percentage',
+				text: '0%',
 			});
 
 			barContainer.append(bar);
@@ -490,26 +507,26 @@
 			}
 
 			return {
-				element: element,
-				bar: bar,
-				message: message,
-				percentage: percentage,
-				settings: settings,
+				element,
+				bar,
+				message,
+				percentage,
+				settings,
 				update: (progress, msg) => this.update(id, progress, msg),
 				complete: (msg) => this.complete(id, msg),
 				error: (msg) => this.error(id, msg),
-				remove: () => this.remove(id)
+				remove: () => this.remove(id),
 			};
 		},
 
 		/**
 		 * Update progress
 		 *
-		 * @param {string} id - Tracker ID
+		 * @param {string} id       - Tracker ID
 		 * @param {number} progress - Progress percentage (0-100)
-		 * @param {string} message - Optional message
+		 * @param {string} message  - Optional message
 		 */
-		update: function(id, progress, message) {
+		update(id, progress, message) {
 			const tracker = this.trackers[id];
 			if (!tracker) return;
 
@@ -530,14 +547,18 @@
 		/**
 		 * Mark progress as complete
 		 *
-		 * @param {string} id - Tracker ID
+		 * @param {string} id      - Tracker ID
 		 * @param {string} message - Completion message
 		 */
-		complete: function(id, message) {
+		complete(id, message) {
 			const tracker = this.trackers[id];
 			if (!tracker) return;
 
-			this.update(id, 100, message || 'Complete!');
+			this.update(
+				id,
+				100,
+				message || __('Complete!', 'wp-admin-health-suite')
+			);
 			tracker.element.addClass('wpha-progress-complete');
 
 			setTimeout(() => this.remove(id), 2000);
@@ -546,15 +567,17 @@
 		/**
 		 * Mark progress as error
 		 *
-		 * @param {string} id - Tracker ID
+		 * @param {string} id      - Tracker ID
 		 * @param {string} message - Error message
 		 */
-		error: function(id, message) {
+		error(id, message) {
 			const tracker = this.trackers[id];
 			if (!tracker) return;
 
 			tracker.element.addClass('wpha-progress-error');
-			tracker.message.text(message || 'An error occurred');
+			tracker.message.text(
+				message || __('An error occurred', 'wp-admin-health-suite')
+			);
 		},
 
 		/**
@@ -562,16 +585,16 @@
 		 *
 		 * @param {string} id - Tracker ID
 		 */
-		remove: function(id) {
+		remove(id) {
 			const tracker = this.trackers[id];
 			if (!tracker) return;
 
-			tracker.element.fadeOut(300, function() {
+			tracker.element.fadeOut(300, function () {
 				$(this).remove();
 			});
 
 			delete this.trackers[id];
-		}
+		},
 	};
 
 	// ============================================================================
@@ -593,7 +616,7 @@
 		 * @param {string} key - Storage key
 		 * @return {string} Namespaced key
 		 */
-		buildKey: function(key) {
+		buildKey(key) {
 			return this.prefix + key;
 		},
 
@@ -602,7 +625,7 @@
 		 *
 		 * @return {boolean} True if available
 		 */
-		isAvailable: function() {
+		isAvailable() {
 			try {
 				const test = '__storage_test__';
 				localStorage.setItem(test, test);
@@ -616,11 +639,11 @@
 		/**
 		 * Get item from storage
 		 *
-		 * @param {string} key - Storage key
-		 * @param {*} defaultValue - Default value if not found
+		 * @param {string} key          - Storage key
+		 * @param {*}      defaultValue - Default value if not found
 		 * @return {*} Stored value or default
 		 */
-		get: function(key, defaultValue = null) {
+		get(key, defaultValue = null) {
 			if (!this.isAvailable()) return defaultValue;
 
 			try {
@@ -635,11 +658,11 @@
 		/**
 		 * Set item in storage
 		 *
-		 * @param {string} key - Storage key
-		 * @param {*} value - Value to store
+		 * @param {string} key   - Storage key
+		 * @param {*}      value - Value to store
 		 * @return {boolean} True if successful
 		 */
-		set: function(key, value) {
+		set(key, value) {
 			if (!this.isAvailable()) return false;
 
 			try {
@@ -657,7 +680,7 @@
 		 * @param {string} key - Storage key
 		 * @return {boolean} True if successful
 		 */
-		remove: function(key) {
+		remove(key) {
 			if (!this.isAvailable()) return false;
 
 			try {
@@ -674,12 +697,12 @@
 		 *
 		 * @return {boolean} True if successful
 		 */
-		clear: function() {
+		clear() {
 			if (!this.isAvailable()) return false;
 
 			try {
 				const keys = Object.keys(localStorage);
-				keys.forEach(key => {
+				keys.forEach((key) => {
 					if (key.startsWith(this.prefix)) {
 						localStorage.removeItem(key);
 					}
@@ -696,13 +719,13 @@
 		 *
 		 * @return {Object} All stored items
 		 */
-		getAll: function() {
+		getAll() {
 			if (!this.isAvailable()) return {};
 
 			try {
 				const items = {};
 				const keys = Object.keys(localStorage);
-				keys.forEach(key => {
+				keys.forEach((key) => {
 					if (key.startsWith(this.prefix)) {
 						const shortKey = key.substring(this.prefix.length);
 						items[shortKey] = this.get(shortKey);
@@ -713,7 +736,7 @@
 				console.error('Storage.getAll error:', e);
 				return {};
 			}
-		}
+		},
 	};
 
 	// ============================================================================
@@ -732,11 +755,11 @@
 		/**
 		 * Register event listener
 		 *
-		 * @param {string} eventName - Event name
-		 * @param {Function} callback - Callback function
+		 * @param {string}   eventName - Event name
+		 * @param {Function} callback  - Callback function
 		 * @return {Function} Unsubscribe function
 		 */
-		on: function(eventName, callback) {
+		on(eventName, callback) {
 			if (!this.listeners[eventName]) {
 				this.listeners[eventName] = [];
 			}
@@ -750,14 +773,14 @@
 		/**
 		 * Remove event listener
 		 *
-		 * @param {string} eventName - Event name
-		 * @param {Function} callback - Callback function
+		 * @param {string}   eventName - Event name
+		 * @param {Function} callback  - Callback function
 		 */
-		off: function(eventName, callback) {
+		off(eventName, callback) {
 			if (!this.listeners[eventName]) return;
 
 			this.listeners[eventName] = this.listeners[eventName].filter(
-				cb => cb !== callback
+				(cb) => cb !== callback
 			);
 		},
 
@@ -765,23 +788,26 @@
 		 * Trigger event
 		 *
 		 * @param {string} eventName - Event name
-		 * @param {*} data - Event data
+		 * @param {*}      data      - Event data
 		 */
-		trigger: function(eventName, data = {}) {
+		trigger(eventName, data = {}) {
 			if (!this.listeners[eventName]) return;
 
-			this.listeners[eventName].forEach(callback => {
+			this.listeners[eventName].forEach((callback) => {
 				try {
 					callback(data);
 				} catch (e) {
-					console.error(`Error in event listener for ${eventName}:`, e);
+					console.error(
+						`Error in event listener for ${eventName}:`,
+						e
+					);
 				}
 			});
 
 			// Also trigger native custom event
 			const event = new CustomEvent(`wpha:${eventName}`, {
 				detail: data,
-				bubbles: true
+				bubbles: true,
 			});
 			document.dispatchEvent(event);
 		},
@@ -789,17 +815,17 @@
 		/**
 		 * One-time event listener
 		 *
-		 * @param {string} eventName - Event name
-		 * @param {Function} callback - Callback function
+		 * @param {string}   eventName - Event name
+		 * @param {Function} callback  - Callback function
 		 */
-		once: function(eventName, callback) {
+		once(eventName, callback) {
 			const wrapper = (data) => {
 				callback(data);
 				this.off(eventName, wrapper);
 			};
 
 			this.on(eventName, wrapper);
-		}
+		},
 	};
 
 	// ============================================================================
@@ -814,12 +840,30 @@
 		 * Error message mappings
 		 */
 		messages: {
-			'network_error': 'Network error. Please check your connection and try again.',
-			'server_error': 'Server error. Please try again later.',
-			'permission_error': 'You do not have permission to perform this action.',
-			'validation_error': 'Please check your input and try again.',
-			'timeout_error': 'Request timed out. Please try again.',
-			'unknown_error': 'An unexpected error occurred. Please try again.'
+			network_error: __(
+				'Network error. Please check your connection and try again.',
+				'wp-admin-health-suite'
+			),
+			server_error: __(
+				'Server error. Please try again later.',
+				'wp-admin-health-suite'
+			),
+			permission_error: __(
+				'You do not have permission to perform this action.',
+				'wp-admin-health-suite'
+			),
+			validation_error: __(
+				'Please check your input and try again.',
+				'wp-admin-health-suite'
+			),
+			timeout_error: __(
+				'Request timed out. Please try again.',
+				'wp-admin-health-suite'
+			),
+			unknown_error: __(
+				'An unexpected error occurred. Please try again.',
+				'wp-admin-health-suite'
+			),
 		},
 
 		/**
@@ -828,7 +872,7 @@
 		 * @param {Error|Object} error - Error object
 		 * @return {string} User-friendly message
 		 */
-		getUserFriendlyMessage: function(error) {
+		getUserFriendlyMessage(error) {
 			// Handle string errors
 			if (typeof error === 'string') {
 				return error;
@@ -843,7 +887,9 @@
 				}
 
 				if (status >= 400 && status < 500) {
-					return error.response.message || this.messages.validation_error;
+					return (
+						error.response.message || this.messages.validation_error
+					);
 				}
 
 				if (status >= 500) {
@@ -868,14 +914,14 @@
 		/**
 		 * Handle error globally
 		 *
-		 * @param {Error} error - Error object
+		 * @param {Error}  error   - Error object
 		 * @param {Object} options - Handler options
 		 */
-		handle: function(error, options = {}) {
+		handle(error, options = {}) {
 			const defaults = {
 				showToast: true,
 				logToConsole: true,
-				triggerEvent: true
+				triggerEvent: true,
 			};
 
 			const settings = $.extend({}, defaults, options);
@@ -894,7 +940,7 @@
 			}
 
 			return message;
-		}
+		},
 	};
 
 	// ============================================================================
@@ -903,13 +949,13 @@
 
 	// Expose public API
 	$.extend(window.WPAdminHealth, {
-		API: API,
-		Toast: Toast,
-		Modal: Modal,
-		Progress: Progress,
-		Storage: Storage,
-		Events: Events,
-		ErrorHandler: ErrorHandler,
+		API,
+		Toast,
+		Modal,
+		Progress,
+		Storage,
+		Events,
+		ErrorHandler,
 
 		// Utility methods
 		utils: {
@@ -917,12 +963,12 @@
 			 * Debounce function
 			 *
 			 * @param {Function} func - Function to debounce
-			 * @param {number} wait - Wait time in milliseconds
+			 * @param {number}   wait - Wait time in milliseconds
 			 * @return {Function} Debounced function
 			 */
-			debounce: function(func, wait) {
+			debounce(func, wait) {
 				let timeout;
-				return function(...args) {
+				return function (...args) {
 					clearTimeout(timeout);
 					timeout = setTimeout(() => func.apply(this, args), wait);
 				};
@@ -931,17 +977,17 @@
 			/**
 			 * Throttle function
 			 *
-			 * @param {Function} func - Function to throttle
-			 * @param {number} limit - Time limit in milliseconds
+			 * @param {Function} func  - Function to throttle
+			 * @param {number}   limit - Time limit in milliseconds
 			 * @return {Function} Throttled function
 			 */
-			throttle: function(func, limit) {
+			throttle(func, limit) {
 				let inThrottle;
-				return function(...args) {
+				return function (...args) {
 					if (!inThrottle) {
 						func.apply(this, args);
 						inThrottle = true;
-						setTimeout(() => inThrottle = false, limit);
+						setTimeout(() => (inThrottle = false), limit);
 					}
 				};
 			},
@@ -949,11 +995,11 @@
 			/**
 			 * Format bytes to human-readable string
 			 *
-			 * @param {number} bytes - Bytes value
+			 * @param {number} bytes    - Bytes value
 			 * @param {number} decimals - Decimal places
 			 * @return {string} Formatted string
 			 */
-			formatBytes: function(bytes, decimals = 2) {
+			formatBytes(bytes, decimals = 2) {
 				if (bytes === 0) return '0 Bytes';
 
 				const k = 1024;
@@ -961,7 +1007,11 @@
 				const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
 				const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-				return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+				return (
+					parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) +
+					' ' +
+					sizes[i]
+				);
 			},
 
 			/**
@@ -970,27 +1020,27 @@
 			 * @param {number} num - Number to format
 			 * @return {string} Formatted number
 			 */
-			formatNumber: function(num) {
+			formatNumber(num) {
 				return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-			}
-		}
+			},
+		},
 	});
 
 	// ============================================================================
 	// INITIALIZATION
 	// ============================================================================
 
-	$(document).ready(function() {
+	$(document).ready(function () {
 		// Initialize toast system
 		Toast.init();
 
 		// Set up global error boundary
-		window.addEventListener('error', function(event) {
+		window.addEventListener('error', function (event) {
 			ErrorHandler.handle(event.error, { showToast: false });
 		});
 
 		// Set up unhandled promise rejection handler
-		window.addEventListener('unhandledrejection', function(event) {
+		window.addEventListener('unhandledrejection', function (event) {
 			ErrorHandler.handle(event.reason, { showToast: false });
 		});
 
@@ -1000,5 +1050,4 @@
 			Events.trigger('ready', { version: wpAdminHealthData.version });
 		}
 	});
-
 })(window, jQuery);

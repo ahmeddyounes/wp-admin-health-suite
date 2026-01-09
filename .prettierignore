@@ -1,0 +1,13 @@
+node_modules
+vendor
+assets/js/dist
+*.min.js
+*.min.css
+build
+dist
+.git
+.t2
+.logs
+.plans
+composer.lock
+package-lock.json

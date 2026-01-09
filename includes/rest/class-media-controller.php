@@ -10,6 +10,8 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Contracts\ScannerInterface;
 use WPAdminHealth\Media\Scanner;
 use WPAdminHealth\Media\Reference_Finder;
 use WPAdminHealth\Media\Duplicate_Detector;
@@ -46,6 +48,44 @@ class Media_Controller extends REST_Controller {
 	 * @var int
 	 */
 	private $per_page = 50;
+
+	/**
+	 * Scanner instance.
+	 *
+	 * @since 1.1.0
+	 * @var ScannerInterface|null
+	 */
+	protected ?ScannerInterface $scanner = null;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param SettingsInterface|null $settings Optional settings instance for dependency injection.
+	 * @param ScannerInterface|null  $scanner  Optional scanner instance for dependency injection.
+	 */
+	public function __construct( ?SettingsInterface $settings = null, ?ScannerInterface $scanner = null ) {
+		parent::__construct( $settings );
+		$this->scanner = $scanner;
+	}
+
+	/**
+	 * Get the scanner instance.
+	 *
+	 * Falls back to creating a new instance if not injected.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return ScannerInterface The scanner instance.
+	 */
+	protected function get_scanner(): ScannerInterface {
+		if ( null === $this->scanner ) {
+			$this->scanner = new Scanner();
+		}
+
+		return $this->scanner;
+	}
 
 	/**
 	 * Register routes for the controller.
@@ -282,7 +322,7 @@ class Media_Controller extends REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_stats( $request ) {
-		$scanner = new Scanner();
+		$scanner = $this->get_scanner();
 		$duplicate_detector = new Duplicate_Detector();
 		$large_files = new Large_Files();
 		$alt_text_checker = new Alt_Text_Checker();
@@ -348,7 +388,7 @@ class Media_Controller extends REST_Controller {
 		$cursor = $request->get_param( 'cursor' );
 		$per_page = $request->get_param( 'per_page' ) ? absint( $request->get_param( 'per_page' ) ) : $this->per_page;
 
-		$scanner = new Scanner();
+		$scanner = $this->get_scanner();
 		$all_unused = $scanner->find_unused_media();
 
 		// Apply cursor-based pagination.
@@ -538,7 +578,7 @@ class Media_Controller extends REST_Controller {
 		}
 
 		// Fallback: run scan immediately if Action Scheduler is not available.
-		$scanner = new Scanner();
+		$scanner = $this->get_scanner();
 		$results = $scanner->scan_all_media();
 
 		return $this->format_response(

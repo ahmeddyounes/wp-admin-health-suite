@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<ruleset name="WP Admin Health Suite">
+	<description>WordPress Coding Standards for WP Admin Health Suite</description>
+
+	<!-- What to scan -->
+	<file>includes</file>
+	<file>admin</file>
+	<file>wp-admin-health-suite.php</file>
+	<file>uninstall.php</file>
+
+	<!-- Exclude vendor and build directories -->
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/tests/*</exclude-pattern>
+	<exclude-pattern>*/assets/*</exclude-pattern>
+
+	<!-- Show progress -->
+	<arg value="ps"/>
+	<!-- Show colors in output -->
+	<arg name="colors"/>
+	<!-- Show sniff codes in all reports -->
+	<arg value="ns"/>
+	<!-- Use parallel processing -->
+	<arg name="parallel" value="8"/>
+	<!-- Strip the filepaths down to the relevant bit -->
+	<arg name="basepath" value="./"/>
+
+	<!-- Include the WordPress-Extra standard. -->
+	<rule ref="WordPress-Extra">
+		<!-- Allow short array syntax -->
+		<exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+		<!-- Allow short ternary -->
+		<exclude name="WordPress.PHP.DisallowShortTernary"/>
+	</rule>
+
+	<!-- Include the WordPress-Docs standard. -->
+	<rule ref="WordPress-Docs"/>
+
+	<!-- Let's also check that everything is properly documented. -->
+	<rule ref="WordPress-Docs"/>
+
+	<!-- Check for PHP cross-version compatibility. -->
+	<config name="testVersion" value="7.4-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<!-- Minimum WordPress version -->
+	<config name="minimum_wp_version" value="5.8"/>
+
+	<!-- Text Domain check -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="wp-admin-health-suite"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Naming conventions -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="wp_admin_health"/>
+				<element value="WPAdminHealth"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>

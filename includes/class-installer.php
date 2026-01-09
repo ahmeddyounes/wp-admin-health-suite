@@ -34,6 +34,13 @@ class Installer {
 	 * @return void
 	 */
 	public static function install() {
+		// Security: Ensure user has capability to install plugins.
+		// This check is for defense-in-depth since WordPress activation hooks
+		// should already verify capabilities, but this method could be called directly.
+		if ( ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+
 		self::create_tables();
 		self::set_default_settings();
 		self::set_version();
@@ -216,6 +223,30 @@ class Installer {
 	}
 
 	/**
+	 * Install plugin on a newly created site in a multisite network.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $blog_id The blog ID of the new site.
+	 * @return void
+	 */
+	public static function install_on_new_site( $blog_id ) {
+		if ( ! is_multisite() ) {
+			return;
+		}
+
+		// Check if plugin is network activated.
+		if ( ! \WPAdminHealth\Multisite::is_network_activated() ) {
+			return;
+		}
+
+		// Switch to the new site and install.
+		switch_to_blog( $blog_id );
+		self::install();
+		restore_current_blog();
+	}
+
+	/**
 	 * Remove all plugin data from database.
 	 *
 	 * @since 1.0.0
@@ -223,6 +254,48 @@ class Installer {
 	 * @return void
 	 */
 	public static function uninstall() {
+		global $wpdb;
+
+		// Security: Ensure user has capability to delete plugins.
+		// This check is for defense-in-depth since WordPress uninstall hooks
+		// should already verify capabilities, but this method could be called directly.
+		if ( ! current_user_can( 'delete_plugins' ) ) {
+			return;
+		}
+
+		if ( is_multisite() ) {
+			// Uninstall from all sites.
+			$sites = get_sites( array( 'number' => 999 ) );
+			foreach ( $sites as $site ) {
+				switch_to_blog( $site->blog_id );
+				self::uninstall_single_site();
+				restore_current_blog();
+			}
+
+			// Delete network options.
+			delete_site_option( \WPAdminHealth\Multisite::NETWORK_SETTINGS_OPTION );
+		} else {
+			self::uninstall_single_site();
+		}
+
+		/**
+		 * Fires after plugin uninstall is complete.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @hook wpha_uninstalled
+		 */
+		do_action( 'wpha_uninstalled' );
+	}
+
+	/**
+	 * Uninstall plugin from a single site.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return void
+	 */
+	private static function uninstall_single_site() {
 		global $wpdb;
 
 		$prefix = $wpdb->prefix;
@@ -237,14 +310,5 @@ class Installer {
 		// Delete options.
 		delete_option( self::VERSION_OPTION );
 		delete_option( Settings::OPTION_NAME );
-
-		/**
-		 * Fires after plugin uninstall is complete.
-		 *
-		 * @since 1.0.0
-		 *
-		 * @hook wpha_uninstalled
-		 */
-		do_action( 'wpha_uninstalled' );
 	}
 }

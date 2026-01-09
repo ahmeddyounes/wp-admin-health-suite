@@ -1,0 +1,211 @@
+# Copyright (C) 2026 WP Admin Health Suite
+# This file is distributed under the same license as the WP Admin Health Suite plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP Admin Health Suite 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/yourusername/wp-admin-health-suite/issues\n"
+"POT-Creation-Date: 2026-01-07 00:00:00+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: WordPress\n"
+"X-Domain: wp-admin-health-suite\n"
+
+#. Plugin Name of the plugin
+msgid "WP Admin Health Suite"
+msgstr ""
+
+#. Plugin URI of the plugin
+msgid "https://github.com/yourusername/wp-admin-health-suite"
+msgstr ""
+
+#. Description of the plugin
+msgid "A comprehensive suite for monitoring and maintaining WordPress admin health and performance."
+msgstr ""
+
+#. Author of the plugin
+msgid "Your Name"
+msgstr ""
+
+#. Author URI of the plugin
+msgid "https://yourwebsite.com"
+msgstr ""
+
+#: admin/class-admin.php:65
+#: admin/class-admin.php:66
+msgid "Admin Health"
+msgstr ""
+
+#: admin/class-admin.php:77
+#: admin/class-admin.php:78
+msgid "Dashboard"
+msgstr ""
+
+#: admin/class-admin.php:87
+#: admin/class-admin.php:88
+msgid "Database Health"
+msgstr ""
+
+#: admin/class-admin.php:97
+#: admin/class-admin.php:98
+msgid "Media Audit"
+msgstr ""
+
+#: admin/class-admin.php:107
+#: admin/class-admin.php:108
+msgid "Performance"
+msgstr ""
+
+#: admin/class-admin.php:117
+#: admin/class-admin.php:118
+msgid "Settings"
+msgstr ""
+
+#: admin/class-admin.php:197
+msgid "You do not have sufficient permissions to access this page."
+msgstr ""
+
+#: admin/class-admin.php:207
+msgid "Template file not found. Please contact the plugin administrator."
+msgstr ""
+
+#: includes/Plugin.php:324
+msgid "Cloning is forbidden."
+msgstr ""
+
+#: includes/Plugin.php:339
+msgid "Unserializing instances of this class is forbidden."
+msgstr ""
+
+#: includes/Assets.php:243
+msgid "Loading..."
+msgstr ""
+
+#: includes/Assets.php:244
+msgid "An error occurred."
+msgstr ""
+
+#: includes/Assets.php:245
+msgid "Success!"
+msgstr ""
+
+#: includes/Assets.php:246
+msgid "Are you sure?"
+msgstr ""
+
+#: includes/Assets.php:247
+msgid "Save"
+msgstr ""
+
+#: includes/Assets.php:248
+msgid "Cancel"
+msgstr ""
+
+#: includes/Assets.php:249
+msgid "Delete"
+msgstr ""
+
+#: includes/Assets.php:250
+msgid "Refresh"
+msgstr ""
+
+#: includes/Assets.php:251
+msgid "No data available."
+msgstr ""
+
+#: includes/Assets.php:252
+msgid "Processing..."
+msgstr ""
+
+#: includes/Assets.php:253
+msgid "Analyze"
+msgstr ""
+
+#: includes/Assets.php:254
+msgid "Clean"
+msgstr ""
+
+#: includes/Assets.php:255
+msgid "Post Revisions"
+msgstr ""
+
+#: includes/Assets.php:256
+msgid "Transients"
+msgstr ""
+
+#: includes/Assets.php:257
+msgid "Spam Comments"
+msgstr ""
+
+#: includes/Assets.php:258
+msgid "Trash (Posts & Comments)"
+msgstr ""
+
+#: includes/Assets.php:259
+msgid "Orphaned Data"
+msgstr ""
+
+#: includes/Assets.php:260
+msgid "Are you sure you want to clean this data? This action cannot be undone."
+msgstr ""
+
+#: assets/js/admin.js:123
+msgid "wp.apiFetch is not available"
+msgstr ""
+
+#: assets/js/admin.js:223
+msgid "Close"
+msgstr ""
+
+#: assets/js/admin.js:307
+#: assets/js/admin.js:309
+msgid "Confirm"
+msgstr ""
+
+#: assets/js/admin.js:308
+msgid "Are you sure?"
+msgstr ""
+
+#: assets/js/admin.js:310
+msgid "Cancel"
+msgstr ""
+
+#: assets/js/admin.js:437
+msgid "Processing..."
+msgstr ""
+
+#: assets/js/admin.js:552
+msgid "Complete!"
+msgstr ""
+
+#: assets/js/admin.js:569
+msgid "An error occurred"
+msgstr ""
+
+#: assets/js/admin.js:832
+msgid "Network error. Please check your connection and try again."
+msgstr ""
+
+#: assets/js/admin.js:833
+msgid "Server error. Please try again later."
+msgstr ""
+
+#: assets/js/admin.js:834
+msgid "You do not have permission to perform this action."
+msgstr ""
+
+#: assets/js/admin.js:835
+msgid "Please check your input and try again."
+msgstr ""
+
+#: assets/js/admin.js:836
+msgid "Request timed out. Please try again."
+msgstr ""
+
+#: assets/js/admin.js:837
+msgid "An unexpected error occurred. Please try again."
+msgstr ""

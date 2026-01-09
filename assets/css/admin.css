@@ -69,6 +69,74 @@
 }
 
 /* ========================================
+   Accessibility - Skip Links & Screen Reader
+   ======================================== */
+
+/* Skip links - visible on focus for keyboard navigation */
+.wpha-skip-links {
+	position: relative;
+	z-index: 100002;
+}
+
+.screen-reader-shortcut,
+.screen-reader-text {
+	border: 0;
+	clip: rect(1px, 1px, 1px, 1px);
+	clip-path: inset(50%);
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute !important;
+	width: 1px;
+	word-wrap: normal !important;
+}
+
+.screen-reader-shortcut:focus,
+.screen-reader-text:focus {
+	background-color: var(--wpha-color-bg-primary);
+	border-radius: var(--wpha-radius-sm);
+	box-shadow: 0 0 2px 2px rgba(0, 0, 0, 0.6);
+	clip: auto !important;
+	clip-path: none;
+	color: var(--wp-admin-theme-color);
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	height: auto;
+	left: 5px;
+	line-height: normal;
+	padding: 15px 23px 14px;
+	text-decoration: none;
+	top: 5px;
+	width: auto;
+	z-index: 100003;
+}
+
+/* Focus visible styles for better keyboard navigation */
+*:focus-visible {
+	outline: 2px solid var(--wp-admin-theme-color);
+	outline-offset: 2px;
+}
+
+/* Remove outline for mouse users */
+*:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* High contrast focus for critical elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role='button']:focus-visible,
+[role='link']:focus-visible {
+	outline: 2px solid var(--wp-admin-theme-color);
+	outline-offset: 2px;
+}
+
+/* ========================================
    Base Wrapper - Scoped Styles
    ======================================== */
 
@@ -103,7 +171,8 @@
 	padding: var(--wpha-spacing-md) var(--wpha-spacing-lg);
 	border-bottom: 1px solid var(--wpha-color-border);
 	background: var(--wpha-color-bg-secondary);
-	margin: calc(-1 * var(--wpha-spacing-lg)) calc(-1 * var(--wpha-spacing-lg)) var(--wpha-spacing-lg);
+	margin: calc(-1 * var(--wpha-spacing-lg)) calc(-1 * var(--wpha-spacing-lg))
+		var(--wpha-spacing-lg);
 	border-radius: var(--wpha-radius) var(--wpha-radius) 0 0;
 }
 
@@ -122,7 +191,8 @@
 	padding: var(--wpha-spacing-md) var(--wpha-spacing-lg);
 	border-top: 1px solid var(--wpha-color-border);
 	background: var(--wpha-color-bg-secondary);
-	margin: var(--wpha-spacing-lg) calc(-1 * var(--wpha-spacing-lg)) calc(-1 * var(--wpha-spacing-lg));
+	margin: var(--wpha-spacing-lg) calc(-1 * var(--wpha-spacing-lg))
+		calc(-1 * var(--wpha-spacing-lg));
 	border-radius: 0 0 var(--wpha-radius) var(--wpha-radius);
 }
 
@@ -316,7 +386,9 @@
 	background: var(--wpha-color-bg-primary);
 	border: 1px solid var(--wpha-color-border);
 	border-radius: var(--wpha-radius);
-	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	transition:
+		border-color 0.2s ease,
+		box-shadow 0.2s ease;
 }
 
 .wpha-input:focus,
@@ -382,8 +454,8 @@
 	margin-bottom: var(--wpha-spacing-sm);
 }
 
-.wpha-checkbox input[type="checkbox"],
-.wpha-radio input[type="radio"] {
+.wpha-checkbox input[type='checkbox'],
+.wpha-radio input[type='radio'] {
 	margin: 0;
 	width: 16px;
 	height: 16px;
@@ -474,7 +546,9 @@
 	z-index: 100000;
 	opacity: 0;
 	visibility: hidden;
-	transition: opacity 0.3s ease, visibility 0.3s ease;
+	transition:
+		opacity 0.3s ease,
+		visibility 0.3s ease;
 }
 
 .wpha-modal-overlay.wpha-modal-show {
@@ -575,7 +649,9 @@
 	gap: var(--wpha-spacing-sm);
 	opacity: 0;
 	transform: translateX(100%);
-	transition: opacity 0.3s ease, transform 0.3s ease;
+	transition:
+		opacity 0.3s ease,
+		transform 0.3s ease;
 	pointer-events: auto;
 }
 
@@ -684,7 +760,11 @@
 
 .wpha-progress-bar {
 	height: 100%;
-	background: linear-gradient(90deg, var(--wp-admin-theme-color) 0%, var(--wp-admin-theme-color-darker) 100%);
+	background: linear-gradient(
+		90deg,
+		var(--wp-admin-theme-color) 0%,
+		var(--wp-admin-theme-color-darker) 100%
+	);
 	transition: width 0.3s ease;
 	display: flex;
 	align-items: center;
@@ -696,15 +776,27 @@
 }
 
 .wpha-progress-bar.wpha-progress-success {
-	background: linear-gradient(90deg, var(--wpha-color-success) 0%, #008a24 100%);
+	background: linear-gradient(
+		90deg,
+		var(--wpha-color-success) 0%,
+		#008a24 100%
+	);
 }
 
 .wpha-progress-bar.wpha-progress-warning {
-	background: linear-gradient(90deg, var(--wpha-color-warning) 0%, #c29d14 100%);
+	background: linear-gradient(
+		90deg,
+		var(--wpha-color-warning) 0%,
+		#c29d14 100%
+	);
 }
 
 .wpha-progress-bar.wpha-progress-error {
-	background: linear-gradient(90deg, var(--wpha-color-error) 0%, #c32d2f 100%);
+	background: linear-gradient(
+		90deg,
+		var(--wpha-color-error) 0%,
+		#c32d2f 100%
+	);
 }
 
 /* Progress Striped Animation */
@@ -770,7 +862,11 @@
 
 .wpha-progress-tracker .wpha-progress-bar {
 	height: 100%;
-	background: linear-gradient(90deg, var(--wp-admin-theme-color) 0%, var(--wp-admin-theme-color-darker) 100%);
+	background: linear-gradient(
+		90deg,
+		var(--wp-admin-theme-color) 0%,
+		var(--wp-admin-theme-color-darker) 100%
+	);
 	transition: width 0.3s ease;
 	border-radius: var(--wpha-radius-sm);
 }
@@ -783,7 +879,11 @@
 }
 
 .wpha-progress-tracker.wpha-progress-complete .wpha-progress-bar {
-	background: linear-gradient(90deg, var(--wpha-color-success) 0%, #008a24 100%);
+	background: linear-gradient(
+		90deg,
+		var(--wpha-color-success) 0%,
+		#008a24 100%
+	);
 }
 
 .wpha-progress-tracker.wpha-progress-complete .wpha-progress-title {
@@ -791,7 +891,11 @@
 }
 
 .wpha-progress-tracker.wpha-progress-error .wpha-progress-bar {
-	background: linear-gradient(90deg, var(--wpha-color-error) 0%, #c32d2f 100%);
+	background: linear-gradient(
+		90deg,
+		var(--wpha-color-error) 0%,
+		#c32d2f 100%
+	);
 }
 
 .wpha-progress-tracker.wpha-progress-error .wpha-progress-title {
@@ -922,56 +1026,136 @@
    ======================================== */
 
 /* Spacing Utilities */
-.wpha-mt-0 { margin-top: 0 !important; }
-.wpha-mt-1 { margin-top: var(--wpha-spacing-sm) !important; }
-.wpha-mt-2 { margin-top: var(--wpha-spacing-md) !important; }
-.wpha-mt-3 { margin-top: var(--wpha-spacing-lg) !important; }
-.wpha-mt-4 { margin-top: var(--wpha-spacing-xl) !important; }
+.wpha-mt-0 {
+	margin-top: 0 !important;
+}
+.wpha-mt-1 {
+	margin-top: var(--wpha-spacing-sm) !important;
+}
+.wpha-mt-2 {
+	margin-top: var(--wpha-spacing-md) !important;
+}
+.wpha-mt-3 {
+	margin-top: var(--wpha-spacing-lg) !important;
+}
+.wpha-mt-4 {
+	margin-top: var(--wpha-spacing-xl) !important;
+}
 
-.wpha-mb-0 { margin-bottom: 0 !important; }
-.wpha-mb-1 { margin-bottom: var(--wpha-spacing-sm) !important; }
-.wpha-mb-2 { margin-bottom: var(--wpha-spacing-md) !important; }
-.wpha-mb-3 { margin-bottom: var(--wpha-spacing-lg) !important; }
-.wpha-mb-4 { margin-bottom: var(--wpha-spacing-xl) !important; }
+.wpha-mb-0 {
+	margin-bottom: 0 !important;
+}
+.wpha-mb-1 {
+	margin-bottom: var(--wpha-spacing-sm) !important;
+}
+.wpha-mb-2 {
+	margin-bottom: var(--wpha-spacing-md) !important;
+}
+.wpha-mb-3 {
+	margin-bottom: var(--wpha-spacing-lg) !important;
+}
+.wpha-mb-4 {
+	margin-bottom: var(--wpha-spacing-xl) !important;
+}
 
-.wpha-p-0 { padding: 0 !important; }
-.wpha-p-1 { padding: var(--wpha-spacing-sm) !important; }
-.wpha-p-2 { padding: var(--wpha-spacing-md) !important; }
-.wpha-p-3 { padding: var(--wpha-spacing-lg) !important; }
-.wpha-p-4 { padding: var(--wpha-spacing-xl) !important; }
+.wpha-p-0 {
+	padding: 0 !important;
+}
+.wpha-p-1 {
+	padding: var(--wpha-spacing-sm) !important;
+}
+.wpha-p-2 {
+	padding: var(--wpha-spacing-md) !important;
+}
+.wpha-p-3 {
+	padding: var(--wpha-spacing-lg) !important;
+}
+.wpha-p-4 {
+	padding: var(--wpha-spacing-xl) !important;
+}
 
 /* Text Utilities */
-.wpha-text-left { text-align: left !important; }
-.wpha-text-center { text-align: center !important; }
-.wpha-text-right { text-align: right !important; }
+.wpha-text-left {
+	text-align: left !important;
+}
+.wpha-text-center {
+	text-align: center !important;
+}
+.wpha-text-right {
+	text-align: right !important;
+}
 
-.wpha-text-primary { color: var(--wpha-color-text-primary) !important; }
-.wpha-text-secondary { color: var(--wpha-color-text-secondary) !important; }
-.wpha-text-success { color: var(--wpha-color-success) !important; }
-.wpha-text-warning { color: var(--wpha-color-warning) !important; }
-.wpha-text-error { color: var(--wpha-color-error) !important; }
+.wpha-text-primary {
+	color: var(--wpha-color-text-primary) !important;
+}
+.wpha-text-secondary {
+	color: var(--wpha-color-text-secondary) !important;
+}
+.wpha-text-success {
+	color: var(--wpha-color-success) !important;
+}
+.wpha-text-warning {
+	color: var(--wpha-color-warning) !important;
+}
+.wpha-text-error {
+	color: var(--wpha-color-error) !important;
+}
 
 /* Display Utilities */
-.wpha-d-none { display: none !important; }
-.wpha-d-block { display: block !important; }
-.wpha-d-inline-block { display: inline-block !important; }
-.wpha-d-flex { display: flex !important; }
-.wpha-d-inline-flex { display: inline-flex !important; }
+.wpha-d-none {
+	display: none !important;
+}
+.wpha-d-block {
+	display: block !important;
+}
+.wpha-d-inline-block {
+	display: inline-block !important;
+}
+.wpha-d-flex {
+	display: flex !important;
+}
+.wpha-d-inline-flex {
+	display: inline-flex !important;
+}
 
 /* Flex Utilities */
-.wpha-flex-row { flex-direction: row !important; }
-.wpha-flex-column { flex-direction: column !important; }
-.wpha-justify-start { justify-content: flex-start !important; }
-.wpha-justify-center { justify-content: center !important; }
-.wpha-justify-end { justify-content: flex-end !important; }
-.wpha-justify-between { justify-content: space-between !important; }
-.wpha-align-start { align-items: flex-start !important; }
-.wpha-align-center { align-items: center !important; }
-.wpha-align-end { align-items: flex-end !important; }
+.wpha-flex-row {
+	flex-direction: row !important;
+}
+.wpha-flex-column {
+	flex-direction: column !important;
+}
+.wpha-justify-start {
+	justify-content: flex-start !important;
+}
+.wpha-justify-center {
+	justify-content: center !important;
+}
+.wpha-justify-end {
+	justify-content: flex-end !important;
+}
+.wpha-justify-between {
+	justify-content: space-between !important;
+}
+.wpha-align-start {
+	align-items: flex-start !important;
+}
+.wpha-align-center {
+	align-items: center !important;
+}
+.wpha-align-end {
+	align-items: flex-end !important;
+}
 
-.wpha-gap-1 { gap: var(--wpha-spacing-sm) !important; }
-.wpha-gap-2 { gap: var(--wpha-spacing-md) !important; }
-.wpha-gap-3 { gap: var(--wpha-spacing-lg) !important; }
+.wpha-gap-1 {
+	gap: var(--wpha-spacing-sm) !important;
+}
+.wpha-gap-2 {
+	gap: var(--wpha-spacing-md) !important;
+}
+.wpha-gap-3 {
+	gap: var(--wpha-spacing-lg) !important;
+}
 
 /* ========================================
    WordPress Admin Color Scheme Support

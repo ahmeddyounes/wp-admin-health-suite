@@ -11,6 +11,7 @@ use WP_REST_Controller;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\SettingsInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -51,6 +52,42 @@ class REST_Controller extends WP_REST_Controller {
 	 * @var int
 	 */
 	protected $rate_limit = 60;
+
+	/**
+	 * Settings instance.
+	 *
+	 * @since 1.1.0
+	 * @var SettingsInterface|null
+	 */
+	protected ?SettingsInterface $settings = null;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param SettingsInterface|null $settings Optional settings instance for dependency injection.
+	 */
+	public function __construct( ?SettingsInterface $settings = null ) {
+		$this->settings = $settings;
+	}
+
+	/**
+	 * Get the settings instance.
+	 *
+	 * Falls back to retrieving from plugin singleton if not injected.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return SettingsInterface The settings instance.
+	 */
+	protected function get_settings(): SettingsInterface {
+		if ( null === $this->settings ) {
+			$this->settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
+		}
+
+		return $this->settings;
+	}
 
 	/**
 	 * Register routes for the controller.
@@ -176,7 +213,7 @@ class REST_Controller extends WP_REST_Controller {
 	 */
 	public function check_permissions( $request ) {
 		// Check if REST API is enabled.
-		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
+		$settings = $this->get_settings();
 		if ( ! $settings->is_rest_api_enabled() ) {
 			return new WP_Error(
 				'rest_api_disabled',
@@ -262,7 +299,7 @@ class REST_Controller extends WP_REST_Controller {
 		}
 
 		// Get rate limit from settings.
-		$settings   = \WPAdminHealth\Plugin::get_instance()->get_settings();
+		$settings   = $this->get_settings();
 		$rate_limit = $settings->get_rest_api_rate_limit();
 
 		$transient_key = 'wpha_rate_limit_' . $user_id;
@@ -402,8 +439,7 @@ class REST_Controller extends WP_REST_Controller {
 	 * @return bool True if safe mode is enabled, false otherwise.
 	 */
 	protected function is_safe_mode_enabled() {
-		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
-		return $settings->is_safe_mode_enabled();
+		return $this->get_settings()->is_safe_mode_enabled();
 	}
 
 	/**
@@ -415,7 +451,6 @@ class REST_Controller extends WP_REST_Controller {
 	 * @return bool True if debug mode is enabled, false otherwise.
 	 */
 	protected function is_debug_mode_enabled() {
-		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
-		return $settings->is_debug_mode_enabled();
+		return $this->get_settings()->is_debug_mode_enabled();
 	}
 }
