@@ -12,12 +12,12 @@ namespace WPAdminHealth\Tests\UnitStandalone\Container;
 use WPAdminHealth\Container\Container;
 use WPAdminHealth\Container\ContainerException;
 use WPAdminHealth\Container\NotFoundException;
-use WPAdminHealth\Tests\Standalone_Test_Case;
+use WPAdminHealth\Tests\StandaloneTestCase;
 
 /**
  * Container test class.
  */
-class ContainerTest extends Standalone_Test_Case {
+class ContainerTest extends StandaloneTestCase {
 
 	/**
 	 * Container instance.
@@ -37,7 +37,7 @@ class ContainerTest extends Standalone_Test_Case {
 	 * Test container implements ContainerInterface.
 	 */
 	public function test_implements_container_interface(): void {
-		$this->assertInstanceOf( \WPAdminHealth\Container\Container_Interface::class, $this->container );
+		$this->assertInstanceOf( \WPAdminHealth\Container\ContainerInterface::class, $this->container );
 	}
 
 	/**
@@ -175,13 +175,13 @@ class ContainerTest extends Standalone_Test_Case {
 	 */
 	public function test_bind_interface_to_implementation(): void {
 		$this->container->bind( \WPAdminHealth\Contracts\CacheInterface::class, function() {
-			return new \WPAdminHealth\Cache\Memory_Cache();
+			return new \WPAdminHealth\Cache\MemoryCache();
 		});
 
 		$cache = $this->container->get( \WPAdminHealth\Contracts\CacheInterface::class );
 
 		$this->assertInstanceOf( \WPAdminHealth\Contracts\CacheInterface::class, $cache );
-		$this->assertInstanceOf( \WPAdminHealth\Cache\Memory_Cache::class, $cache );
+		$this->assertInstanceOf( \WPAdminHealth\Cache\MemoryCache::class, $cache );
 	}
 
 	/**
@@ -261,13 +261,13 @@ class ContainerTest extends Standalone_Test_Case {
 	 */
 	public function test_auto_wire_with_dependencies(): void {
 		$this->container->singleton( \WPAdminHealth\Contracts\CacheInterface::class, function() {
-			return new \WPAdminHealth\Cache\Memory_Cache();
+			return new \WPAdminHealth\Cache\MemoryCache();
 		});
 
-		// Get a class that depends on CacheInterface - use Memory_Cache itself which has no deps.
-		$cache = $this->container->get( \WPAdminHealth\Cache\Memory_Cache::class );
+		// Get a class that depends on CacheInterface - use MemoryCache itself which has no deps.
+		$cache = $this->container->get( \WPAdminHealth\Cache\MemoryCache::class );
 
-		$this->assertInstanceOf( \WPAdminHealth\Cache\Memory_Cache::class, $cache );
+		$this->assertInstanceOf( \WPAdminHealth\Cache\MemoryCache::class, $cache );
 	}
 
 	/**
@@ -404,8 +404,8 @@ class ContainerTest extends Standalone_Test_Case {
 	public function test_auto_wire_throws_for_abstract_class(): void {
 		$this->expectException( NotFoundException::class );
 
-		// Service_Provider is abstract.
-		$this->container->get( \WPAdminHealth\Container\Service_Provider::class );
+		// ServiceProvider is abstract.
+		$this->container->get( \WPAdminHealth\Container\ServiceProvider::class );
 	}
 
 	/**

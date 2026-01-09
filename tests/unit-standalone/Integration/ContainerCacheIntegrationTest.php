@@ -11,9 +11,9 @@ namespace WPAdminHealth\Tests\UnitStandalone\Integration;
 
 use WPAdminHealth\Container\Container;
 use WPAdminHealth\Contracts\CacheInterface;
-use WPAdminHealth\Cache\Memory_Cache;
-use WPAdminHealth\Cache\Null_Cache;
-use WPAdminHealth\Tests\Standalone_Test_Case;
+use WPAdminHealth\Cache\MemoryCache;
+use WPAdminHealth\Cache\NullCache;
+use WPAdminHealth\Tests\StandaloneTestCase;
 
 /**
  * Test service that uses cache.
@@ -81,7 +81,7 @@ class Cached_Service {
 /**
  * Container + Cache integration test class.
  */
-class ContainerCacheIntegrationTest extends Standalone_Test_Case {
+class ContainerCacheIntegrationTest extends StandaloneTestCase {
 
 	/**
 	 * Container instance.
@@ -98,34 +98,34 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test cache interface can be bound to Memory_Cache.
+	 * Test cache interface can be bound to MemoryCache.
 	 */
 	public function test_cache_interface_bound_to_memory_cache(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 
 		$cache = $this->container->get( CacheInterface::class );
 
 		$this->assertInstanceOf( CacheInterface::class, $cache );
-		$this->assertInstanceOf( Memory_Cache::class, $cache );
+		$this->assertInstanceOf( MemoryCache::class, $cache );
 	}
 
 	/**
-	 * Test cache interface can be bound to Null_Cache.
+	 * Test cache interface can be bound to NullCache.
 	 */
 	public function test_cache_interface_bound_to_null_cache(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Null_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new NullCache() );
 
 		$cache = $this->container->get( CacheInterface::class );
 
 		$this->assertInstanceOf( CacheInterface::class, $cache );
-		$this->assertInstanceOf( Null_Cache::class, $cache );
+		$this->assertInstanceOf( NullCache::class, $cache );
 	}
 
 	/**
 	 * Test service with injected cache dependency.
 	 */
 	public function test_service_with_cache_dependency(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 		$this->container->singleton(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -134,14 +134,14 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 		$service = $this->container->get( Cached_Service::class );
 
 		$this->assertInstanceOf( Cached_Service::class, $service );
-		$this->assertInstanceOf( Memory_Cache::class, $service->get_cache() );
+		$this->assertInstanceOf( MemoryCache::class, $service->get_cache() );
 	}
 
 	/**
 	 * Test cache prevents recomputation.
 	 */
 	public function test_cache_prevents_recomputation(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 		$this->container->singleton(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -169,7 +169,7 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 	 * Test null cache always recomputes.
 	 */
 	public function test_null_cache_always_recomputes(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Null_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new NullCache() );
 		$this->container->singleton(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -177,7 +177,7 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 
 		$service = $this->container->get( Cached_Service::class );
 
-		// Each call computes because Null_Cache never stores.
+		// Each call computes because NullCache never stores.
 		$result1 = $service->get_expensive_data();
 		$this->assertEquals( 'computed_1', $result1 );
 		$this->assertEquals( 1, $service->compute_calls );
@@ -195,7 +195,7 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 	 * Test singleton service shares cache state.
 	 */
 	public function test_singleton_service_shares_cache_state(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 		$this->container->singleton(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -216,7 +216,7 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 	 * Test multiple services share cache backend.
 	 */
 	public function test_multiple_services_share_cache_backend(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 		$this->container->bind(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -246,7 +246,7 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 	 * Test cache clearing from service.
 	 */
 	public function test_cache_clearing_from_service(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 		$this->container->singleton(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -271,17 +271,17 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 	 * Test swapping cache implementation via rebinding.
 	 */
 	public function test_swap_cache_implementation(): void {
-		// Start with Memory_Cache.
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		// Start with MemoryCache.
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 
 		$cache1 = $this->container->get( CacheInterface::class );
-		$this->assertInstanceOf( Memory_Cache::class, $cache1 );
+		$this->assertInstanceOf( MemoryCache::class, $cache1 );
 
-		// Rebind to Null_Cache.
-		$this->container->singleton( CacheInterface::class, fn() => new Null_Cache() );
+		// Rebind to NullCache.
+		$this->container->singleton( CacheInterface::class, fn() => new NullCache() );
 
 		$cache2 = $this->container->get( CacheInterface::class );
-		$this->assertInstanceOf( Null_Cache::class, $cache2 );
+		$this->assertInstanceOf( NullCache::class, $cache2 );
 		$this->assertNotSame( $cache1, $cache2 );
 	}
 
@@ -289,7 +289,7 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 	 * Test cache isolation after container flush.
 	 */
 	public function test_cache_isolation_after_flush(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 		$this->container->singleton(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -301,7 +301,7 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 
 		// Flush container and re-register.
 		$this->container->flush();
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 		$this->container->singleton(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -320,22 +320,22 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 	 * Test auto-wiring with cache dependency.
 	 */
 	public function test_auto_wire_with_cache_dependency(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 
 		// Auto-wire should resolve CacheInterface dependency.
 		$service = $this->container->get( Cached_Service::class );
 
 		$this->assertInstanceOf( Cached_Service::class, $service );
-		$this->assertInstanceOf( Memory_Cache::class, $service->get_cache() );
+		$this->assertInstanceOf( MemoryCache::class, $service->get_cache() );
 	}
 
 	/**
 	 * Test service provider registers cache dependency.
 	 */
 	public function test_service_provider_registers_cache(): void {
-		$provider = new class( $this->container ) extends \WPAdminHealth\Container\Service_Provider {
+		$provider = new class( $this->container ) extends \WPAdminHealth\Container\ServiceProvider {
 			public function register(): void {
-				$this->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+				$this->singleton( CacheInterface::class, fn() => new MemoryCache() );
 				$this->singleton(
 					Cached_Service::class,
 					fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -347,14 +347,14 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 
 		$service = $this->container->get( Cached_Service::class );
 		$this->assertInstanceOf( Cached_Service::class, $service );
-		$this->assertInstanceOf( Memory_Cache::class, $service->get_cache() );
+		$this->assertInstanceOf( MemoryCache::class, $service->get_cache() );
 	}
 
 	/**
 	 * Test memory cache stats through container.
 	 */
 	public function test_memory_cache_stats_through_container(): void {
-		$this->container->singleton( CacheInterface::class, fn() => new Memory_Cache() );
+		$this->container->singleton( CacheInterface::class, fn() => new MemoryCache() );
 		$this->container->singleton(
 			Cached_Service::class,
 			fn( $c ) => new Cached_Service( $c->get( CacheInterface::class ) )
@@ -368,7 +368,7 @@ class ContainerCacheIntegrationTest extends Standalone_Test_Case {
 		// Second call - cache hit.
 		$service->get_expensive_data();
 
-		/** @var Memory_Cache $cache */
+		/** @var MemoryCache $cache */
 		$cache = $this->container->get( CacheInterface::class );
 		$stats = $cache->get_stats();
 

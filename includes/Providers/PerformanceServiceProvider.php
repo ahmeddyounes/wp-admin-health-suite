@@ -9,12 +9,15 @@
 
 namespace WPAdminHealth\Providers;
 
-use WPAdminHealth\Container\Service_Provider;
+use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\CacheInterface;
-use WPAdminHealth\Performance\Query_Monitor;
-use WPAdminHealth\Performance\Memory_Monitor;
-use WPAdminHealth\Performance\Slow_Query_Analyzer;
+use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
+use WPAdminHealth\Contracts\QueryMonitorInterface;
+use WPAdminHealth\Contracts\PluginProfilerInterface;
+use WPAdminHealth\Performance\QueryMonitor;
+use WPAdminHealth\Performance\AutoloadAnalyzer;
+use WPAdminHealth\Performance\PluginProfiler;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -27,8 +30,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Registers performance monitoring and analysis services.
  *
  * @since 1.1.0
+ * @since 1.2.0 Added interface bindings for domain services.
  */
-class PerformanceServiceProvider extends Service_Provider {
+class PerformanceServiceProvider extends ServiceProvider {
 
 	/**
 	 * Whether this provider should be deferred.
@@ -43,69 +47,57 @@ class PerformanceServiceProvider extends Service_Provider {
 	 * @var array<string>
 	 */
 	protected array $provides = array(
+		AutoloadAnalyzerInterface::class,
+		QueryMonitorInterface::class,
+		PluginProfilerInterface::class,
 		'performance.query_monitor',
-		'performance.memory_monitor',
-		'performance.slow_query_analyzer',
+		'performance.autoload_analyzer',
+		'performance.plugin_profiler',
 	);
 
 	/**
 	 * {@inheritdoc}
 	 */
 	public function register(): void {
-		// Register Query Monitor.
-		$this->container->bind(
-			'performance.query_monitor',
+		// Register Query Monitor with interface binding.
+		$this->container->singleton(
+			QueryMonitorInterface::class,
 			function ( $container ) {
-				if ( ! class_exists( Query_Monitor::class ) ) {
+				if ( ! class_exists( QueryMonitor::class ) ) {
 					return null;
 				}
 
-				$connection = $container->get( ConnectionInterface::class );
-
-				$reflection  = new \ReflectionClass( Query_Monitor::class );
+				// Use reflection to check if constructor accepts ConnectionInterface.
+				$reflection  = new \ReflectionClass( QueryMonitor::class );
 				$constructor = $reflection->getConstructor();
 
 				if ( $constructor && $constructor->getNumberOfParameters() > 0 ) {
-					return new Query_Monitor( $connection );
+					$connection = $container->get( ConnectionInterface::class );
+					return new QueryMonitor( $connection );
 				}
 
-				return new Query_Monitor();
+				return new QueryMonitor();
 			}
 		);
+		$this->container->alias( 'performance.query_monitor', QueryMonitorInterface::class );
 
-		// Register Memory Monitor.
-		$this->container->bind(
-			'performance.memory_monitor',
+		// Register Autoload Analyzer with interface binding.
+		$this->container->singleton(
+			AutoloadAnalyzerInterface::class,
 			function () {
-				if ( ! class_exists( Memory_Monitor::class ) ) {
-					return null;
-				}
-
-				return new Memory_Monitor();
+				return new AutoloadAnalyzer();
 			}
 		);
+		$this->container->alias( 'performance.autoload_analyzer', AutoloadAnalyzerInterface::class );
 
-		// Register Slow Query Analyzer.
-		$this->container->bind(
-			'performance.slow_query_analyzer',
-			function ( $container ) {
-				if ( ! class_exists( Slow_Query_Analyzer::class ) ) {
-					return null;
-				}
-
-				$connection = $container->get( ConnectionInterface::class );
-				$cache      = $container->get( CacheInterface::class );
-
-				$reflection  = new \ReflectionClass( Slow_Query_Analyzer::class );
-				$constructor = $reflection->getConstructor();
-
-				if ( $constructor && $constructor->getNumberOfParameters() > 0 ) {
-					return new Slow_Query_Analyzer( $connection, $cache );
-				}
-
-				return new Slow_Query_Analyzer();
+		// Register Plugin Profiler with interface binding.
+		$this->container->singleton(
+			PluginProfilerInterface::class,
+			function () {
+				return new PluginProfiler();
 			}
 		);
+		$this->container->alias( 'performance.plugin_profiler', PluginProfilerInterface::class );
 	}
 
 	/**

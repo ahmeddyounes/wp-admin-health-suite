@@ -2,18 +2,17 @@
 /**
  * Core Service Provider
  *
- * Registers core services: Settings, Cache.
+ * Registers core services: Cache.
  *
  * @package WPAdminHealth\Providers
  */
 
 namespace WPAdminHealth\Providers;
 
-use WPAdminHealth\Container\Service_Provider;
-use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\CacheInterface;
-use WPAdminHealth\Settings;
-use WPAdminHealth\Cache\Cache_Factory;
+use WPAdminHealth\Cache\CacheFactory;
+use WPAdminHealth\HealthCalculator;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -24,10 +23,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Class CoreServiceProvider
  *
  * Registers essential core services that other services depend on.
+ * Note: Settings are now handled by SettingsServiceProvider.
  *
  * @since 1.1.0
+ * @since 1.2.0 Removed Settings binding (moved to SettingsServiceProvider).
  */
-class CoreServiceProvider extends Service_Provider {
+class CoreServiceProvider extends ServiceProvider {
 
 	/**
 	 * Services provided by this provider.
@@ -35,48 +36,41 @@ class CoreServiceProvider extends Service_Provider {
 	 * @var array<string>
 	 */
 	protected array $provides = array(
-		SettingsInterface::class,
 		CacheInterface::class,
-		'settings',
 		'cache',
+		HealthCalculator::class,
+		'health_calculator',
 	);
 
 	/**
 	 * {@inheritdoc}
 	 */
 	public function register(): void {
-		// Register Settings as singleton.
-		$this->container->singleton(
-			SettingsInterface::class,
-			function () {
-				return new Settings();
-			}
-		);
-
-		// Create alias for convenience.
-		$this->container->alias( 'settings', SettingsInterface::class );
-
 		// Register Cache as singleton.
 		$this->container->singleton(
 			CacheInterface::class,
 			function () {
-				return Cache_Factory::get_instance();
+				return CacheFactory::get_instance();
 			}
 		);
 
 		// Create alias for convenience.
 		$this->container->alias( 'cache', CacheInterface::class );
+
+		// Register HealthCalculator as singleton.
+		$this->container->singleton(
+			HealthCalculator::class,
+			function () {
+				return new HealthCalculator();
+			}
+		);
+		$this->container->alias( 'health_calculator', HealthCalculator::class );
 	}
 
 	/**
 	 * {@inheritdoc}
 	 */
 	public function boot(): void {
-		// Initialize settings.
-		$settings = $this->container->get( SettingsInterface::class );
-
-		if ( method_exists( $settings, 'init' ) ) {
-			$settings->init();
-		}
+		// Core services don't need bootstrapping.
 	}
 }

@@ -28,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.1.0
  */
-class Container implements Container_Interface {
+class Container implements ContainerInterface {
 
 	/**
 	 * Registered bindings.
@@ -54,14 +54,14 @@ class Container implements Container_Interface {
 	/**
 	 * Registered service providers.
 	 *
-	 * @var array<Service_Provider>
+	 * @var array<ServiceProvider>
 	 */
 	private array $providers = array();
 
 	/**
 	 * Deferred service providers mapped by their provided services.
 	 *
-	 * @var array<string, Service_Provider>
+	 * @var array<string, ServiceProvider>
 	 */
 	private array $deferred_providers = array();
 
@@ -211,11 +211,11 @@ class Container implements Container_Interface {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @param Service_Provider $provider The service provider to register.
+	 * @param ServiceProvider $provider The service provider to register.
 	 * @return void
 	 * @throws ContainerException If provider registration fails.
 	 */
-	public function register( Service_Provider $provider ): void {
+	public function register( ServiceProvider $provider ): void {
 		// Store the provider.
 		$this->providers[] = $provider;
 

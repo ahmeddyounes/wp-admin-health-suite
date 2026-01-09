@@ -17,7 +17,7 @@ if ( ! defined( 'WPHA_DELETE_PLUGIN_DATA' ) ) {
 
 if ( WPHA_DELETE_PLUGIN_DATA ) {
 	// Load the installer class.
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-installer.php';
+	require_once plugin_dir_path( __FILE__ ) . 'includes/Installer.php';
 
 	// Run uninstall.
 	\WPAdminHealth\Installer::uninstall();

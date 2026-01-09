@@ -76,4 +76,4 @@ tests_add_filter( 'muplugins_loaded', '_manually_load_plugin' );
 require $_tests_dir . '/includes/bootstrap.php';
 
 // Load test utilities
-require_once WP_ADMIN_HEALTH_TESTS_DIR . '/test-case.php';
+require_once WP_ADMIN_HEALTH_TESTS_DIR . '/TestCase.php';

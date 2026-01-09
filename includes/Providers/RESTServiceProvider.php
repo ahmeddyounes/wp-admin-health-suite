@@ -9,17 +9,30 @@
 
 namespace WPAdminHealth\Providers;
 
-use WPAdminHealth\Container\Service_Provider;
+use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\AnalyzerInterface;
 use WPAdminHealth\Contracts\ScannerInterface;
-use WPAdminHealth\REST\Database_Controller;
-use WPAdminHealth\REST\Media_Controller;
-use WPAdminHealth\REST\Dashboard_Controller;
-use WPAdminHealth\REST\Performance_Controller;
-use WPAdminHealth\REST\Activity_Controller;
-use WPAdminHealth\REST\Settings_Controller;
-use WPAdminHealth\Health_Calculator;
+use WPAdminHealth\Contracts\RevisionsManagerInterface;
+use WPAdminHealth\Contracts\TransientsCleanerInterface;
+use WPAdminHealth\Contracts\OrphanedCleanerInterface;
+use WPAdminHealth\Contracts\TrashCleanerInterface;
+use WPAdminHealth\Contracts\OptimizerInterface;
+use WPAdminHealth\Contracts\DuplicateDetectorInterface;
+use WPAdminHealth\Contracts\LargeFilesInterface;
+use WPAdminHealth\Contracts\AltTextCheckerInterface;
+use WPAdminHealth\Contracts\ReferenceFinderInterface;
+use WPAdminHealth\Contracts\SafeDeleteInterface;
+use WPAdminHealth\Contracts\ExclusionsInterface;
+use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
+use WPAdminHealth\Contracts\QueryMonitorInterface;
+use WPAdminHealth\Contracts\PluginProfilerInterface;
+use WPAdminHealth\REST\DatabaseController;
+use WPAdminHealth\REST\MediaController;
+use WPAdminHealth\REST\DashboardController;
+use WPAdminHealth\REST\PerformanceController;
+use WPAdminHealth\REST\ActivityController;
+use WPAdminHealth\HealthCalculator;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -33,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.1.0
  */
-class RESTServiceProvider extends Service_Provider {
+class RESTServiceProvider extends ServiceProvider {
 
 	/**
 	 * Whether this provider should be deferred.
@@ -53,40 +66,50 @@ class RESTServiceProvider extends Service_Provider {
 		'rest.dashboard_controller',
 		'rest.performance_controller',
 		'rest.activity_controller',
-		'rest.settings_controller',
 	);
 
 	/**
 	 * {@inheritdoc}
 	 */
 	public function register(): void {
-		// Register Database Controller.
+		// Register Database Controller with all dependencies.
 		$this->container->bind(
 			'rest.database_controller',
 			function ( $container ) {
-				if ( ! class_exists( Database_Controller::class ) ) {
+				if ( ! class_exists( DatabaseController::class ) ) {
 					return null;
 				}
 
-				$settings = $container->get( SettingsInterface::class );
-				$analyzer = $container->get( AnalyzerInterface::class );
-
-				return $this->create_controller( Database_Controller::class, $settings, $analyzer );
+				return new DatabaseController(
+					$container->get( SettingsInterface::class ),
+					$container->get( AnalyzerInterface::class ),
+					$container->get( RevisionsManagerInterface::class ),
+					$container->get( TransientsCleanerInterface::class ),
+					$container->get( OrphanedCleanerInterface::class ),
+					$container->get( TrashCleanerInterface::class ),
+					$container->get( OptimizerInterface::class )
+				);
 			}
 		);
 
-		// Register Media Controller.
+		// Register Media Controller with all dependencies.
 		$this->container->bind(
 			'rest.media_controller',
 			function ( $container ) {
-				if ( ! class_exists( Media_Controller::class ) ) {
+				if ( ! class_exists( MediaController::class ) ) {
 					return null;
 				}
 
-				$settings = $container->get( SettingsInterface::class );
-				$scanner  = $container->get( ScannerInterface::class );
-
-				return $this->create_controller( Media_Controller::class, $settings, $scanner );
+				return new MediaController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ScannerInterface::class ),
+					$container->get( DuplicateDetectorInterface::class ),
+					$container->get( LargeFilesInterface::class ),
+					$container->get( AltTextCheckerInterface::class ),
+					$container->get( ReferenceFinderInterface::class ),
+					$container->get( SafeDeleteInterface::class ),
+					$container->get( ExclusionsInterface::class )
+				);
 			}
 		);
 
@@ -94,28 +117,31 @@ class RESTServiceProvider extends Service_Provider {
 		$this->container->bind(
 			'rest.dashboard_controller',
 			function ( $container ) {
-				if ( ! class_exists( Dashboard_Controller::class ) ) {
+				if ( ! class_exists( DashboardController::class ) ) {
 					return null;
 				}
 
-				$settings          = $container->get( SettingsInterface::class );
-				$health_calculator = new Health_Calculator();
-
-				return $this->create_controller( Dashboard_Controller::class, $settings, $health_calculator );
+				return new DashboardController(
+					$container->get( SettingsInterface::class ),
+					$container->get( HealthCalculator::class )
+				);
 			}
 		);
 
-		// Register Performance Controller.
+		// Register Performance Controller with all dependencies.
 		$this->container->bind(
 			'rest.performance_controller',
 			function ( $container ) {
-				if ( ! class_exists( Performance_Controller::class ) ) {
+				if ( ! class_exists( PerformanceController::class ) ) {
 					return null;
 				}
 
-				$settings = $container->get( SettingsInterface::class );
-
-				return $this->create_controller( Performance_Controller::class, $settings );
+				return new PerformanceController(
+					$container->get( SettingsInterface::class ),
+					$container->get( AutoloadAnalyzerInterface::class ),
+					$container->get( QueryMonitorInterface::class ),
+					$container->get( PluginProfilerInterface::class )
+				);
 			}
 		);
 
@@ -123,27 +149,13 @@ class RESTServiceProvider extends Service_Provider {
 		$this->container->bind(
 			'rest.activity_controller',
 			function ( $container ) {
-				if ( ! class_exists( Activity_Controller::class ) ) {
+				if ( ! class_exists( ActivityController::class ) ) {
 					return null;
 				}
 
 				$settings = $container->get( SettingsInterface::class );
 
-				return $this->create_controller( Activity_Controller::class, $settings );
-			}
-		);
-
-		// Register Settings Controller.
-		$this->container->bind(
-			'rest.settings_controller',
-			function ( $container ) {
-				if ( ! class_exists( Settings_Controller::class ) ) {
-					return null;
-				}
-
-				$settings = $container->get( SettingsInterface::class );
-
-				return $this->create_controller( Settings_Controller::class, $settings );
+				return $this->create_controller( ActivityController::class, $settings );
 			}
 		);
 	}
@@ -170,7 +182,6 @@ class RESTServiceProvider extends Service_Provider {
 			'rest.dashboard_controller',
 			'rest.performance_controller',
 			'rest.activity_controller',
-			'rest.settings_controller',
 		);
 
 		foreach ( $controllers as $controller_id ) {

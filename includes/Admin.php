@@ -79,7 +79,7 @@ class Admin {
 	 * @return void
 	 */
 	private function load_admin_menu() {
-		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'admin/class-admin.php';
+		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'admin/Admin.php';
 		new \WPAdminHealth\Admin\Admin( $this->version, $this->plugin_name );
 	}
 }

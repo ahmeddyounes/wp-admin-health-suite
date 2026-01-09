@@ -9,31 +9,31 @@
 
 namespace WPAdminHealth\Tests\UnitStandalone\Mocks;
 
-use WPAdminHealth\Tests\Mocks\Mock_Connection;
+use WPAdminHealth\Tests\Mocks\MockConnection;
 use WPAdminHealth\Contracts\ConnectionInterface;
-use WPAdminHealth\Tests\Standalone_Test_Case;
+use WPAdminHealth\Tests\StandaloneTestCase;
 
 /**
  * Mock Connection test class.
  */
-class MockConnectionTest extends Standalone_Test_Case {
+class MockConnectionTest extends StandaloneTestCase {
 
 	/**
 	 * Mock connection instance.
 	 *
-	 * @var Mock_Connection
+	 * @var MockConnection
 	 */
-	protected Mock_Connection $connection;
+	protected MockConnection $connection;
 
 	/**
 	 * Set up test environment.
 	 */
 	protected function setup_test_environment(): void {
-		$this->connection = new Mock_Connection();
+		$this->connection = new MockConnection();
 	}
 
 	/**
-	 * Test Mock_Connection implements ConnectionInterface.
+	 * Test MockConnection implements ConnectionInterface.
 	 */
 	public function test_implements_connection_interface(): void {
 		$this->assertInstanceOf( ConnectionInterface::class, $this->connection );
@@ -607,7 +607,7 @@ class MockConnectionTest extends Standalone_Test_Case {
 	/**
 	 * Test prepare with special SQL characters.
 	 *
-	 * Note: Mock_Connection's prepare() does basic substitution for testing.
+	 * Note: MockConnection's prepare() does basic substitution for testing.
 	 * It escapes single quotes but doesn't provide full SQL injection protection.
 	 * In production, the real WPDB prepare() handles this.
 	 */

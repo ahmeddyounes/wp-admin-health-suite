@@ -9,37 +9,37 @@
 
 namespace WPAdminHealth\Tests\Unit\Cache;
 
-use WPAdminHealth\Cache\Memory_Cache;
-use WPAdminHealth\Cache\Null_Cache;
+use WPAdminHealth\Cache\MemoryCache;
+use WPAdminHealth\Cache\NullCache;
 use WPAdminHealth\Contracts\CacheInterface;
-use WPAdminHealth\Tests\Test_Case;
+use WPAdminHealth\Tests\TestCase;
 
 /**
  * Cache test class.
  */
-class CacheTest extends Test_Case {
+class CacheTest extends TestCase {
 
 	/**
-	 * Test Memory_Cache implements CacheInterface.
+	 * Test MemoryCache implements CacheInterface.
 	 */
 	public function test_memory_cache_implements_interface(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 		$this->assertInstanceOf( CacheInterface::class, $cache );
 	}
 
 	/**
-	 * Test Null_Cache implements CacheInterface.
+	 * Test NullCache implements CacheInterface.
 	 */
 	public function test_null_cache_implements_interface(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 		$this->assertInstanceOf( CacheInterface::class, $cache );
 	}
 
 	/**
-	 * Test Memory_Cache get and set.
+	 * Test MemoryCache get and set.
 	 */
 	public function test_memory_cache_get_set(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'test_key', 'test_value' );
 
@@ -48,20 +48,20 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache returns default for missing key.
+	 * Test MemoryCache returns default for missing key.
 	 */
 	public function test_memory_cache_default_value(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$this->assertNull( $cache->get( 'nonexistent' ) );
 		$this->assertEquals( 'default', $cache->get( 'nonexistent', 'default' ) );
 	}
 
 	/**
-	 * Test Memory_Cache delete.
+	 * Test MemoryCache delete.
 	 */
 	public function test_memory_cache_delete(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'to_delete', 'value' );
 		$this->assertTrue( $cache->has( 'to_delete' ) );
@@ -71,10 +71,10 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache clear.
+	 * Test MemoryCache clear.
 	 */
 	public function test_memory_cache_clear(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'key1', 'value1' );
 		$cache->set( 'key2', 'value2' );
@@ -88,10 +88,10 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache clear with prefix.
+	 * Test MemoryCache clear with prefix.
 	 */
 	public function test_memory_cache_clear_with_prefix(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'prefix_key1', 'value1' );
 		$cache->set( 'prefix_key2', 'value2' );
@@ -105,10 +105,10 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache stores complex data.
+	 * Test MemoryCache stores complex data.
 	 */
 	public function test_memory_cache_complex_data(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$array_data = array( 'nested' => array( 'deep' => 'value' ) );
 		$cache->set( 'array', $array_data );
@@ -127,10 +127,10 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache always misses.
+	 * Test NullCache always misses.
 	 */
 	public function test_null_cache_always_misses(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		// Set returns true but value is not stored.
 		$result = $cache->set( 'key', 'value' );
@@ -145,29 +145,29 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache delete always succeeds.
+	 * Test NullCache delete always succeeds.
 	 */
 	public function test_null_cache_delete(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		$this->assertTrue( $cache->delete( 'any_key' ) );
 	}
 
 	/**
-	 * Test Null_Cache clear always succeeds.
+	 * Test NullCache clear always succeeds.
 	 */
 	public function test_null_cache_clear(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		$this->assertTrue( $cache->clear() );
 		$this->assertTrue( $cache->clear( 'prefix' ) );
 	}
 
 	/**
-	 * Test Memory_Cache remembers values.
+	 * Test MemoryCache remembers values.
 	 */
 	public function test_memory_cache_remember(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$counter = 0;
 		$callback = function() use ( &$counter ) {
@@ -187,10 +187,10 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache remember with TTL.
+	 * Test MemoryCache remember with TTL.
 	 */
 	public function test_memory_cache_remember_with_ttl(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$result = $cache->remember( 'ttl_key', fn() => 'value', 3600 );
 
@@ -199,10 +199,10 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache get multiple keys.
+	 * Test MemoryCache get multiple keys.
 	 */
 	public function test_memory_cache_get_multiple(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'multi_1', 'value1' );
 		$cache->set( 'multi_2', 'value2' );
@@ -220,10 +220,10 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache set multiple keys.
+	 * Test MemoryCache set multiple keys.
 	 */
 	public function test_memory_cache_set_multiple(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$values = array(
 			'batch_1' => 'value1',
@@ -239,10 +239,10 @@ class CacheTest extends Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache delete multiple keys.
+	 * Test MemoryCache delete multiple keys.
 	 */
 	public function test_memory_cache_delete_multiple(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'del_1', 'value1' );
 		$cache->set( 'del_2', 'value2' );

@@ -8,18 +8,21 @@
 namespace WPAdminHealth;
 
 use WPAdminHealth\Container\Container;
-use WPAdminHealth\Container\Container_Interface;
-use WPAdminHealth\Contracts\SettingsInterface;
-use WPAdminHealth\Contracts\CacheInterface;
-use WPAdminHealth\Contracts\ConnectionInterface;
-use WPAdminHealth\Contracts\AnalyzerInterface;
+use WPAdminHealth\Container\ContainerInterface;
+use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Integrations\IntegrationManager;
+use WPAdminHealth\Providers\BootstrapServiceProvider;
 use WPAdminHealth\Providers\CoreServiceProvider;
 use WPAdminHealth\Providers\DatabaseServiceProvider;
+use WPAdminHealth\Providers\InstallerServiceProvider;
 use WPAdminHealth\Providers\IntegrationServiceProvider;
 use WPAdminHealth\Providers\MediaServiceProvider;
-use WPAdminHealth\Providers\RESTServiceProvider;
+use WPAdminHealth\Providers\MultisiteServiceProvider;
 use WPAdminHealth\Providers\PerformanceServiceProvider;
+use WPAdminHealth\Providers\RESTServiceProvider;
+use WPAdminHealth\Providers\SchedulerServiceProvider;
+use WPAdminHealth\Providers\AIServiceProvider;
+use WPAdminHealth\Settings\SettingsServiceProvider;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -31,6 +34,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  * @since 1.1.0 Added dependency injection container support.
+ * @since 1.2.0 Removed deprecated properties, all services now use DI container.
  */
 class Plugin {
 
@@ -45,9 +49,9 @@ class Plugin {
 	 * Dependency injection container.
 	 *
 	 * @since 1.1.0
-	 * @var Container_Interface
+	 * @var ContainerInterface
 	 */
-	private Container_Interface $container;
+	private ContainerInterface $container;
 
 	/**
 	 * Plugin version.
@@ -78,96 +82,14 @@ class Plugin {
 	private string $plugin_url;
 
 	/**
-	 * Admin class instance.
-	 *
-	 * @var Admin|null
-	 */
-	private ?Admin $admin = null;
-
-	/**
-	 * Database class instance.
-	 *
-	 * @var Database|null
-	 */
-	private ?Database $database = null;
-
-	/**
-	 * Assets class instance.
-	 *
-	 * @var Assets|null
-	 */
-	private ?Assets $assets = null;
-
-	/**
-	 * REST API class instance.
-	 *
-	 * @var REST_API|null
-	 */
-	private ?REST_API $rest_api = null;
-
-	/**
-	 * Scheduler class instance.
-	 *
-	 * @var Scheduler|null
-	 */
-	private ?Scheduler $scheduler = null;
-
-	/**
-	 * Settings class instance (legacy, use container).
-	 *
-	 * @deprecated 1.1.0 Use container->get(SettingsInterface::class) instead.
-	 * @var Settings|null
-	 */
-	private ?Settings $settings = null;
-
-	/**
-	 * Multisite class instance.
-	 *
-	 * @var Multisite|null
-	 */
-	private ?Multisite $multisite = null;
-
-	/**
-	 * WooCommerce integration instance (legacy).
-	 *
-	 * @deprecated 1.1.0 Use IntegrationManager instead.
-	 * @var Integrations\WooCommerce|null
-	 */
-	private $woocommerce = null;
-
-	/**
-	 * Elementor integration instance (legacy).
-	 *
-	 * @deprecated 1.1.0 Use IntegrationManager instead.
-	 * @var Integrations\Elementor|null
-	 */
-	private $elementor = null;
-
-	/**
-	 * ACF integration instance (legacy).
-	 *
-	 * @deprecated 1.1.0 Use IntegrationManager instead.
-	 * @var Integrations\ACF|null
-	 */
-	private $acf = null;
-
-	/**
-	 * Multilingual integration instance (legacy).
-	 *
-	 * @deprecated 1.1.0 Use IntegrationManager instead.
-	 * @var Integrations\Multilingual|null
-	 */
-	private $multilingual = null;
-
-	/**
 	 * Constructor.
 	 *
 	 * @since 1.0.0
 	 * @since 1.1.0 Added container parameter for dependency injection.
 	 *
-	 * @param Container_Interface|null $container Optional container instance.
+	 * @param ContainerInterface|null $container Optional container instance.
 	 */
-	public function __construct( ?Container_Interface $container = null ) {
+	public function __construct( ?ContainerInterface $container = null ) {
 		$this->container   = $container ?? new Container();
 		$this->version     = defined( 'WP_ADMIN_HEALTH_VERSION' ) ? WP_ADMIN_HEALTH_VERSION : '1.0.0';
 		$this->plugin_name = 'wp-admin-health-suite';
@@ -187,10 +109,10 @@ class Plugin {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param Container_Interface|null $container Optional container for testing.
+	 * @param ContainerInterface|null $container Optional container for testing.
 	 * @return Plugin
 	 */
-	public static function get_instance( ?Container_Interface $container = null ): Plugin {
+	public static function get_instance( ?ContainerInterface $container = null ): Plugin {
 		if ( null === self::$instance ) {
 			self::$instance = new self( $container );
 		}
@@ -229,39 +151,29 @@ class Plugin {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @return Container_Interface The container instance.
+	 * @return ContainerInterface The container instance.
 	 */
-	public function get_container(): Container_Interface {
+	public function get_container(): ContainerInterface {
 		return $this->container;
 	}
 
 	/**
 	 * Initialize the plugin.
 	 *
-	 * Registers service providers and loads dependencies.
+	 * Registers service providers and boots them.
 	 *
 	 * @since 1.0.0
 	 * @since 1.1.0 Refactored to use service providers.
+	 * @since 1.2.0 Removed legacy dependency loading, all services now via providers.
 	 *
 	 * @return void
 	 */
 	public function init(): void {
-		// Check for upgrades.
-		Installer::maybe_upgrade();
-
 		// Register service providers.
 		$this->register_providers();
 
 		// Boot service providers.
 		$this->boot_providers();
-
-		// Load legacy dependencies (backward compatibility).
-		$this->load_dependencies();
-
-		// Add multisite hooks.
-		if ( is_multisite() ) {
-			add_action( 'wp_initialize_site', array( $this, 'on_new_site_created' ), 10, 2 );
-		}
 
 		/**
 		 * Fires after plugin initialization is complete.
@@ -277,16 +189,23 @@ class Plugin {
 	 * Register all service providers.
 	 *
 	 * @since 1.1.0
+	 * @since 1.2.0 Added InstallerServiceProvider, SchedulerServiceProvider, MultisiteServiceProvider, BootstrapServiceProvider.
 	 *
 	 * @return void
 	 */
 	private function register_providers(): void {
 		$providers = array(
 			CoreServiceProvider::class,
+			SettingsServiceProvider::class,
+			InstallerServiceProvider::class,
+			MultisiteServiceProvider::class,
+			BootstrapServiceProvider::class,
 			DatabaseServiceProvider::class,
 			MediaServiceProvider::class,
 			PerformanceServiceProvider::class,
+			SchedulerServiceProvider::class, // Must come after Database, Media, Performance.
 			IntegrationServiceProvider::class,
+			AIServiceProvider::class,
 			RESTServiceProvider::class,
 		);
 
@@ -300,9 +219,22 @@ class Plugin {
 		$providers = apply_filters( 'wpha_service_providers', $providers );
 
 		foreach ( $providers as $provider_class ) {
-			if ( class_exists( $provider_class ) ) {
-				$this->container->register( new $provider_class( $this->container ) );
+			// Security: Validate each provider class to prevent arbitrary class instantiation.
+			// This prevents malicious code from being injected via the filter.
+			if ( ! is_string( $provider_class ) ) {
+				continue;
 			}
+
+			if ( ! class_exists( $provider_class ) ) {
+				continue;
+			}
+
+			// Ensure the class extends ServiceProvider to prevent arbitrary class instantiation.
+			if ( ! is_subclass_of( $provider_class, ServiceProvider::class ) ) {
+				continue;
+			}
+
+			$this->container->register( new $provider_class( $this->container ) );
 		}
 	}
 
@@ -315,94 +247,6 @@ class Plugin {
 	 */
 	private function boot_providers(): void {
 		$this->container->boot();
-	}
-
-	/**
-	 * Load plugin dependencies (legacy method for backward compatibility).
-	 *
-	 * @since 1.0.0
-	 * @since 1.1.0 Now delegates to container where possible.
-	 *
-	 * @return void
-	 */
-	private function load_dependencies(): void {
-		// Initialize Admin class.
-		$this->admin = new Admin( $this->version, $this->plugin_name );
-
-		// Initialize Database class.
-		$this->database = new Database( $this->version );
-
-		// Initialize Assets class.
-		$this->assets = new Assets( $this->version, $this->plugin_url );
-
-		// Initialize REST API class.
-		$this->rest_api = new REST_API( $this->version );
-
-		// Initialize Scheduler class.
-		$this->scheduler = new Scheduler();
-
-		// Get Settings from container (still set local reference for backward compatibility).
-		if ( $this->container->has( SettingsInterface::class ) ) {
-			$this->settings = $this->container->get( SettingsInterface::class );
-		} else {
-			$this->settings = new Settings();
-		}
-
-		// Initialize Multisite class if multisite is enabled.
-		if ( is_multisite() ) {
-			$this->multisite = new Multisite();
-			$this->multisite->init();
-		}
-
-		// Legacy integration initialization (IntegrationManager handles this now).
-		// Keep local references for backward compatibility with get_*() methods.
-		$this->init_legacy_integrations();
-
-		/**
-		 * Fires after all plugin dependencies are loaded.
-		 *
-		 * @since 1.0.0
-		 *
-		 * @hook wpha_dependencies_loaded
-		 */
-		do_action( 'wpha_dependencies_loaded' );
-	}
-
-	/**
-	 * Initialize legacy integration references for backward compatibility.
-	 *
-	 * @since 1.1.0
-	 *
-	 * @return void
-	 */
-	private function init_legacy_integrations(): void {
-		// Initialize WooCommerce integration if WooCommerce is active.
-		if ( class_exists( \WPAdminHealth\Integrations\WooCommerce::class ) &&
-			\WPAdminHealth\Integrations\WooCommerce::is_active() ) {
-			$this->woocommerce = new \WPAdminHealth\Integrations\WooCommerce();
-			$this->woocommerce->init();
-		}
-
-		// Initialize Elementor integration if Elementor is active.
-		if ( class_exists( \WPAdminHealth\Integrations\Elementor::class ) &&
-			\WPAdminHealth\Integrations\Elementor::is_active() ) {
-			$this->elementor = new \WPAdminHealth\Integrations\Elementor();
-			$this->elementor->init();
-		}
-
-		// Initialize ACF integration if ACF is active.
-		if ( class_exists( \WPAdminHealth\Integrations\ACF::class ) &&
-			\WPAdminHealth\Integrations\ACF::is_active() ) {
-			$this->acf = new \WPAdminHealth\Integrations\ACF();
-			$this->acf->init();
-		}
-
-		// Initialize Multilingual integration if WPML or Polylang is active.
-		if ( class_exists( \WPAdminHealth\Integrations\Multilingual::class ) &&
-			\WPAdminHealth\Integrations\Multilingual::is_active() ) {
-			$this->multilingual = new \WPAdminHealth\Integrations\Multilingual();
-			$this->multilingual->init();
-		}
 	}
 
 	/**
@@ -528,87 +372,6 @@ class Plugin {
 	}
 
 	/**
-	 * Get scheduler instance.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return Scheduler|null Scheduler instance or null if not initialized.
-	 */
-	public function get_scheduler() {
-		return $this->scheduler;
-	}
-
-	/**
-	 * Get settings instance.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return Settings|null Settings instance or null if not initialized.
-	 */
-	public function get_settings() {
-		return $this->settings;
-	}
-
-	/**
-	 * Get multisite instance.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return Multisite|null Multisite instance or null if not initialized.
-	 */
-	public function get_multisite() {
-		return $this->multisite;
-	}
-
-	/**
-	 * Get WooCommerce integration instance.
-	 *
-	 * @since 1.0.0
-	 * @deprecated 1.1.0 Use get_integration_manager()->get('woocommerce') instead.
-	 *
-	 * @return Integrations\WooCommerce|null WooCommerce integration instance or null if not initialized.
-	 */
-	public function get_woocommerce() {
-		return $this->woocommerce;
-	}
-
-	/**
-	 * Get Elementor integration instance.
-	 *
-	 * @since 1.0.0
-	 * @deprecated 1.1.0 Use get_integration_manager()->get('elementor') instead.
-	 *
-	 * @return Integrations\Elementor|null Elementor integration instance or null if not initialized.
-	 */
-	public function get_elementor() {
-		return $this->elementor;
-	}
-
-	/**
-	 * Get ACF integration instance.
-	 *
-	 * @since 1.0.0
-	 * @deprecated 1.1.0 Use get_integration_manager()->get('acf') instead.
-	 *
-	 * @return Integrations\ACF|null ACF integration instance or null if not initialized.
-	 */
-	public function get_acf() {
-		return $this->acf;
-	}
-
-	/**
-	 * Get Multilingual integration instance.
-	 *
-	 * @since 1.0.0
-	 * @deprecated 1.1.0 Use get_integration_manager()->get('multilingual') instead.
-	 *
-	 * @return Integrations\Multilingual|null Multilingual integration instance or null if not initialized.
-	 */
-	public function get_multilingual() {
-		return $this->multilingual;
-	}
-
-	/**
 	 * Get the Integration Manager.
 	 *
 	 * @since 1.1.0
@@ -647,19 +410,6 @@ class Plugin {
 	 */
 	public function has( string $abstract ): bool {
 		return $this->container->has( $abstract );
-	}
-
-	/**
-	 * Handle new site creation in multisite.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param \WP_Site $new_site New site object.
-	 * @param array    $args     Arguments for the initialization.
-	 * @return void
-	 */
-	public function on_new_site_created( $new_site, $args ) {
-		Installer::install_on_new_site( $new_site->blog_id );
 	}
 
 	/**

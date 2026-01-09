@@ -14,9 +14,9 @@ use WPAdminHealth\Integrations\AbstractIntegration;
 use WPAdminHealth\Contracts\IntegrationInterface;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\CacheInterface;
-use WPAdminHealth\Tests\Mocks\Mock_Connection;
-use WPAdminHealth\Cache\Memory_Cache;
-use WPAdminHealth\Tests\Test_Case;
+use WPAdminHealth\Tests\Mocks\MockConnection;
+use WPAdminHealth\Cache\MemoryCache;
+use WPAdminHealth\Tests\TestCase;
 
 /**
  * Mock integration for testing.
@@ -74,7 +74,7 @@ class Mock_Integration extends AbstractIntegration {
 /**
  * Integration Manager test class.
  */
-class IntegrationManagerTest extends Test_Case {
+class IntegrationManagerTest extends TestCase {
 
 	/**
 	 * Integration Manager instance.
@@ -86,23 +86,23 @@ class IntegrationManagerTest extends Test_Case {
 	/**
 	 * Mock connection.
 	 *
-	 * @var Mock_Connection
+	 * @var MockConnection
 	 */
-	protected Mock_Connection $connection;
+	protected MockConnection $connection;
 
 	/**
 	 * Memory cache.
 	 *
-	 * @var Memory_Cache
+	 * @var MemoryCache
 	 */
-	protected Memory_Cache $cache;
+	protected MemoryCache $cache;
 
 	/**
 	 * Set up test environment.
 	 */
 	protected function setup_test_environment() {
-		$this->connection = new Mock_Connection();
-		$this->cache      = new Memory_Cache();
+		$this->connection = new MockConnection();
+		$this->cache      = new MemoryCache();
 		$this->manager    = new IntegrationManager( $this->connection, $this->cache );
 	}
 

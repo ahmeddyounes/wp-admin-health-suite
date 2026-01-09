@@ -11,13 +11,13 @@ namespace WPAdminHealth\Tests\UnitStandalone\Container;
 
 use WPAdminHealth\Container\Container;
 use WPAdminHealth\Container\ContainerException;
-use WPAdminHealth\Container\Service_Provider;
-use WPAdminHealth\Tests\Standalone_Test_Case;
+use WPAdminHealth\Container\ServiceProvider;
+use WPAdminHealth\Tests\StandaloneTestCase;
 
 /**
  * Test service provider for testing.
  */
-class Test_Service_Provider extends Service_Provider {
+class Test_ServiceProvider extends ServiceProvider {
 
 	/**
 	 * Track if register was called.
@@ -53,7 +53,7 @@ class Test_Service_Provider extends Service_Provider {
 /**
  * Deferred service provider for testing.
  */
-class Deferred_Test_Provider extends Service_Provider {
+class Deferred_Test_Provider extends ServiceProvider {
 
 	/**
 	 * Whether this provider is deferred.
@@ -89,7 +89,7 @@ class Deferred_Test_Provider extends Service_Provider {
 /**
  * Service Provider test class.
  */
-class ServiceProviderTest extends Standalone_Test_Case {
+class ServiceProviderTest extends StandaloneTestCase {
 
 	/**
 	 * Container instance.
@@ -109,7 +109,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider can be registered.
 	 */
 	public function test_provider_can_be_registered(): void {
-		$provider = new Test_Service_Provider( $this->container );
+		$provider = new Test_ServiceProvider( $this->container );
 
 		$this->container->register( $provider );
 
@@ -120,7 +120,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider registers services.
 	 */
 	public function test_provider_registers_services(): void {
-		$provider = new Test_Service_Provider( $this->container );
+		$provider = new Test_ServiceProvider( $this->container );
 		$this->container->register( $provider );
 
 		$this->assertTrue( $this->container->has( 'test.service' ) );
@@ -132,7 +132,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider boot is called after container boot.
 	 */
 	public function test_provider_boot_called_after_container_boot(): void {
-		$provider = new Test_Service_Provider( $this->container );
+		$provider = new Test_ServiceProvider( $this->container );
 		$this->container->register( $provider );
 
 		$this->assertFalse( $provider->booted );
@@ -148,7 +148,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	public function test_provider_boot_called_immediately_if_container_booted(): void {
 		$this->container->boot();
 
-		$provider = new Test_Service_Provider( $this->container );
+		$provider = new Test_ServiceProvider( $this->container );
 		$this->container->register( $provider );
 
 		$this->assertTrue( $provider->booted );
@@ -189,7 +189,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test non-deferred provider is_deferred returns false.
 	 */
 	public function test_non_deferred_provider_is_not_deferred(): void {
-		$provider = new Test_Service_Provider( $this->container );
+		$provider = new Test_ServiceProvider( $this->container );
 
 		$this->assertFalse( $provider->is_deferred() );
 	}
@@ -224,7 +224,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider helper methods work correctly.
 	 */
 	public function test_provider_helper_methods(): void {
-		$provider = new Test_Service_Provider( $this->container );
+		$provider = new Test_ServiceProvider( $this->container );
 		$this->container->register( $provider );
 
 		// Singleton returns same instance
@@ -242,7 +242,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider instance helper.
 	 */
 	public function test_provider_instance_helper(): void {
-		$provider = new class( $this->container ) extends Service_Provider {
+		$provider = new class( $this->container ) extends ServiceProvider {
 			public function register(): void {
 				$obj = new \stdClass();
 				$obj->id = 'test';
@@ -260,7 +260,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider alias helper.
 	 */
 	public function test_provider_alias_helper(): void {
-		$provider = new class( $this->container ) extends Service_Provider {
+		$provider = new class( $this->container ) extends ServiceProvider {
 			public function register(): void {
 				$this->singleton( 'original', fn() => 'original value' );
 				$this->alias( 'aliased', 'original' );
@@ -276,13 +276,13 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test multiple providers with same service (last wins).
 	 */
 	public function test_multiple_providers_last_wins(): void {
-		$provider1 = new class( $this->container ) extends Service_Provider {
+		$provider1 = new class( $this->container ) extends ServiceProvider {
 			public function register(): void {
 				$this->singleton( 'shared.service', fn() => 'from provider 1' );
 			}
 		};
 
-		$provider2 = new class( $this->container ) extends Service_Provider {
+		$provider2 = new class( $this->container ) extends ServiceProvider {
 			public function register(): void {
 				$this->singleton( 'shared.service', fn() => 'from provider 2' );
 			}
@@ -300,7 +300,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	public function test_deferred_provider_boot_when_container_booted(): void {
 		$boot_count = 0;
 
-		$provider = new class( $this->container, $boot_count ) extends Service_Provider {
+		$provider = new class( $this->container, $boot_count ) extends ServiceProvider {
 			protected bool $deferred = true;
 			protected array $provides = array( 'deferred.booted.service' );
 			private $boot_counter;
@@ -332,7 +332,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test multiple deferred providers - one triggers only its provider.
 	 */
 	public function test_multiple_deferred_providers_isolated(): void {
-		$provider1 = new class( $this->container ) extends Service_Provider {
+		$provider1 = new class( $this->container ) extends ServiceProvider {
 			protected bool $deferred = true;
 			protected array $provides = array( 'deferred.1' );
 			public bool $registered = false;
@@ -343,7 +343,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 			}
 		};
 
-		$provider2 = new class( $this->container ) extends Service_Provider {
+		$provider2 = new class( $this->container ) extends ServiceProvider {
 			protected bool $deferred = true;
 			protected array $provides = array( 'deferred.2' );
 			public bool $registered = false;
@@ -373,7 +373,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider boot exception is wrapped in ContainerException with original preserved.
 	 */
 	public function test_provider_boot_exception_wrapped(): void {
-		$provider = new class( $this->container ) extends Service_Provider {
+		$provider = new class( $this->container ) extends ServiceProvider {
 			public function register(): void {
 			}
 
@@ -402,7 +402,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider register exception is wrapped in ContainerException with original preserved.
 	 */
 	public function test_provider_register_exception_wrapped(): void {
-		$provider = new class( $this->container ) extends Service_Provider {
+		$provider = new class( $this->container ) extends ServiceProvider {
 			public function register(): void {
 				throw new \RuntimeException( 'Register failed' );
 			}
@@ -426,7 +426,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test deferred provider with empty provides array.
 	 */
 	public function test_deferred_provider_empty_provides(): void {
-		$provider = new class( $this->container ) extends Service_Provider {
+		$provider = new class( $this->container ) extends ServiceProvider {
 			protected bool $deferred = true;
 			protected array $provides = array();
 			public bool $registered = false;
@@ -449,7 +449,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider can access container during boot.
 	 */
 	public function test_provider_access_container_during_boot(): void {
-		$provider = new class( $this->container ) extends Service_Provider {
+		$provider = new class( $this->container ) extends ServiceProvider {
 			public ?string $config_value = null;
 
 			public function register(): void {
@@ -472,13 +472,13 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	 * Test provider can depend on services from other providers.
 	 */
 	public function test_provider_depends_on_other_provider(): void {
-		$config_provider = new class( $this->container ) extends Service_Provider {
+		$config_provider = new class( $this->container ) extends ServiceProvider {
 			public function register(): void {
 				$this->singleton( 'config', fn() => array( 'db_host' => 'localhost' ) );
 			}
 		};
 
-		$db_provider = new class( $this->container ) extends Service_Provider {
+		$db_provider = new class( $this->container ) extends ServiceProvider {
 			public function register(): void {
 				$this->singleton( 'database', function( $c ) {
 					$config = $c->get( 'config' );
@@ -506,7 +506,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	public function test_double_boot_is_noop(): void {
 		$boot_count = 0;
 
-		$provider = new class( $this->container, $boot_count ) extends Service_Provider {
+		$provider = new class( $this->container, $boot_count ) extends ServiceProvider {
 			private $counter;
 
 			public function __construct( Container $container, &$boot_count ) {
@@ -535,7 +535,7 @@ class ServiceProviderTest extends Standalone_Test_Case {
 	public function test_deferred_provider_services_cleared_after_registration(): void {
 		$register_count = 0;
 
-		$provider = new class( $this->container, $register_count ) extends Service_Provider {
+		$provider = new class( $this->container, $register_count ) extends ServiceProvider {
 			protected bool $deferred = true;
 			protected array $provides = array( 'service.a', 'service.b' );
 			private $counter;

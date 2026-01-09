@@ -29,14 +29,67 @@ define( 'WP_ADMIN_HEALTH_PLUGIN_FILE', __FILE__ );
 define( 'WP_ADMIN_HEALTH_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WP_ADMIN_HEALTH_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WP_ADMIN_HEALTH_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+define( 'WP_ADMIN_HEALTH_MIN_PHP_VERSION', '7.4' );
+define( 'WP_ADMIN_HEALTH_MIN_WP_VERSION', '6.0' );
+
+/**
+ * Check if the plugin requirements are met.
+ *
+ * @return bool True if requirements are met, false otherwise.
+ */
+function wp_admin_health_requirements_met() {
+	$php_met = version_compare( PHP_VERSION, WP_ADMIN_HEALTH_MIN_PHP_VERSION, '>=' );
+	$wp_met  = version_compare( get_bloginfo( 'version' ), WP_ADMIN_HEALTH_MIN_WP_VERSION, '>=' );
+
+	return $php_met && $wp_met;
+}
+
+/**
+ * Display admin notice for unmet requirements.
+ *
+ * @return void
+ */
+function wp_admin_health_requirements_notice() {
+	$php_met = version_compare( PHP_VERSION, WP_ADMIN_HEALTH_MIN_PHP_VERSION, '>=' );
+	$wp_met  = version_compare( get_bloginfo( 'version' ), WP_ADMIN_HEALTH_MIN_WP_VERSION, '>=' );
+
+	$messages = array();
+
+	if ( ! $php_met ) {
+		$messages[] = sprintf(
+			/* translators: 1: Current PHP version, 2: Required PHP version */
+			__( 'PHP version %1$s is installed. WP Admin Health Suite requires PHP %2$s or higher.', 'wp-admin-health-suite' ),
+			PHP_VERSION,
+			WP_ADMIN_HEALTH_MIN_PHP_VERSION
+		);
+	}
+
+	if ( ! $wp_met ) {
+		$messages[] = sprintf(
+			/* translators: 1: Current WordPress version, 2: Required WordPress version */
+			__( 'WordPress version %1$s is installed. WP Admin Health Suite requires WordPress %2$s or higher.', 'wp-admin-health-suite' ),
+			get_bloginfo( 'version' ),
+			WP_ADMIN_HEALTH_MIN_WP_VERSION
+		);
+	}
+
+	if ( ! empty( $messages ) ) {
+		printf(
+			'<div class="notice notice-error"><p><strong>%s</strong></p><ul><li>%s</li></ul></div>',
+			esc_html__( 'WP Admin Health Suite cannot be activated:', 'wp-admin-health-suite' ),
+			implode( '</li><li>', array_map( 'esc_html', $messages ) )
+		);
+	}
+}
+
+// Check requirements before loading the plugin.
+if ( ! wp_admin_health_requirements_met() ) {
+	add_action( 'admin_notices', __NAMESPACE__ . '\wp_admin_health_requirements_notice' );
+	return;
+}
 
 // Require the autoloader.
 require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/autoload.php';
-
-// Require classes not following PSR-4 naming.
-require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/class-installer.php';
-require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/class-scheduler.php';
-require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/class-settings.php';
 
 /**
  * Main plugin class initialization.
@@ -65,6 +118,36 @@ add_action( 'plugins_loaded', __NAMESPACE__ . '\wp_admin_health_init' );
  * @return void
  */
 function wp_admin_health_activate( $network_wide = false ) {
+	// Verify requirements during activation.
+	$php_met = version_compare( PHP_VERSION, WP_ADMIN_HEALTH_MIN_PHP_VERSION, '>=' );
+	$wp_met  = version_compare( get_bloginfo( 'version' ), WP_ADMIN_HEALTH_MIN_WP_VERSION, '>=' );
+
+	if ( ! $php_met || ! $wp_met ) {
+		$messages = array();
+
+		if ( ! $php_met ) {
+			$messages[] = sprintf(
+				'PHP %s is required. You have PHP %s.',
+				WP_ADMIN_HEALTH_MIN_PHP_VERSION,
+				PHP_VERSION
+			);
+		}
+
+		if ( ! $wp_met ) {
+			$messages[] = sprintf(
+				'WordPress %s is required. You have WordPress %s.',
+				WP_ADMIN_HEALTH_MIN_WP_VERSION,
+				get_bloginfo( 'version' )
+			);
+		}
+
+		wp_die(
+			esc_html( implode( ' ', $messages ) ),
+			esc_html__( 'Plugin Activation Error', 'wp-admin-health-suite' ),
+			array( 'back_link' => true )
+		);
+	}
+
 	$plugin = Plugin::get_instance();
 	$plugin->activate( $network_wide );
 }

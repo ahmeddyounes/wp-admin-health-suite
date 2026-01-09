@@ -9,37 +9,37 @@
 
 namespace WPAdminHealth\Tests\UnitStandalone\Cache;
 
-use WPAdminHealth\Cache\Memory_Cache;
-use WPAdminHealth\Cache\Null_Cache;
+use WPAdminHealth\Cache\MemoryCache;
+use WPAdminHealth\Cache\NullCache;
 use WPAdminHealth\Contracts\CacheInterface;
-use WPAdminHealth\Tests\Standalone_Test_Case;
+use WPAdminHealth\Tests\StandaloneTestCase;
 
 /**
  * Cache test class.
  */
-class CacheTest extends Standalone_Test_Case {
+class CacheTest extends StandaloneTestCase {
 
 	/**
-	 * Test Memory_Cache implements CacheInterface.
+	 * Test MemoryCache implements CacheInterface.
 	 */
 	public function test_memory_cache_implements_interface(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 		$this->assertInstanceOf( CacheInterface::class, $cache );
 	}
 
 	/**
-	 * Test Null_Cache implements CacheInterface.
+	 * Test NullCache implements CacheInterface.
 	 */
 	public function test_null_cache_implements_interface(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 		$this->assertInstanceOf( CacheInterface::class, $cache );
 	}
 
 	/**
-	 * Test Memory_Cache get and set.
+	 * Test MemoryCache get and set.
 	 */
 	public function test_memory_cache_get_set(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'test_key', 'test_value' );
 
@@ -48,20 +48,20 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache returns default for missing key.
+	 * Test MemoryCache returns default for missing key.
 	 */
 	public function test_memory_cache_default_value(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$this->assertNull( $cache->get( 'nonexistent' ) );
 		$this->assertEquals( 'default', $cache->get( 'nonexistent', 'default' ) );
 	}
 
 	/**
-	 * Test Memory_Cache delete.
+	 * Test MemoryCache delete.
 	 */
 	public function test_memory_cache_delete(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'to_delete', 'value' );
 		$this->assertTrue( $cache->has( 'to_delete' ) );
@@ -71,10 +71,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache clear.
+	 * Test MemoryCache clear.
 	 */
 	public function test_memory_cache_clear(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'key1', 'value1' );
 		$cache->set( 'key2', 'value2' );
@@ -88,10 +88,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache clear with prefix.
+	 * Test MemoryCache clear with prefix.
 	 */
 	public function test_memory_cache_clear_with_prefix(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'prefix_key1', 'value1' );
 		$cache->set( 'prefix_key2', 'value2' );
@@ -105,10 +105,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache stores complex data.
+	 * Test MemoryCache stores complex data.
 	 */
 	public function test_memory_cache_complex_data(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$array_data = array( 'nested' => array( 'deep' => 'value' ) );
 		$cache->set( 'array', $array_data );
@@ -127,10 +127,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache always misses.
+	 * Test NullCache always misses.
 	 */
 	public function test_null_cache_always_misses(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		// Set returns true but value is not stored.
 		$result = $cache->set( 'key', 'value' );
@@ -145,29 +145,29 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache delete always succeeds.
+	 * Test NullCache delete always succeeds.
 	 */
 	public function test_null_cache_delete(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		$this->assertTrue( $cache->delete( 'any_key' ) );
 	}
 
 	/**
-	 * Test Null_Cache clear always succeeds.
+	 * Test NullCache clear always succeeds.
 	 */
 	public function test_null_cache_clear(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		$this->assertTrue( $cache->clear() );
 		$this->assertTrue( $cache->clear( 'prefix' ) );
 	}
 
 	/**
-	 * Test Memory_Cache remembers values.
+	 * Test MemoryCache remembers values.
 	 */
 	public function test_memory_cache_remember(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$counter = 0;
 		$callback = function() use ( &$counter ) {
@@ -187,10 +187,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache remember with TTL.
+	 * Test MemoryCache remember with TTL.
 	 */
 	public function test_memory_cache_remember_with_ttl(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$result = $cache->remember( 'ttl_key', fn() => 'value', 3600 );
 
@@ -199,10 +199,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache get multiple keys.
+	 * Test MemoryCache get multiple keys.
 	 */
 	public function test_memory_cache_get_multiple(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'multi_1', 'value1' );
 		$cache->set( 'multi_2', 'value2' );
@@ -220,10 +220,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache set multiple keys.
+	 * Test MemoryCache set multiple keys.
 	 */
 	public function test_memory_cache_set_multiple(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$values = array(
 			'batch_1' => 'value1',
@@ -239,10 +239,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache delete multiple keys.
+	 * Test MemoryCache delete multiple keys.
 	 */
 	public function test_memory_cache_delete_multiple(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'del_1', 'value1' );
 		$cache->set( 'del_2', 'value2' );
@@ -256,10 +256,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache increment on non-existent key.
+	 * Test MemoryCache increment on non-existent key.
 	 */
 	public function test_memory_cache_increment_nonexistent(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$result = $cache->increment( 'counter' );
 
@@ -268,10 +268,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache increment on existing key.
+	 * Test MemoryCache increment on existing key.
 	 */
 	public function test_memory_cache_increment_existing(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'counter', 10 );
 		$result = $cache->increment( 'counter' );
@@ -281,10 +281,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache increment with custom value.
+	 * Test MemoryCache increment with custom value.
 	 */
 	public function test_memory_cache_increment_by_value(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'counter', 5 );
 		$result = $cache->increment( 'counter', 10 );
@@ -293,10 +293,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache increment fails on non-numeric value.
+	 * Test MemoryCache increment fails on non-numeric value.
 	 */
 	public function test_memory_cache_increment_fails_on_non_numeric(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'string_key', 'not_a_number' );
 		$result = $cache->increment( 'string_key' );
@@ -305,10 +305,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache decrement on non-existent key.
+	 * Test MemoryCache decrement on non-existent key.
 	 */
 	public function test_memory_cache_decrement_nonexistent(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$result = $cache->decrement( 'counter' );
 
@@ -317,10 +317,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache decrement on existing key.
+	 * Test MemoryCache decrement on existing key.
 	 */
 	public function test_memory_cache_decrement_existing(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'counter', 10 );
 		$result = $cache->decrement( 'counter' );
@@ -330,10 +330,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache decrement with custom value.
+	 * Test MemoryCache decrement with custom value.
 	 */
 	public function test_memory_cache_decrement_by_value(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'counter', 20 );
 		$result = $cache->decrement( 'counter', 5 );
@@ -342,10 +342,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache decrement can go negative.
+	 * Test MemoryCache decrement can go negative.
 	 */
 	public function test_memory_cache_decrement_goes_negative(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'counter', 5 );
 		$result = $cache->decrement( 'counter', 10 );
@@ -354,10 +354,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache increment behavior.
+	 * Test NullCache increment behavior.
 	 */
 	public function test_null_cache_increment(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		// Null cache starts from 0 conceptually.
 		$result = $cache->increment( 'counter' );
@@ -368,10 +368,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache decrement behavior.
+	 * Test NullCache decrement behavior.
 	 */
 	public function test_null_cache_decrement(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		// Null cache starts from 0 conceptually.
 		$result = $cache->decrement( 'counter' );
@@ -382,10 +382,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache remember always executes callback.
+	 * Test NullCache remember always executes callback.
 	 */
 	public function test_null_cache_remember_always_executes(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		$counter = 0;
 		$callback = function() use ( &$counter ) {
@@ -404,10 +404,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache get_multiple returns defaults.
+	 * Test NullCache get_multiple returns defaults.
 	 */
 	public function test_null_cache_get_multiple(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		$cache->set( 'key1', 'value1' );
 		$cache->set( 'key2', 'value2' );
@@ -426,10 +426,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache set_multiple succeeds.
+	 * Test NullCache set_multiple succeeds.
 	 */
 	public function test_null_cache_set_multiple(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		$result = $cache->set_multiple(
 			array(
@@ -442,10 +442,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Null_Cache delete_multiple succeeds.
+	 * Test NullCache delete_multiple succeeds.
 	 */
 	public function test_null_cache_delete_multiple(): void {
-		$cache = new Null_Cache();
+		$cache = new NullCache();
 
 		$result = $cache->delete_multiple( array( 'key1', 'key2' ) );
 
@@ -453,10 +453,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache statistics tracking.
+	 * Test MemoryCache statistics tracking.
 	 */
 	public function test_memory_cache_stats(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		// Initial stats should be zero.
 		$stats = $cache->get_stats();
@@ -487,10 +487,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache reset stats.
+	 * Test MemoryCache reset stats.
 	 */
 	public function test_memory_cache_reset_stats(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'key', 'value' );
 		$cache->get( 'key' );
@@ -507,10 +507,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache get_keys helper.
+	 * Test MemoryCache get_keys helper.
 	 */
 	public function test_memory_cache_get_keys(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'key1', 'value1' );
 		$cache->set( 'key2', 'value2' );
@@ -523,10 +523,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache count helper.
+	 * Test MemoryCache count helper.
 	 */
 	public function test_memory_cache_count(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$this->assertEquals( 0, $cache->count() );
 
@@ -541,10 +541,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache get_storage returns raw storage.
+	 * Test MemoryCache get_storage returns raw storage.
 	 */
 	public function test_memory_cache_get_storage(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'key1', 'value1', 3600 );
 		$cache->set( 'key2', 'value2' ); // No TTL.
@@ -561,12 +561,12 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache TTL expiration.
+	 * Test MemoryCache TTL expiration.
 	 *
 	 * Uses time injection to verify expiration without sleep.
 	 */
 	public function test_memory_cache_ttl_expiration(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 		$current_time = 1000;
 
 		// Inject time provider.
@@ -591,10 +591,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache remember with expired key re-executes callback.
+	 * Test MemoryCache remember with expired key re-executes callback.
 	 */
 	public function test_memory_cache_remember_expired_reexecutes(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 		$current_time = 1000;
 
 		// Inject time provider.
@@ -626,10 +626,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache increment on expired key.
+	 * Test MemoryCache increment on expired key.
 	 */
 	public function test_memory_cache_increment_expired_key(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 		$current_time = 1000;
 
 		// Inject time provider.
@@ -651,10 +651,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache stats track remember hits/misses correctly.
+	 * Test MemoryCache stats track remember hits/misses correctly.
 	 */
 	public function test_memory_cache_remember_stats(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$callback = fn() => 'value';
 
@@ -674,12 +674,12 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache can store and retrieve false values.
+	 * Test MemoryCache can store and retrieve false values.
 	 *
 	 * This is a tricky edge case - false could be confused with cache miss.
 	 */
 	public function test_memory_cache_stores_false_value(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'false_key', false );
 
@@ -689,12 +689,12 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache can store and retrieve null values.
+	 * Test MemoryCache can store and retrieve null values.
 	 *
 	 * Null could be confused with the default return value.
 	 */
 	public function test_memory_cache_stores_null_value(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'null_key', null );
 
@@ -705,10 +705,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache can store and retrieve empty string.
+	 * Test MemoryCache can store and retrieve empty string.
 	 */
 	public function test_memory_cache_stores_empty_string(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'empty_string_key', '' );
 
@@ -717,10 +717,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache can store and retrieve empty array.
+	 * Test MemoryCache can store and retrieve empty array.
 	 */
 	public function test_memory_cache_stores_empty_array(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'empty_array_key', array() );
 
@@ -729,10 +729,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache can store and retrieve objects.
+	 * Test MemoryCache can store and retrieve objects.
 	 */
 	public function test_memory_cache_stores_objects(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$obj = new \stdClass();
 		$obj->property = 'value';
@@ -746,10 +746,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache handles empty string as key.
+	 * Test MemoryCache handles empty string as key.
 	 */
 	public function test_memory_cache_empty_string_key(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( '', 'empty_key_value' );
 
@@ -758,10 +758,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache handles keys with special characters.
+	 * Test MemoryCache handles keys with special characters.
 	 */
 	public function test_memory_cache_special_character_keys(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$special_keys = array(
 			'key:with:colons'    => 'value1',
@@ -782,10 +782,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache zero TTL means no expiration.
+	 * Test MemoryCache zero TTL means no expiration.
 	 */
 	public function test_memory_cache_zero_ttl_no_expiration(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'no_expire', 'value', 0 );
 
@@ -797,19 +797,19 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache delete returns false for non-existent key.
+	 * Test MemoryCache delete returns false for non-existent key.
 	 */
 	public function test_memory_cache_delete_nonexistent_returns_false(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$this->assertFalse( $cache->delete( 'nonexistent_key' ) );
 	}
 
 	/**
-	 * Test Memory_Cache clear with prefix only clears matching keys.
+	 * Test MemoryCache clear with prefix only clears matching keys.
 	 */
 	public function test_memory_cache_clear_with_prefix_preserves_others(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'prefix_key1', 'value1' );
 		$cache->set( 'prefix_key2', 'value2' );
@@ -824,10 +824,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache increment on string numeric value.
+	 * Test MemoryCache increment on string numeric value.
 	 */
 	public function test_memory_cache_increment_string_numeric(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'string_num', '10' );
 
@@ -838,10 +838,10 @@ class CacheTest extends Standalone_Test_Case {
 	}
 
 	/**
-	 * Test Memory_Cache increment on float value.
+	 * Test MemoryCache increment on float value.
 	 */
 	public function test_memory_cache_increment_float(): void {
-		$cache = new Memory_Cache();
+		$cache = new MemoryCache();
 
 		$cache->set( 'float_num', 10.5 );
 

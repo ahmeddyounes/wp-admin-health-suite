@@ -9,7 +9,7 @@
 
 namespace WPAdminHealth\Providers;
 
-use WPAdminHealth\Container\Service_Provider;
+use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Integrations\IntegrationManager;
 
 // Exit if accessed directly.
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.1.0
  */
-class IntegrationServiceProvider extends Service_Provider {
+class IntegrationServiceProvider extends ServiceProvider {
 
 	/**
 	 * Whether this provider should be deferred.

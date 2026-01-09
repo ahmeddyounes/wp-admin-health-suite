@@ -11,12 +11,12 @@ namespace WPAdminHealth\Tests\Unit\Container;
 
 use WPAdminHealth\Container\Container;
 use WPAdminHealth\Container\NotFoundException;
-use WPAdminHealth\Tests\Test_Case;
+use WPAdminHealth\Tests\TestCase;
 
 /**
  * Container test class.
  */
-class ContainerTest extends Test_Case {
+class ContainerTest extends TestCase {
 
 	/**
 	 * Container instance.
@@ -36,7 +36,7 @@ class ContainerTest extends Test_Case {
 	 * Test container implements ContainerInterface.
 	 */
 	public function test_implements_container_interface(): void {
-		$this->assertInstanceOf( \WPAdminHealth\Container\Container_Interface::class, $this->container );
+		$this->assertInstanceOf( \WPAdminHealth\Container\ContainerInterface::class, $this->container );
 	}
 
 	/**
@@ -172,13 +172,13 @@ class ContainerTest extends Test_Case {
 	 */
 	public function test_bind_interface_to_implementation(): void {
 		$this->container->bind( \WPAdminHealth\Contracts\CacheInterface::class, function() {
-			return new \WPAdminHealth\Cache\Memory_Cache();
+			return new \WPAdminHealth\Cache\MemoryCache();
 		});
 
 		$cache = $this->container->get( \WPAdminHealth\Contracts\CacheInterface::class );
 
 		$this->assertInstanceOf( \WPAdminHealth\Contracts\CacheInterface::class, $cache );
-		$this->assertInstanceOf( \WPAdminHealth\Cache\Memory_Cache::class, $cache );
+		$this->assertInstanceOf( \WPAdminHealth\Cache\MemoryCache::class, $cache );
 	}
 
 	/**

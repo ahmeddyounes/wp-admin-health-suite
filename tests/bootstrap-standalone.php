@@ -932,4 +932,4 @@ spl_autoload_register(
 );
 
 // Load standalone test case.
-require_once WP_ADMIN_HEALTH_TESTS_DIR . '/Standalone_Test_Case.php';
+require_once WP_ADMIN_HEALTH_TESTS_DIR . '/StandaloneTestCase.php';
