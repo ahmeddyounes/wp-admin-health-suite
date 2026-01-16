@@ -47,10 +47,10 @@ The generated documentation includes:
 - **Namespaces**: Browse all classes by namespace
 - **Packages**: Filter by package (WPAdminHealth)
 - **Classes**: Detailed class documentation with:
-  - Class description and @since version
-  - Properties with types and descriptions
-  - Methods with parameters, return types, and examples
-  - WordPress hooks with @hook tags
+    - Class description and @since version
+    - Properties with types and descriptions
+    - Methods with parameters, return types, and examples
+    - WordPress hooks with @hook tags
 - **Source Code**: View source code for each class
 - **Graphs**: Class diagrams and dependency graphs
 
@@ -68,6 +68,7 @@ All classes and methods follow WordPress PHPDoc standards:
 ## Key Classes
 
 ### Core Classes
+
 - `WPAdminHealth\Plugin` - Main plugin singleton
 - `WPAdminHealth\Admin` - Admin functionality
 - `WPAdminHealth\Database` - Database operations
@@ -79,6 +80,7 @@ All classes and methods follow WordPress PHPDoc standards:
 - `WPAdminHealth\Installer` - Installation and upgrade handler
 
 ### Database Module
+
 - `WPAdminHealth\Database\Analyzer` - Database analysis
 - `WPAdminHealth\Database\Optimizer` - Table optimization
 - `WPAdminHealth\Database\Orphaned_Cleaner` - Orphaned data cleanup
@@ -88,6 +90,7 @@ All classes and methods follow WordPress PHPDoc standards:
 - `WPAdminHealth\Database\Trash_Cleaner` - Trash cleanup
 
 ### Media Module
+
 - `WPAdminHealth\Media\Scanner` - Media library scanner
 - `WPAdminHealth\Media\Safe_Delete` - Safe media deletion
 - `WPAdminHealth\Media\Reference_Finder` - Media reference detection
@@ -97,6 +100,7 @@ All classes and methods follow WordPress PHPDoc standards:
 - `WPAdminHealth\Media\Exclusions` - Media exclusion rules
 
 ### Performance Module
+
 - `WPAdminHealth\Performance\Query_Monitor` - Database query monitoring
 - `WPAdminHealth\Performance\Ajax_Monitor` - AJAX request monitoring
 - `WPAdminHealth\Performance\Plugin_Profiler` - Plugin performance profiling
@@ -105,10 +109,12 @@ All classes and methods follow WordPress PHPDoc standards:
 - `WPAdminHealth\Performance\Autoload_Analyzer` - Autoload option analysis
 
 ### AI Module
+
 - `WPAdminHealth\AI\Recommendations` - AI-powered recommendations
 - `WPAdminHealth\AI\One_Click_Fix` - One-click fix automation
 
 ### REST API Controllers
+
 - `WPAdminHealth\REST\REST_Controller` - Base REST controller
 - `WPAdminHealth\REST\Activity_Controller` - Activity endpoint
 - `WPAdminHealth\REST\Dashboard_Controller` - Dashboard endpoint
@@ -121,6 +127,7 @@ All classes and methods follow WordPress PHPDoc standards:
 The plugin provides 16 custom action/filter hooks for extensibility:
 
 ### Plugin Lifecycle
+
 - `wpha_init` - After plugin initialization
 - `wpha_dependencies_loaded` - After dependencies loaded
 - `wpha_activate` - Before activation
@@ -129,6 +136,7 @@ The plugin provides 16 custom action/filter hooks for extensibility:
 - `wpha_deactivated` - After deactivation complete
 
 ### Module Initialization
+
 - `wpha_admin_init` - After admin initialization
 - `wpha_database_init` - After database initialization
 - `wpha_assets_init` - After assets initialization
@@ -136,11 +144,13 @@ The plugin provides 16 custom action/filter hooks for extensibility:
 - `wpha_register_rest_routes` - Custom REST routes registration
 
 ### Installer
+
 - `wpha_upgraded` - After plugin upgrade
 - `wpha_uninstalled` - After plugin uninstall
 - `wpha_registered_plugin_tables` - After custom tables registered
 
 ### Scheduler
+
 - `wpha_execute_cleanup` (filter) - Execute cleanup tasks
 - `wpha_scheduler_log` - Scheduler logging
 
@@ -149,6 +159,7 @@ The plugin provides 16 custom action/filter hooks for extensibility:
 The phpDocumentor configuration is in `phpdoc.xml` at the project root.
 
 Key settings:
+
 - **Source**: `includes/` directory
 - **Output**: `docs/api/`
 - **Template**: Default template with graphs enabled
@@ -157,4 +168,5 @@ Key settings:
 ## Support
 
 For issues with the documentation or to report errors:
+
 - GitHub: https://github.com/anthropics/wp-admin-health-suite/issues

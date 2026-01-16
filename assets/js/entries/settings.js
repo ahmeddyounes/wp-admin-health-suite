@@ -20,7 +20,4 @@ Object.assign(window.WPAdminHealthComponents, {
 	createRoot,
 });
 
-// Initialize any settings-specific functionality
-document.addEventListener('DOMContentLoaded', () => {
-	console.log('Settings page loaded and ready');
-});
+// Initialize any settings-specific functionality when needed.

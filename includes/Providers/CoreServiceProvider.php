@@ -11,6 +11,7 @@ namespace WPAdminHealth\Providers;
 
 use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\CacheInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Cache\CacheFactory;
 use WPAdminHealth\HealthCalculator;
 
@@ -60,8 +61,10 @@ class CoreServiceProvider extends ServiceProvider {
 		// Register HealthCalculator as singleton.
 		$this->container->singleton(
 			HealthCalculator::class,
-			function () {
-				return new HealthCalculator();
+			function ( $container ) {
+				return new HealthCalculator(
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'health_calculator', HealthCalculator::class );

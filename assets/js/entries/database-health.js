@@ -27,7 +27,4 @@ Object.assign(window.WPAdminHealthComponents, {
 	createRoot,
 });
 
-// Initialize any database health-specific functionality
-document.addEventListener('DOMContentLoaded', () => {
-	console.log('Database Health page loaded and ready');
-});
+// Initialize any database health-specific functionality when needed.

@@ -9,57 +9,57 @@ The following screenshots need to be captured from the actual plugin UI and plac
 ### Installation & Activation
 
 1. **activation-success.png**
-   - Screenshot of the WordPress plugin activation success notice
-   - Shows: Green success banner after plugin activation
-   - When: Immediately after clicking "Activate" on the plugin
+    - Screenshot of the WordPress plugin activation success notice
+    - Shows: Green success banner after plugin activation
+    - When: Immediately after clicking "Activate" on the plugin
 
 2. **welcome-notice.png**
-   - Screenshot of the welcome notice that appears after first activation
-   - Shows: Welcome banner with quick start options
-   - When: First page load after plugin activation
+    - Screenshot of the welcome notice that appears after first activation
+    - Shows: Welcome banner with quick start options
+    - When: First page load after plugin activation
 
 3. **admin-menu.png**
-   - Screenshot showing the "Admin Health" menu in WordPress sidebar
-   - Shows: WordPress admin sidebar with heart icon menu item
-   - Highlight: The "Admin Health" menu item
+    - Screenshot showing the "Admin Health" menu in WordPress sidebar
+    - Shows: WordPress admin sidebar with heart icon menu item
+    - Highlight: The "Admin Health" menu item
 
 ### Dashboard
 
 4. **dashboard-loading.png**
-   - Screenshot of dashboard while health score is calculating
-   - Shows: Loading spinner or skeleton loader for health score
-   - When: Initial page load before score calculation completes
+    - Screenshot of dashboard while health score is calculating
+    - Shows: Loading spinner or skeleton loader for health score
+    - When: Initial page load before score calculation completes
 
 5. **dashboard-complete.png**
-   - Screenshot of complete dashboard with all data loaded
-   - Shows: Health score circle, metrics cards, recent activity, recommendations
-   - Annotation: Label key areas (health score, metrics, activity, recommendations)
+    - Screenshot of complete dashboard with all data loaded
+    - Shows: Health score circle, metrics cards, recent activity, recommendations
+    - Annotation: Label key areas (health score, metrics, activity, recommendations)
 
 ### Database Health
 
 6. **database-overview.png**
-   - Screenshot of Database Health page overview section
-   - Shows: Overview cards with database size, tables count, potential savings
-   - When: After page loads with scan complete
+    - Screenshot of Database Health page overview section
+    - Shows: Overview cards with database size, tables count, potential savings
+    - When: After page loads with scan complete
 
 7. **cleanup-modules.png**
-   - Screenshot showing the accordion-style cleanup modules
-   - Shows: Multiple cleanup modules (Post Revisions, Auto-Drafts, etc.)
-   - Display: At least 2-3 modules expanded to show details
+    - Screenshot showing the accordion-style cleanup modules
+    - Shows: Multiple cleanup modules (Post Revisions, Auto-Drafts, etc.)
+    - Display: At least 2-3 modules expanded to show details
 
 ### Media Audit
 
 8. **media-audit-overview.png** (Optional enhancement)
-   - Screenshot of Media Audit page
-   - Shows: Scan status, stats overview cards
-   - When: After completing a media scan
+    - Screenshot of Media Audit page
+    - Shows: Scan status, stats overview cards
+    - When: After completing a media scan
 
 ### Performance
 
 9. **performance-overview.png** (Optional enhancement)
-   - Screenshot of Performance page
-   - Shows: Performance score, plugin impact table
-   - When: After performance data has been collected
+    - Screenshot of Performance page
+    - Shows: Performance score, plugin impact table
+    - When: After performance data has been collected
 
 ### Settings
 
@@ -101,9 +101,9 @@ Before taking screenshots:
 
 1. **Crop appropriately:** Include relevant UI, remove excessive whitespace
 2. **Add annotations:** Use tools like Skitch or Snagit to add:
-   - Arrows pointing to key features
-   - Text labels for important elements
-   - Numbered callouts for multi-step processes
+    - Arrows pointing to key features
+    - Text labels for important elements
+    - Numbered callouts for multi-step processes
 3. **Optimize file size:** Compress PNGs using TinyPNG or similar (target <500KB per image)
 4. **Naming convention:** Use exact filenames listed above (lowercase, hyphen-separated)
 

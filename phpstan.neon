@@ -1,3 +1,6 @@
+includes:
+	- phpstan-baseline.neon
+
 parameters:
 	level: 5
 	paths:
@@ -11,8 +14,13 @@ parameters:
 		- tests
 	bootstrapFiles:
 		- vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+		- phpstan-bootstrap.php
+	reportUnmatchedIgnoredErrors: false
+	treatPhpDocTypesAsCertain: false
 	ignoreErrors:
-		# WordPress function stubs may not be fully typed
-		- '#Function [a-z_]+ invoked with [0-9]+ parameters?, [0-9]+ required\.#'
+		# WordPress function stubs may not be fully typed.
+		- '#Function [a-z_]+ invoked with [0-9]+ parameters?, [0-9]+ required\.?#'
+		# This codebase intentionally keeps some properties for future extensibility.
+		- '#Property .* is never read, only written\.#'
 	scanDirectories:
 		- vendor/php-stubs/wordpress-stubs

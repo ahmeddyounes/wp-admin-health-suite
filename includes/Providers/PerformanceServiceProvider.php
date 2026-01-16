@@ -63,20 +63,9 @@ class PerformanceServiceProvider extends ServiceProvider {
 		$this->container->singleton(
 			QueryMonitorInterface::class,
 			function ( $container ) {
-				if ( ! class_exists( QueryMonitor::class ) ) {
-					return null;
-				}
-
-				// Use reflection to check if constructor accepts ConnectionInterface.
-				$reflection  = new \ReflectionClass( QueryMonitor::class );
-				$constructor = $reflection->getConstructor();
-
-				if ( $constructor && $constructor->getNumberOfParameters() > 0 ) {
-					$connection = $container->get( ConnectionInterface::class );
-					return new QueryMonitor( $connection );
-				}
-
-				return new QueryMonitor();
+				return new QueryMonitor(
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'performance.query_monitor', QueryMonitorInterface::class );
@@ -84,8 +73,10 @@ class PerformanceServiceProvider extends ServiceProvider {
 		// Register Autoload Analyzer with interface binding.
 		$this->container->singleton(
 			AutoloadAnalyzerInterface::class,
-			function () {
-				return new AutoloadAnalyzer();
+			function ( $container ) {
+				return new AutoloadAnalyzer(
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'performance.autoload_analyzer', AutoloadAnalyzerInterface::class );
@@ -93,8 +84,10 @@ class PerformanceServiceProvider extends ServiceProvider {
 		// Register Plugin Profiler with interface binding.
 		$this->container->singleton(
 			PluginProfilerInterface::class,
-			function () {
-				return new PluginProfiler();
+			function ( $container ) {
+				return new PluginProfiler(
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'performance.plugin_profiler', PluginProfilerInterface::class );

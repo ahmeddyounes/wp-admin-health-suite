@@ -165,11 +165,6 @@
 				'.wpha-ignore-btn',
 				this.handleIgnore.bind(this)
 			);
-			$(document).on(
-				'click',
-				'.wpha-keep-original-btn',
-				this.handleKeepOriginal.bind(this)
-			);
 
 			// Pagination
 			$(document).on(
@@ -206,11 +201,11 @@
 		 */
 		renderStats(data) {
 			const stats = [
-				{ value: data.total_files || 0, selector: 0 },
+				{ value: data.total_count || 0, selector: 0 },
 				{ value: data.unused_count || 0, selector: 1 },
-				{ value: data.duplicates_count || 0, selector: 2 },
+				{ value: data.duplicate_count || 0, selector: 2 },
 				{
-					value: this.formatBytes(data.potential_savings || 0),
+					value: this.formatBytes(data.potential_savings?.bytes || 0),
 					selector: 3,
 				},
 			];
@@ -229,7 +224,7 @@
 				data.unused_count || 0
 			);
 			$('.wpha-tab-btn[data-tab="duplicates"] .wpha-tab-badge').text(
-				data.duplicates_count || 0
+				data.duplicate_count || 0
 			);
 			$('.wpha-tab-btn[data-tab="large-files"] .wpha-tab-badge').text(
 				data.large_files_count || 0
@@ -457,8 +452,11 @@
 		 */
 		renderTableRow(tab, item) {
 			const isChecked = this.selectedItems[tab].has(item.id);
-			const previewUrl = item.thumbnail || item.url || '';
-			const isImage = item.type === 'image';
+			const previewUrl =
+				item.thumbnail || item.thumbnail_url || item.url || '';
+			const mimeType = item.mime_type || '';
+			const isImage =
+				item.type === 'image' || mimeType.startsWith('image/');
 
 			let html = '<tr data-id="' + item.id + '">';
 			html += '<td class="wpha-col-checkbox">';
@@ -489,10 +487,12 @@
 				'</strong>';
 			html += '</td>';
 
+			const sizeBytes =
+				item.size || item.file_size || item.current_size || 0;
 			if (tab === 'large-files') {
 				html +=
 					'<td class="wpha-col-size">' +
-					this.formatBytes(item.size || 0) +
+					this.formatBytes(sizeBytes) +
 					'</td>';
 				html +=
 					'<td class="wpha-col-dimensions">' +
@@ -503,7 +503,7 @@
 			} else if (tab !== 'missing-alt') {
 				html +=
 					'<td class="wpha-col-size">' +
-					this.formatBytes(item.size || 0) +
+					this.formatBytes(sizeBytes) +
 					'</td>';
 				html +=
 					'<td class="wpha-col-date">' +
@@ -591,7 +591,8 @@
 			group.items.forEach((item, index) => {
 				const isChecked = this.selectedItems.duplicates.has(item.id);
 				const isOriginal = index === 0;
-				const previewUrl = item.thumbnail || item.url || '';
+				const previewUrl =
+					item.thumbnail || item.thumbnail_url || item.url || '';
 
 				html +=
 					'<div class="wpha-duplicate-item" data-id="' +
@@ -615,7 +616,9 @@
 					'</p>';
 				html +=
 					'<p class="wpha-duplicate-meta">' +
-					this.formatBytes(item.size) +
+					this.formatBytes(
+						item.size || item.file_size || item.current_size || 0
+					) +
 					' • ' +
 					this.formatDate(item.date) +
 					'</p>';
@@ -629,13 +632,6 @@
 				if (isOriginal) {
 					html +=
 						'<span class="wpha-badge wpha-badge-primary">Original</span>';
-				} else {
-					html +=
-						'<button class="button button-small wpha-keep-original-btn" data-id="' +
-						item.id +
-						'" data-group="' +
-						group.hash +
-						'">Keep as Original</button>';
 				}
 				html += '</div>';
 				html += '</div>';
@@ -1034,44 +1030,6 @@
 			const id = $btn.data('id');
 
 			this.executeBulkAction('ignore', [id], this.currentTab);
-		},
-
-		/**
-		 * Handle keep original.
-		 * @param e
-		 */
-		handleKeepOriginal(e) {
-			e.preventDefault();
-			const $btn = $(e.currentTarget);
-			const id = $btn.data('id');
-			const groupHash = $btn.data('group');
-
-			wp.apiFetch({
-				path: '/wpha/v1/media/duplicates/keep-original',
-				method: 'POST',
-				data: { id, group: groupHash },
-			})
-				.then((response) => {
-					if (response.success) {
-						// Reload duplicates
-						this.dataCache.duplicates = [];
-						this.loadTabData('duplicates');
-						this.loadStats();
-
-						this.showNotice(
-							'success',
-							'Original updated successfully.'
-						);
-					}
-				})
-				.catch((error) => {
-					console.error('Error updating original:', error);
-					this.showNotice(
-						'error',
-						wpAdminHealthData.i18n.error ||
-							'Failed to update original.'
-					);
-				});
 		},
 
 		/**

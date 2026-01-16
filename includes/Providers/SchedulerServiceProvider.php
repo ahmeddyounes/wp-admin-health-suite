@@ -15,6 +15,7 @@ use WPAdminHealth\Scheduler\Contracts\SchedulerRegistryInterface;
 use WPAdminHealth\Database\Tasks\DatabaseCleanupTask;
 use WPAdminHealth\Media\Tasks\MediaScanTask;
 use WPAdminHealth\Performance\Tasks\PerformanceCheckTask;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\RevisionsManagerInterface;
 use WPAdminHealth\Contracts\TransientsCleanerInterface;
 use WPAdminHealth\Contracts\OrphanedCleanerInterface;
@@ -92,11 +93,12 @@ class SchedulerServiceProvider extends ServiceProvider {
 			}
 		);
 
-		// Register MediaScanTask.
+		// Register MediaScanTask with ConnectionInterface injection.
 		$this->container->bind(
 			MediaScanTask::class,
 			function ( $container ) {
 				return new MediaScanTask(
+					$container->get( ConnectionInterface::class ),
 					$container->get( ScannerInterface::class ),
 					$container->get( DuplicateDetectorInterface::class ),
 					$container->get( LargeFilesInterface::class ),
@@ -112,7 +114,8 @@ class SchedulerServiceProvider extends ServiceProvider {
 				return new PerformanceCheckTask(
 					$container->get( AutoloadAnalyzerInterface::class ),
 					$container->get( QueryMonitorInterface::class ),
-					$container->get( PluginProfilerInterface::class )
+					$container->get( PluginProfilerInterface::class ),
+					$container->get( ConnectionInterface::class )
 				);
 			}
 		);

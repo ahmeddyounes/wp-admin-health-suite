@@ -10,6 +10,7 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
 use WPAdminHealth\Contracts\QueryMonitorInterface;
@@ -86,19 +87,22 @@ class PerformanceController extends RestController {
 	 *
 	 * @since 1.1.0
 	 * @since 1.2.0 Added all performance service dependencies via constructor injection.
+	 * @since 1.3.0 Added ConnectionInterface dependency.
 	 *
 	 * @param SettingsInterface          $settings          Settings instance.
+	 * @param ConnectionInterface        $connection        Database connection instance.
 	 * @param AutoloadAnalyzerInterface  $autoload_analyzer Autoload analyzer instance.
 	 * @param QueryMonitorInterface      $query_monitor     Query monitor instance.
 	 * @param PluginProfilerInterface    $plugin_profiler   Plugin profiler instance.
 	 */
 	public function __construct(
 		SettingsInterface $settings,
+		ConnectionInterface $connection,
 		AutoloadAnalyzerInterface $autoload_analyzer,
 		QueryMonitorInterface $query_monitor,
 		PluginProfilerInterface $plugin_profiler
 	) {
-		parent::__construct( $settings );
+		parent::__construct( $settings, $connection );
 		$this->autoload_analyzer = $autoload_analyzer;
 		$this->query_monitor     = $query_monitor;
 		$this->plugin_profiler   = $plugin_profiler;
@@ -112,7 +116,7 @@ class PerformanceController extends RestController {
 	 * @return void
 	 */
 	public function register_routes() {
-		// GET /wpha/v1/performance/stats
+		// GET /wpha/v1/performance/stats.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/stats',
@@ -125,7 +129,7 @@ class PerformanceController extends RestController {
 			)
 		);
 
-		// GET /wpha/v1/performance/plugins
+		// GET /wpha/v1/performance/plugins.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/plugins',
@@ -138,7 +142,7 @@ class PerformanceController extends RestController {
 			)
 		);
 
-		// GET /wpha/v1/performance/queries
+		// GET /wpha/v1/performance/queries.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/queries',
@@ -151,7 +155,7 @@ class PerformanceController extends RestController {
 			)
 		);
 
-		// GET /wpha/v1/performance/heartbeat
+		// GET /wpha/v1/performance/heartbeat.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/heartbeat',
@@ -164,7 +168,7 @@ class PerformanceController extends RestController {
 			)
 		);
 
-		// POST /wpha/v1/performance/heartbeat
+		// POST /wpha/v1/performance/heartbeat.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/heartbeat',
@@ -182,22 +186,26 @@ class PerformanceController extends RestController {
 							'sanitize_callback' => 'sanitize_text_field',
 						),
 						'enabled'  => array(
-							'description' => __( 'Whether heartbeat is enabled.', 'wp-admin-health-suite' ),
-							'type'        => 'boolean',
-							'required'    => true,
+							'description'       => __( 'Whether heartbeat is enabled.', 'wp-admin-health-suite' ),
+							'type'              => 'boolean',
+							'required'          => true,
+							'sanitize_callback' => 'rest_sanitize_boolean',
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 						'interval' => array(
-							'description' => __( 'Heartbeat interval in seconds.', 'wp-admin-health-suite' ),
-							'type'        => 'integer',
-							'minimum'     => 15,
-							'maximum'     => 120,
+							'description'       => __( 'Heartbeat interval in seconds.', 'wp-admin-health-suite' ),
+							'type'              => 'integer',
+							'minimum'           => 15,
+							'maximum'           => 120,
+							'sanitize_callback' => 'absint',
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
 			)
 		);
 
-		// GET /wpha/v1/performance/cache
+		// GET /wpha/v1/performance/cache.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/cache',
@@ -210,7 +218,7 @@ class PerformanceController extends RestController {
 			)
 		);
 
-		// GET /wpha/v1/performance/autoload
+		// GET /wpha/v1/performance/autoload.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/autoload',
@@ -232,16 +240,18 @@ class PerformanceController extends RestController {
 							'sanitize_callback' => 'sanitize_text_field',
 						),
 						'autoload'    => array(
-							'description' => __( 'Whether to autoload the option.', 'wp-admin-health-suite' ),
-							'type'        => 'boolean',
-							'required'    => true,
+							'description'       => __( 'Whether to autoload the option.', 'wp-admin-health-suite' ),
+							'type'              => 'boolean',
+							'required'          => true,
+							'sanitize_callback' => 'rest_sanitize_boolean',
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
 			)
 		);
 
-		// GET /wpha/v1/performance/recommendations
+		// GET /wpha/v1/performance/recommendations.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/recommendations',
@@ -264,12 +274,12 @@ class PerformanceController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_performance_stats( $request ) {
-		global $wpdb;
+		$connection = $this->get_connection();
 
 		// Calculate performance factors.
 		$plugin_count     = count( get_option( 'active_plugins', array() ) );
 		$autoload_size    = $this->get_autoload_size();
-		$db_query_count   = $wpdb->num_queries;
+		$db_query_count   = $connection->get_num_queries();
 		$object_cache     = wp_using_ext_object_cache();
 
 		// Calculate score (0-100).
@@ -376,9 +386,12 @@ class PerformanceController extends RestController {
 		}
 
 		// Sort by load time impact.
-		usort( $plugin_data, function( $a, $b ) {
-			return $b['load_time'] - $a['load_time'];
-		} );
+		usort(
+			$plugin_data,
+			function ( $a, $b ): int {
+				return $b['load_time'] <=> $a['load_time'];
+			}
+		);
 
 		return $this->format_response(
 			true,
@@ -396,14 +409,15 @@ class PerformanceController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_query_analysis( $request ) {
-		global $wpdb;
+		$connection = $this->get_connection();
 
 		$slow_queries = array();
-		$query_count  = $wpdb->num_queries;
+		$query_count  = $connection->get_num_queries();
 
 		// Get slow query log if available.
-		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES && isset( $wpdb->queries ) ) {
-			foreach ( $wpdb->queries as $query_data ) {
+		$query_log = $connection->get_query_log();
+		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES && ! empty( $query_log ) ) {
+			foreach ( $query_log as $query_data ) {
 				if ( $query_data[1] > 0.05 ) { // Queries slower than 50ms.
 					$slow_queries[] = array(
 						'query'    => $query_data[0],
@@ -415,9 +429,12 @@ class PerformanceController extends RestController {
 		}
 
 		// Sort by time descending.
-		usort( $slow_queries, function( $a, $b ) {
-			return $b['time'] <=> $a['time'];
-		} );
+		usort(
+			$slow_queries,
+			function ( $a, $b ) {
+				return $b['time'] <=> $a['time'];
+			}
+		);
 
 		$response_data = array(
 			'total_queries' => $query_count,
@@ -441,11 +458,23 @@ class PerformanceController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_heartbeat_settings( $request ) {
-		$settings = get_option( 'wpha_heartbeat_settings', array(
-			'dashboard' => array( 'enabled' => true, 'interval' => 60 ),
-			'editor'    => array( 'enabled' => true, 'interval' => 15 ),
-			'frontend'  => array( 'enabled' => true, 'interval' => 60 ),
-		) );
+		$settings = get_option(
+			'wpha_heartbeat_settings',
+			array(
+				'dashboard' => array(
+					'enabled' => true,
+					'interval' => 60,
+				),
+				'editor'    => array(
+					'enabled' => true,
+					'interval' => 15,
+				),
+				'frontend'  => array(
+					'enabled' => true,
+					'interval' => 60,
+				),
+			)
+		);
 
 		return $this->format_response(
 			true,
@@ -467,15 +496,27 @@ class PerformanceController extends RestController {
 		$enabled  = $request->get_param( 'enabled' );
 		$interval = $request->get_param( 'interval' );
 
-		$settings = get_option( 'wpha_heartbeat_settings', array(
-			'dashboard' => array( 'enabled' => true, 'interval' => 60 ),
-			'editor'    => array( 'enabled' => true, 'interval' => 15 ),
-			'frontend'  => array( 'enabled' => true, 'interval' => 60 ),
-		) );
+		$settings = get_option(
+			'wpha_heartbeat_settings',
+			array(
+				'dashboard' => array(
+					'enabled' => true,
+					'interval' => 60,
+				),
+				'editor'    => array(
+					'enabled' => true,
+					'interval' => 15,
+				),
+				'frontend'  => array(
+					'enabled' => true,
+					'interval' => 60,
+				),
+			)
+		);
 
 		$settings[ $location ] = array(
-			'enabled'  => $enabled,
-			'interval' => $interval ? $interval : $settings[ $location ]['interval'],
+			'enabled'  => (bool) $enabled,
+			'interval' => $interval ? absint( $interval ) : $settings[ $location ]['interval'],
 		);
 
 		update_option( 'wpha_heartbeat_settings', $settings );
@@ -498,21 +539,20 @@ class PerformanceController extends RestController {
 	public function get_cache_status( $request ) {
 		$object_cache = wp_using_ext_object_cache();
 
+		$opcache_status = function_exists( 'opcache_get_status' ) ? opcache_get_status( false ) : false;
+
 		$cache_info = array(
 			'object_cache_enabled' => $object_cache,
 			'cache_type'           => $object_cache ? $this->get_cache_type() : 'none',
-			'opcache_enabled'      => function_exists( 'opcache_get_status' ) && opcache_get_status(),
+			'opcache_enabled'      => (bool) $opcache_status,
 		);
 
-		if ( function_exists( 'opcache_get_status' ) ) {
-			$opcache_status = opcache_get_status( false );
-			if ( $opcache_status ) {
-				$cache_info['opcache_stats'] = array(
-					'hit_rate'      => $opcache_status['opcache_statistics']['opcache_hit_rate'],
-					'memory_usage'  => $opcache_status['memory_usage']['used_memory'],
-					'cached_scripts' => $opcache_status['opcache_statistics']['num_cached_scripts'],
-				);
-			}
+		if ( $opcache_status ) {
+			$cache_info['opcache_stats'] = array(
+				'hit_rate'       => $opcache_status['opcache_statistics']['opcache_hit_rate'],
+				'memory_usage'   => $opcache_status['memory_usage']['used_memory'],
+				'cached_scripts' => $opcache_status['opcache_statistics']['num_cached_scripts'],
+			);
 		}
 
 		return $this->format_response(
@@ -531,11 +571,12 @@ class PerformanceController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_autoload_analysis( $request ) {
-		global $wpdb;
+		$connection    = $this->get_connection();
+		$options_table = $connection->get_options_table();
 
-		$autoload_options = $wpdb->get_results(
+		$autoload_options = $connection->get_results(
 			"SELECT option_name, LENGTH(option_value) as size
-			FROM {$wpdb->options}
+			FROM {$options_table}
 			WHERE autoload = 'yes'
 			ORDER BY size DESC
 			LIMIT 50"
@@ -578,10 +619,11 @@ class PerformanceController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function update_autoload( $request ) {
-		global $wpdb;
+		$connection    = $this->get_connection();
+		$options_table = $connection->get_options_table();
 
 		$option_name = $request->get_param( 'option_name' );
-		$autoload    = $request->get_param( 'autoload' );
+		$autoload    = (bool) $request->get_param( 'autoload' );
 
 		// Security: Check if the option is protected from modification.
 		if ( $this->is_protected_option( $option_name ) ) {
@@ -595,12 +637,11 @@ class PerformanceController extends RestController {
 		}
 
 		// Check if option exists.
-		$option_exists = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name = %s",
-				$option_name
-			)
+		$query = $connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table} WHERE option_name = %s",
+			$option_name
 		);
+		$option_exists = $query ? $connection->get_var( $query ) : 0;
 
 		if ( ! $option_exists ) {
 			return $this->format_error_response(
@@ -614,8 +655,8 @@ class PerformanceController extends RestController {
 
 		// Update the autoload setting.
 		$autoload_value = $autoload ? 'yes' : 'no';
-		$result = $wpdb->update(
-			$wpdb->options,
+		$result = $connection->update(
+			$options_table,
 			array( 'autoload' => $autoload_value ),
 			array( 'option_name' => $option_name ),
 			array( '%s' ),
@@ -870,11 +911,12 @@ class PerformanceController extends RestController {
 	 * @return int Autoload size in bytes.
 	 */
 	private function get_autoload_size() {
-		global $wpdb;
+		$connection    = $this->get_connection();
+		$options_table = $connection->get_options_table();
 
-		$result = $wpdb->get_var(
+		$result = $connection->get_var(
 			"SELECT SUM(LENGTH(option_value))
-			FROM {$wpdb->options}
+			FROM {$options_table}
 			WHERE autoload = 'yes'"
 		);
 
@@ -931,13 +973,30 @@ class PerformanceController extends RestController {
 	/**
 	 * Estimate plugin query count.
 	 *
+	 * Estimates based on plugin-specific options in the database.
+	 * This is a heuristic approach - actual profiling would be more accurate.
+	 *
 	 * @param string $plugin_file Plugin file.
 	 * @return int Estimated query count.
 	 */
 	private function estimate_plugin_queries( $plugin_file ) {
-		// This is a rough estimation based on common patterns.
-		// In reality, you'd need actual profiling.
-		return rand( 0, 10 );
+		$connection    = $this->get_connection();
+		$options_table = $connection->get_options_table();
+
+		$plugin_slug = dirname( $plugin_file );
+		if ( '.' === $plugin_slug ) {
+			$plugin_slug = basename( $plugin_file, '.php' );
+		}
+
+		// Count plugin-specific options (indicates database usage).
+		$query = $connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table} WHERE option_name LIKE %s",
+			$connection->esc_like( $plugin_slug ) . '%'
+		);
+		$option_count = $query ? $connection->get_var( $query ) : 0;
+
+		// Rough estimate: each option might mean 1-2 queries on load.
+		return absint( $option_count ) * 2;
 	}
 
 	/**

@@ -32,90 +32,80 @@ describe('QuickActions', () => {
 
 	it('renders without crashing', () => {
 		render(<QuickActions />);
-		expect(screen.getByText('Clean Revisions')).toBeInTheDocument();
+		expect(screen.getByText('Empty Trash')).toBeInTheDocument();
 	});
 
 	it('renders all action buttons', () => {
 		render(<QuickActions />);
-		expect(screen.getByText('Clean Revisions')).toBeInTheDocument();
-		expect(screen.getByText('Clear Transients')).toBeInTheDocument();
-		expect(screen.getByText('Find Unused Media')).toBeInTheDocument();
+		expect(screen.getByText('Empty Trash')).toBeInTheDocument();
+		expect(screen.getByText('Delete Spam Comments')).toBeInTheDocument();
+		expect(screen.getByText('Delete Auto-Drafts')).toBeInTheDocument();
+		expect(
+			screen.getByText('Clean Expired Transients')
+		).toBeInTheDocument();
 		expect(screen.getByText('Optimize Tables')).toBeInTheDocument();
-		expect(screen.getByText('Full Scan')).toBeInTheDocument();
 	});
 
 	it('renders action buttons with correct icons', () => {
 		const { container } = render(<QuickActions />);
-		expect(
-			container.querySelector('.dashicons-backup')
-		).toBeInTheDocument();
 		expect(container.querySelector('.dashicons-trash')).toBeInTheDocument();
 		expect(
-			container.querySelector('.dashicons-images-alt2')
+			container.querySelector('.dashicons-dismiss')
 		).toBeInTheDocument();
+		expect(container.querySelector('.dashicons-edit')).toBeInTheDocument();
+		expect(container.querySelector('.dashicons-clock')).toBeInTheDocument();
 		expect(
 			container.querySelector('.dashicons-database')
-		).toBeInTheDocument();
-		expect(
-			container.querySelector('.dashicons-search')
 		).toBeInTheDocument();
 	});
 
 	it('shows confirmation modal for actions that require confirmation', () => {
 		render(<QuickActions />);
-		const cleanRevisionsButton = screen.getByText('Clean Revisions');
-		fireEvent.click(cleanRevisionsButton);
+		const emptyTrashButton = screen.getByText('Empty Trash');
+		fireEvent.click(emptyTrashButton);
 
-		expect(screen.getByText('Confirm Clean Revisions')).toBeInTheDocument();
+		expect(screen.getByText('Confirm Empty Trash')).toBeInTheDocument();
 		expect(
 			screen.getByText(/Are you sure you want to proceed/)
 		).toBeInTheDocument();
 	});
 
-	it('does not show confirmation modal for actions that do not require confirmation', async () => {
-		fetch.mockResolvedValueOnce({
-			ok: true,
-			json: async () => ({ success: true, message: 'Scan complete' }),
-		});
-
+	it('shows confirmation modal for Optimize Tables', () => {
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
 
-		await waitFor(() => {
-			expect(
-				screen.queryByText(/Confirm Full Scan/)
-			).not.toBeInTheDocument();
-		});
+		expect(screen.getByText('Confirm Optimize Tables')).toBeInTheDocument();
 	});
 
 	it('closes modal when Cancel is clicked', () => {
 		render(<QuickActions />);
-		const cleanRevisionsButton = screen.getByText('Clean Revisions');
-		fireEvent.click(cleanRevisionsButton);
+		const emptyTrashButton = screen.getByText('Empty Trash');
+		fireEvent.click(emptyTrashButton);
 
-		expect(screen.getByText('Confirm Clean Revisions')).toBeInTheDocument();
+		expect(screen.getByText('Confirm Empty Trash')).toBeInTheDocument();
 
 		const cancelButton = screen.getByText('Cancel');
 		fireEvent.click(cancelButton);
 
 		expect(
-			screen.queryByText('Confirm Clean Revisions')
+			screen.queryByText('Confirm Empty Trash')
 		).not.toBeInTheDocument();
 	});
 
 	it('closes modal when clicking outside', () => {
-		render(<QuickActions />);
-		const cleanRevisionsButton = screen.getByText('Clean Revisions');
-		fireEvent.click(cleanRevisionsButton);
+		const { container } = render(<QuickActions />);
+		const emptyTrashButton = screen.getByText('Empty Trash');
+		fireEvent.click(emptyTrashButton);
 
-		expect(screen.getByText('Confirm Clean Revisions')).toBeInTheDocument();
+		expect(screen.getByText('Confirm Empty Trash')).toBeInTheDocument();
 
-		const overlay = screen.getByRole('dialog');
+		// Click on the overlay (backdrop) to close the modal
+		const overlay = container.querySelector('.quick-action-modal-overlay');
 		fireEvent.click(overlay);
 
 		expect(
-			screen.queryByText('Confirm Clean Revisions')
+			screen.queryByText('Confirm Empty Trash')
 		).not.toBeInTheDocument();
 	});
 
@@ -126,21 +116,22 @@ describe('QuickActions', () => {
 		});
 
 		render(<QuickActions />);
-		const cleanRevisionsButton = screen.getByText('Clean Revisions');
-		fireEvent.click(cleanRevisionsButton);
+		const emptyTrashButton = screen.getByText('Empty Trash');
+		fireEvent.click(emptyTrashButton);
 
 		const confirmButton = screen.getByText('Confirm');
 		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(fetch).toHaveBeenCalledWith(
-				'/wp-json/wpha/v1/actions/clean_revisions',
+				'/wp-json/wpha/v1/dashboard/quick-action',
 				expect.objectContaining({
 					method: 'POST',
 					headers: expect.objectContaining({
 						'Content-Type': 'application/json',
 						'X-WP-Nonce': 'test-nonce',
 					}),
+					body: JSON.stringify({ action_id: 'delete_trash' }),
 				})
 			);
 		});
@@ -153,8 +144,11 @@ describe('QuickActions', () => {
 		});
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(screen.getByText('Cleanup complete')).toBeInTheDocument();
@@ -168,8 +162,11 @@ describe('QuickActions', () => {
 		});
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(screen.getByText('Action failed')).toBeInTheDocument();
@@ -180,8 +177,11 @@ describe('QuickActions', () => {
 		fetch.mockRejectedValueOnce(new Error('Network error'));
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(screen.getByText(/Network error/)).toBeInTheDocument();
@@ -192,8 +192,11 @@ describe('QuickActions', () => {
 		fetch.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(screen.getByLabelText('Loading')).toBeInTheDocument();
@@ -204,14 +207,16 @@ describe('QuickActions', () => {
 		fetch.mockImplementation(() => new Promise(() => {})); // Never resolves
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
-			expect(fullScanButton.closest('[role="button"]')).toHaveAttribute(
-				'aria-busy',
-				'true'
-			);
+			expect(
+				optimizeTablesButton.closest('[role="button"]')
+			).toHaveAttribute('aria-busy', 'true');
 		});
 	});
 
@@ -222,8 +227,11 @@ describe('QuickActions', () => {
 		});
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(screen.getByText('Test message')).toBeInTheDocument();
@@ -237,13 +245,13 @@ describe('QuickActions', () => {
 
 	it('has keyboard event handlers for accessibility', () => {
 		render(<QuickActions />);
-		const cleanRevisionsButton = screen
-			.getByText('Clean Revisions')
+		const emptyTrashButton = screen
+			.getByText('Empty Trash')
 			.closest('[role="button"]');
 
 		// Verify the button has keyboard handlers attached (keyboard accessibility)
-		expect(cleanRevisionsButton).toHaveProperty('onkeypress');
-		expect(cleanRevisionsButton).toHaveAttribute('tabindex', '0');
+		expect(emptyTrashButton).toHaveProperty('onkeypress');
+		expect(emptyTrashButton).toHaveAttribute('tabindex', '0');
 	});
 
 	it('renders correct number of action buttons', () => {
@@ -255,19 +263,21 @@ describe('QuickActions', () => {
 	it('has correct aria-label for each button', () => {
 		render(<QuickActions />);
 		expect(
-			screen.getByLabelText(/Clean Revisions: Remove old post revisions/)
+			screen.getByLabelText(
+				/Empty Trash: Permanently delete all items from the trash/
+			)
 		).toBeInTheDocument();
 		expect(
 			screen.getByLabelText(
-				/Clear Transients: Delete expired and orphaned/
+				/Delete Spam Comments: Permanently delete all spam comments/
 			)
 		).toBeInTheDocument();
 	});
 
 	it('renders modal with correct aria attributes', () => {
 		render(<QuickActions />);
-		const cleanRevisionsButton = screen.getByText('Clean Revisions');
-		fireEvent.click(cleanRevisionsButton);
+		const emptyTrashButton = screen.getByText('Empty Trash');
+		fireEvent.click(emptyTrashButton);
 
 		const modal = screen.getByRole('dialog');
 		expect(modal).toHaveAttribute('aria-modal', 'true');
@@ -282,8 +292,11 @@ describe('QuickActions', () => {
 		});
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			const toast = screen.getByRole('alert');
@@ -298,12 +311,15 @@ describe('QuickActions', () => {
 		});
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(
-				screen.getByText('Full Scan completed successfully')
+				screen.getByText('Optimize Tables completed successfully')
 			).toBeInTheDocument();
 		});
 	});
@@ -315,12 +331,15 @@ describe('QuickActions', () => {
 		});
 
 		render(<QuickActions />);
-		const fullScanButton = screen.getByText('Full Scan');
-		fireEvent.click(fullScanButton);
+		const optimizeTablesButton = screen.getByText('Optimize Tables');
+		fireEvent.click(optimizeTablesButton);
+
+		const confirmButton = screen.getByText('Confirm');
+		fireEvent.click(confirmButton);
 
 		await waitFor(() => {
 			expect(
-				screen.getByText('Failed to execute Full Scan')
+				screen.getByText('Failed to execute Optimize Tables')
 			).toBeInTheDocument();
 		});
 	});

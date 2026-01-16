@@ -12,6 +12,7 @@
 namespace WPAdminHealth\Performance;
 
 use WPAdminHealth\Contracts\QueryMonitorInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -25,6 +26,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.2.0 Implements QueryMonitorInterface.
  */
 class QueryMonitor implements QueryMonitorInterface {
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
 
 	/**
 	 * Table name for query logs.
@@ -63,12 +71,15 @@ class QueryMonitor implements QueryMonitorInterface {
 
 	/**
 	 * Constructor.
- * @since 1.0.0
- *
+	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Added ConnectionInterface parameter.
+	 *
+	 * @param ConnectionInterface $connection Database connection.
 	 */
-	public function __construct() {
-		global $wpdb;
-		$this->table_name = $wpdb->prefix . 'wpha_query_log';
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+		$this->table_name = $this->connection->get_prefix() . 'wpha_query_log';
 		$this->init_hooks();
 	}
 
@@ -104,15 +115,14 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @param float $threshold_ms Threshold in milliseconds (default: 50ms).
 	 * @return array Array of slow queries.
 	 */
-	public function capture_slow_queries( $threshold_ms = self::DEFAULT_THRESHOLD ) {
-		global $wpdb;
-
+	public function capture_slow_queries( float $threshold_ms = self::DEFAULT_THRESHOLD ): array {
 		$slow_queries = array();
+		$query_log    = $this->connection->get_query_log();
 
 		// Check if Query Monitor plugin is active.
 		if ( class_exists( 'QM_Collectors' ) && function_exists( 'QM_Collectors' ) ) {
 			$slow_queries = $this->capture_from_query_monitor( $threshold_ms );
-		} elseif ( defined( 'SAVEQUERIES' ) && SAVEQUERIES && isset( $wpdb->queries ) ) {
+		} elseif ( defined( 'SAVEQUERIES' ) && SAVEQUERIES && ! empty( $query_log ) ) {
 			$slow_queries = $this->capture_from_savequeries( $threshold_ms );
 		}
 
@@ -181,16 +191,15 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return array Array of slow queries.
 	 */
 	private function capture_from_savequeries( $threshold_ms ) {
-		global $wpdb;
-
 		$slow_queries = array();
 		$query_hashes = array();
+		$query_log    = $this->connection->get_query_log();
 
-		if ( ! isset( $wpdb->queries ) || ! is_array( $wpdb->queries ) ) {
+		if ( empty( $query_log ) ) {
 			return $slow_queries;
 		}
 
-		foreach ( $wpdb->queries as $query_data ) {
+		foreach ( $query_log as $query_data ) {
 			if ( ! is_array( $query_data ) || count( $query_data ) < 3 ) {
 				continue;
 			}
@@ -275,22 +284,20 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return bool True if query might need an index.
 	 */
 	private function check_needs_index( $sql ) {
-		global $wpdb;
-
 		// Validate SQL query is safe for EXPLAIN.
 		if ( ! $this->is_safe_for_explain( $sql ) ) {
 			return false;
 		}
 
 		// Suppress errors for EXPLAIN queries.
-		$wpdb->hide_errors();
+		$this->connection->suppress_errors( true );
 
 		// Run EXPLAIN on the query.
-		// Note: $sql comes from $wpdb->queries which is WordPress internal logging.
+		// Note: $sql comes from query log which is WordPress internal logging.
 		// Additional validation is performed by is_safe_for_explain() above.
-		$explain = $wpdb->get_results( 'EXPLAIN ' . $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$explain = $this->connection->get_results( 'EXPLAIN ' . $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 
-		$wpdb->show_errors();
+		$this->connection->show_errors( true );
 
 		if ( empty( $explain ) ) {
 			return false;
@@ -299,7 +306,7 @@ class QueryMonitor implements QueryMonitorInterface {
 		// Check for common indicators of missing indexes.
 		foreach ( $explain as $row ) {
 			// Full table scan without index.
-			if ( isset( $row['type'] ) && $row['type'] === 'ALL' ) {
+			if ( isset( $row['type'] ) && 'ALL' === $row['type'] ) {
 				return true;
 			}
 
@@ -390,10 +397,8 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return void
 	 */
 	private function log_queries( $queries ) {
-		global $wpdb;
-
 		foreach ( $queries as $query ) {
-			$wpdb->insert(
+			$this->connection->insert(
 				$this->table_name,
 				array(
 					'sql'          => $query['sql'],
@@ -445,10 +450,8 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return int Number of rows deleted.
 	 */
 	private function enforce_max_rows() {
-		global $wpdb;
-
 		// Get current row count.
-		$count = $wpdb->get_var( "SELECT COUNT(*) FROM {$this->table_name}" );
+		$count = $this->connection->get_var( "SELECT COUNT(*) FROM {$this->table_name}" );
 
 		if ( $count <= self::MAX_LOG_ROWS ) {
 			return 0;
@@ -458,14 +461,18 @@ class QueryMonitor implements QueryMonitorInterface {
 		$excess = $count - self::MAX_LOG_ROWS;
 
 		// Delete oldest entries.
-		$deleted = $wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$this->table_name}
-				ORDER BY created_at ASC
-				LIMIT %d",
-				$excess
-			)
+		$query = $this->connection->prepare(
+			"DELETE FROM {$this->table_name}
+			ORDER BY created_at ASC
+			LIMIT %d",
+			$excess
 		);
+
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$deleted = $this->connection->query( $query );
 
 		return absint( $deleted );
 	}
@@ -475,70 +482,60 @@ class QueryMonitor implements QueryMonitorInterface {
 	 *
  * @since 1.0.0
  *
-	 * @param int $limit Number of days to look back (default: 7).
+	 * @param int $days Number of days to look back (default: 7).
 	 * @return array Summary statistics.
 	 */
-	public function get_query_summary( $limit = 7 ) {
-		global $wpdb;
-
-		$since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$limit} days" ) );
+	public function get_query_summary( int $days = 7 ): array {
+		$since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
 
 		// Get total queries logged.
-		$total_queries = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$this->table_name} WHERE created_at >= %s",
-				$since
-			)
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$this->table_name} WHERE created_at >= %s",
+			$since
 		);
+		$total_queries = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Get average query time.
-		$avg_time = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT AVG(time_ms) FROM {$this->table_name} WHERE created_at >= %s",
-				$since
-			)
+		$query = $this->connection->prepare(
+			"SELECT AVG(time_ms) FROM {$this->table_name} WHERE created_at >= %s",
+			$since
 		);
+		$avg_time = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Get count of duplicate queries.
-		$duplicate_count = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$this->table_name} WHERE is_duplicate = 1 AND created_at >= %s",
-				$since
-			)
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$this->table_name} WHERE is_duplicate = 1 AND created_at >= %s",
+			$since
 		);
+		$duplicate_count = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Get count of queries needing indexes.
-		$needs_index_count = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$this->table_name} WHERE needs_index = 1 AND created_at >= %s",
-				$since
-			)
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$this->table_name} WHERE needs_index = 1 AND created_at >= %s",
+			$since
 		);
+		$needs_index_count = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Get slowest query.
-		$slowest_query = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT sql, time_ms, caller FROM {$this->table_name} WHERE created_at >= %s ORDER BY time_ms DESC LIMIT 1",
-				$since
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT sql, time_ms, caller FROM {$this->table_name} WHERE created_at >= %s ORDER BY time_ms DESC LIMIT 1",
+			$since
 		);
+		$slowest_query = $query ? $this->connection->get_row( $query, ARRAY_A ) : null;
 
 		// Get queries by component.
-		$by_component = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT component, COUNT(*) as count, AVG(time_ms) as avg_time
-				FROM {$this->table_name}
-				WHERE created_at >= %s
-				GROUP BY component
-				ORDER BY count DESC",
-				$since
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT component, COUNT(*) as count, AVG(time_ms) as avg_time
+			FROM {$this->table_name}
+			WHERE created_at >= %s
+			GROUP BY component
+			ORDER BY count DESC",
+			$since
 		);
+		$by_component = $query ? $this->connection->get_results( $query, ARRAY_A ) : array();
 
 		return array(
-			'period_days'       => $limit,
+			'period_days'       => $days,
 			'total_queries'     => absint( $total_queries ),
 			'avg_time_ms'       => round( floatval( $avg_time ), 2 ),
 			'duplicate_count'   => absint( $duplicate_count ),
@@ -557,31 +554,32 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @param int $days Number of days to look back (default: 7).
 	 * @return array Queries grouped by caller.
 	 */
-	public function get_queries_by_caller( $limit = 20, $days = 7 ) {
-		global $wpdb;
-
+	public function get_queries_by_caller( int $limit = 20, int $days = 7 ): array {
 		$since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
 
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
-					caller,
-					component,
-					COUNT(*) as query_count,
-					AVG(time_ms) as avg_time,
-					MAX(time_ms) as max_time,
-					SUM(CASE WHEN is_duplicate = 1 THEN 1 ELSE 0 END) as duplicate_count,
-					SUM(CASE WHEN needs_index = 1 THEN 1 ELSE 0 END) as needs_index_count
-				FROM {$this->table_name}
-				WHERE created_at >= %s
-				GROUP BY caller, component
-				ORDER BY query_count DESC
-				LIMIT %d",
-				$since,
-				$limit
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT
+				caller,
+				component,
+				COUNT(*) as query_count,
+				AVG(time_ms) as avg_time,
+				MAX(time_ms) as max_time,
+				SUM(CASE WHEN is_duplicate = 1 THEN 1 ELSE 0 END) as duplicate_count,
+				SUM(CASE WHEN needs_index = 1 THEN 1 ELSE 0 END) as needs_index_count
+			FROM {$this->table_name}
+			WHERE created_at >= %s
+			GROUP BY caller, component
+			ORDER BY query_count DESC
+			LIMIT %d",
+			$since,
+			$limit
 		);
+
+		if ( null === $query ) {
+			return array();
+		}
+
+		$results = $this->connection->get_results( $query, ARRAY_A );
 
 		// Format the results.
 		$formatted = array();
@@ -610,27 +608,28 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return string|array Exported data.
 	 */
 	public function export_query_log( $days = 7, $format = 'csv' ) {
-		global $wpdb;
-
 		$since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
 
-		$queries = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
-					sql,
-					time_ms,
-					caller,
-					component,
-					is_duplicate,
-					needs_index,
-					created_at
-				FROM {$this->table_name}
-				WHERE created_at >= %s
-				ORDER BY created_at DESC",
-				$since
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT
+				sql,
+				time_ms,
+				caller,
+				component,
+				is_duplicate,
+				needs_index,
+				created_at
+			FROM {$this->table_name}
+			WHERE created_at >= %s
+			ORDER BY created_at DESC",
+			$since
 		);
+
+		if ( null === $query ) {
+			return 'csv' === $format ? '' : array();
+		}
+
+		$queries = $this->connection->get_results( $query, ARRAY_A );
 
 		if ( 'json' === $format ) {
 			return $queries;
@@ -690,17 +689,19 @@ class QueryMonitor implements QueryMonitorInterface {
  *
 	 * @return int Number of rows deleted.
 	 */
-	public function prune_old_logs() {
-		global $wpdb;
-
+	public function prune_old_logs(): int {
 		$cutoff = gmdate( 'Y-m-d H:i:s', time() - self::LOG_TTL );
 
-		$deleted = $wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$this->table_name} WHERE created_at < %s",
-				$cutoff
-			)
+		$query = $this->connection->prepare(
+			"DELETE FROM {$this->table_name} WHERE created_at < %s",
+			$cutoff
 		);
+
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$deleted = $this->connection->query( $query );
 
 		return absint( $deleted );
 	}
@@ -712,7 +713,7 @@ class QueryMonitor implements QueryMonitorInterface {
  *
 	 * @return bool True if Query Monitor is active.
 	 */
-	public function is_query_monitor_active() {
+	public function is_query_monitor_active(): bool {
 		return class_exists( 'QueryMonitor' ) || class_exists( 'QM_Collectors' );
 	}
 
@@ -723,7 +724,7 @@ class QueryMonitor implements QueryMonitorInterface {
  *
 	 * @return array Status information.
 	 */
-	public function get_monitoring_status() {
+	public function get_monitoring_status(): array {
 		return array(
 			'query_monitor_active' => $this->is_query_monitor_active(),
 			'savequeries_enabled'  => defined( 'SAVEQUERIES' ) && SAVEQUERIES,

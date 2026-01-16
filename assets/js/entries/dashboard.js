@@ -32,7 +32,4 @@ window.WPAdminHealthComponents = {
 	createRoot,
 };
 
-// Initialize any dashboard-specific functionality
-document.addEventListener('DOMContentLoaded', () => {
-	console.log('Dashboard loaded and ready');
-});
+// Initialize any dashboard-specific functionality when needed.

@@ -7,6 +7,8 @@
 
 namespace WPAdminHealth;
 
+use WPAdminHealth\Contracts\ConnectionInterface;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -67,6 +69,24 @@ class HealthCalculator {
 	);
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
+
+	/**
 	 * Calculate overall site health score.
 	 *
 	 * Computes a weighted score based on all health factors.
@@ -85,8 +105,8 @@ class HealthCalculator {
 	 * }
 	 *
 	 * @example
-	 * // Get current health score (cached)
-	 * $calculator = new HealthCalculator();
+	 * // Get health calculator from container
+	 * $calculator = Plugin::get_instance()->get_container()->get( HealthCalculator::class );
 	 * $result = $calculator->calculate_overall_score();
 	 * echo "Your site health score is: " . $result['score'] . " (Grade: " . $result['grade'] . ")";
 	 *
@@ -237,30 +257,31 @@ class HealthCalculator {
 	 * @return int Score from 0-100 (100 = no bloat, 0 = severe bloat).
 	 */
 	private function calculate_database_bloat_score() {
-		global $wpdb;
-
-		$score = 100;
+		$score       = 100;
+		$posts_table = $this->connection->get_posts_table();
+		$comments_table = $this->connection->get_comments_table();
+		$postmeta_table = $this->connection->get_postmeta_table();
 
 		// Count trashed posts.
-		$trashed_posts = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'trash'"
+		$trashed_posts = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = 'trash'"
 		);
 		if ( $trashed_posts > 100 ) {
 			$score -= min( 30, ( $trashed_posts - 100 ) / 10 );
 		}
 
 		// Count spam comments.
-		$spam_comments = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = 'spam'"
+		$spam_comments = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$comments_table} WHERE comment_approved = 'spam'"
 		);
 		if ( $spam_comments > 50 ) {
 			$score -= min( 25, ( $spam_comments - 50 ) / 5 );
 		}
 
 		// Count orphaned postmeta.
-		$orphaned_meta = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta} pm
-			LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+		$orphaned_meta = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$postmeta_table} pm
+			LEFT JOIN {$posts_table} p ON pm.post_id = p.ID
 			WHERE p.ID IS NULL"
 		);
 		if ( $orphaned_meta > 0 ) {
@@ -268,8 +289,8 @@ class HealthCalculator {
 		}
 
 		// Count auto-draft posts.
-		$auto_drafts = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'auto-draft'"
+		$auto_drafts = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = 'auto-draft'"
 		);
 		if ( $auto_drafts > 20 ) {
 			$score -= min( 15, ( $auto_drafts - 20 ) / 5 );
@@ -290,19 +311,18 @@ class HealthCalculator {
 	 * @return int Score from 0-100 (100 = all media used, 0 = mostly unused).
 	 */
 	private function calculate_unused_media_score() {
-		global $wpdb;
-
-		$score = 100;
+		$score       = 100;
+		$posts_table = $this->connection->get_posts_table();
 
 		// Count total attachments.
-		$total_media = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'attachment'"
+		$total_media = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_type = 'attachment'"
 		);
 
 		if ( $total_media > 0 ) {
 			// Count unattached media.
-			$unattached_media = $wpdb->get_var(
-				"SELECT COUNT(*) FROM {$wpdb->posts}
+			$unattached_media = $this->connection->get_var(
+				"SELECT COUNT(*) FROM {$posts_table}
 				WHERE post_type = 'attachment' AND post_parent = 0"
 			);
 
@@ -378,18 +398,17 @@ class HealthCalculator {
 	 * @return int Score from 0-100 (100 = minimal revisions, 0 = excessive revisions).
 	 */
 	private function calculate_revision_count_score() {
-		global $wpdb;
-
-		$score = 100;
+		$score       = 100;
+		$posts_table = $this->connection->get_posts_table();
 
 		// Count total revisions.
-		$total_revisions = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'revision'"
+		$total_revisions = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_type = 'revision'"
 		);
 
 		// Count posts with revisions.
-		$posts_with_content = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts}
+		$posts_with_content = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table}
 			WHERE post_type IN ('post', 'page')
 			AND post_status NOT IN ('trash', 'auto-draft')"
 		);
@@ -423,30 +442,27 @@ class HealthCalculator {
 	 * @return int Score from 0-100 (100 = minimal transients, 0 = excessive transients).
 	 */
 	private function calculate_transient_bloat_score() {
-		global $wpdb;
-
-		$score = 100;
+		$score         = 100;
+		$options_table = $this->connection->get_options_table();
 
 		// Count total transients (including timeouts).
-		$total_transients = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->options}
-				WHERE option_name LIKE %s",
-				$wpdb->esc_like( '_transient_' ) . '%'
-			)
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table}
+			WHERE option_name LIKE %s",
+			$this->connection->esc_like( '_transient_' ) . '%'
 		);
+		$total_transients = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Count expired transients.
-		$expired_transients = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->options} t1
-				INNER JOIN {$wpdb->options} t2 ON t2.option_name = REPLACE(t1.option_name, '_transient_timeout_', '_transient_')
-				WHERE t1.option_name LIKE %s
-				AND t1.option_value < %d",
-				$wpdb->esc_like( '_transient_timeout_' ) . '%',
-				time()
-			)
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table} t1
+			INNER JOIN {$options_table} t2 ON t2.option_name = REPLACE(t1.option_name, '_transient_timeout_', '_transient_')
+			WHERE t1.option_name LIKE %s
+			AND t1.option_value < %d",
+			$this->connection->esc_like( '_transient_timeout_' ) . '%',
+			time()
 		);
+		$expired_transients = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Deduct for too many transients.
 		if ( $total_transients > 200 ) {

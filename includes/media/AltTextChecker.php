@@ -10,6 +10,7 @@
 namespace WPAdminHealth\Media;
 
 use WPAdminHealth\Contracts\AltTextCheckerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\ExclusionsInterface;
 
 // Exit if accessed directly.
@@ -33,6 +34,13 @@ class AltTextChecker implements AltTextCheckerInterface {
 	private $batch_size = 50;
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
 	 * Exclusions manager instance.
 	 *
 	 * @var ExclusionsInterface
@@ -43,10 +51,13 @@ class AltTextChecker implements AltTextCheckerInterface {
 	 * Constructor.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.0 Added ConnectionInterface dependency injection.
 	 *
+	 * @param ConnectionInterface $connection Database connection.
 	 * @param ExclusionsInterface $exclusions Exclusions manager.
 	 */
-	public function __construct( ExclusionsInterface $exclusions ) {
+	public function __construct( ConnectionInterface $connection, ExclusionsInterface $exclusions ) {
+		$this->connection = $connection;
 		$this->exclusions = $exclusions;
 	}
 
@@ -61,14 +72,15 @@ class AltTextChecker implements AltTextCheckerInterface {
 	 * @return array Array of images missing alt text with details.
 	 */
 	public function find_missing_alt_text( int $limit = 100 ): array {
-		global $wpdb;
+		$missing_alt   = array();
+		$missing_count = 0;
+		$batch_offset  = 0;
 
-		$missing_alt = array();
-		$batch_offset = 0;
+		$posts_table = $this->connection->get_posts_table();
 
-		while ( count( $missing_alt ) < $limit ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+		while ( $missing_count < $limit ) {
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				AND post_mime_type LIKE %s
 				LIMIT %d OFFSET %d",
@@ -78,7 +90,11 @@ class AltTextChecker implements AltTextCheckerInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -106,14 +122,15 @@ class AltTextChecker implements AltTextCheckerInterface {
 					$edit_link = admin_url( 'post.php?post=' . $attachment_id . '&action=edit' );
 
 					$missing_alt[] = array(
-						'id' => $attachment_id,
-						'filename' => $filename,
+						'id'            => $attachment_id,
+						'filename'      => $filename,
 						'thumbnail_url' => $thumbnail_url,
-						'edit_link' => $edit_link,
+						'edit_link'     => $edit_link,
 					);
+					++$missing_count;
 
 					// Check if we've reached the limit.
-					if ( count( $missing_alt ) >= $limit ) {
+					if ( $missing_count >= $limit ) {
 						break;
 					}
 				}
@@ -135,34 +152,44 @@ class AltTextChecker implements AltTextCheckerInterface {
 	 * @return array Array with coverage statistics.
 	 */
 	public function get_alt_text_coverage(): array {
-		global $wpdb;
+		$posts_table    = $this->connection->get_posts_table();
+		$postmeta_table = $this->connection->get_postmeta_table();
 
 		// Count all image attachments.
-		$total_images_query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->posts}
+		$total_images_query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$posts_table}
 			WHERE post_type = %s
 			AND post_mime_type LIKE %s",
 			'attachment',
 			'image/%'
 		);
 
-		$total_images = absint( $wpdb->get_var( $total_images_query ) );
+		if ( null === $total_images_query ) {
+			return array(
+				'total_images'        => 0,
+				'images_with_alt'     => 0,
+				'images_without_alt'  => 0,
+				'coverage_percentage' => 0,
+			);
+		}
+
+		$total_images = absint( $this->connection->get_var( $total_images_query ) );
 
 		if ( 0 === $total_images ) {
 			return array(
-				'total_images' => 0,
-				'images_with_alt' => 0,
-				'images_without_alt' => 0,
+				'total_images'        => 0,
+				'images_with_alt'     => 0,
+				'images_without_alt'  => 0,
 				'coverage_percentage' => 0,
 			);
 		}
 
 		// Count images with alt text.
 		// We need to check the postmeta table for non-empty alt text.
-		$images_with_alt_query = $wpdb->prepare(
+		$images_with_alt_query = $this->connection->prepare(
 			"SELECT COUNT(DISTINCT p.ID)
-			FROM {$wpdb->posts} p
-			INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+			FROM {$posts_table} p
+			INNER JOIN {$postmeta_table} pm ON p.ID = pm.post_id
 			WHERE p.post_type = %s
 			AND p.post_mime_type LIKE %s
 			AND pm.meta_key = %s
@@ -172,7 +199,10 @@ class AltTextChecker implements AltTextCheckerInterface {
 			'_wp_attachment_image_alt'
 		);
 
-		$images_with_alt = absint( $wpdb->get_var( $images_with_alt_query ) );
+		$images_with_alt = 0;
+		if ( null !== $images_with_alt_query ) {
+			$images_with_alt = absint( $this->connection->get_var( $images_with_alt_query ) );
+		}
 		$images_without_alt = $total_images - $images_with_alt;
 		$coverage_percentage = ( $total_images > 0 ) ? round( ( $images_with_alt / $total_images ) * 100, 2 ) : 0;
 

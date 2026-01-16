@@ -10,6 +10,9 @@
 
 namespace WPAdminHealth\Database;
 
+use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\CacheInterface;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -19,75 +22,116 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Orphaned Tables class for detecting and managing orphaned database tables.
  *
  * @since 1.0.0
+ * @since 1.3.0 Added constructor dependency injection for ConnectionInterface and CacheInterface.
  */
 class OrphanedTables {
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Cache service.
+	 *
+	 * @var CacheInterface
+	 */
+	private CacheInterface $cache;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 * @param CacheInterface      $cache      Cache service.
+	 */
+	public function __construct( ConnectionInterface $connection, CacheInterface $cache ) {
+		$this->connection = $connection;
+		$this->cache      = $cache;
+	}
+
+	/**
 	 * Get all tables in the database with the WordPress prefix.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @return array Array of table names.
 	 */
 	public function get_all_wp_tables() {
-		global $wpdb;
-
-		$prefix = $wpdb->prefix;
+		$prefix = $this->connection->get_prefix();
 
 		// Get all tables in the database.
-		$query = $wpdb->prepare(
-			"SELECT TABLE_NAME
+		$query = $this->connection->prepare(
+			'SELECT TABLE_NAME
 			FROM information_schema.TABLES
 			WHERE TABLE_SCHEMA = %s
 			AND TABLE_NAME LIKE %s
-			ORDER BY TABLE_NAME ASC",
+			ORDER BY TABLE_NAME ASC',
 			DB_NAME,
-			$wpdb->esc_like( $prefix ) . '%'
+			$this->connection->esc_like( $prefix ) . '%'
 		);
 
-		$tables = $wpdb->get_col( $query );
+		if ( null === $query ) {
+			return array();
+		}
 
-		return is_array( $tables ) ? $tables : array();
+		return $this->connection->get_col( $query );
 	}
 
 	/**
 	 * Get known WordPress core tables.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb, with caching.
+	 *
 	 * @return array Array of core table names.
 	 */
 	public function get_known_core_tables() {
-		global $wpdb;
+		// Check cache first.
+		$cache_key = 'wpha_core_tables';
+		$cached    = $this->cache->get( $cache_key );
+		if ( false !== $cached ) {
+			return $cached;
+		}
 
+		$prefix = $this->connection->get_prefix();
+
+		// Use ConnectionInterface methods where available, prefix pattern for others.
 		$core_tables = array(
-			$wpdb->posts,
-			$wpdb->postmeta,
-			$wpdb->comments,
-			$wpdb->commentmeta,
-			$wpdb->terms,
-			$wpdb->termmeta,
-			$wpdb->term_relationships,
-			$wpdb->term_taxonomy,
-			$wpdb->users,
-			$wpdb->usermeta,
-			$wpdb->links,
-			$wpdb->options,
+			$this->connection->get_posts_table(),
+			$this->connection->get_postmeta_table(),
+			$this->connection->get_comments_table(),
+			$this->connection->get_commentmeta_table(),
+			$this->connection->get_terms_table(),
+			$this->connection->get_termmeta_table(),
+			$prefix . 'term_relationships',
+			$prefix . 'term_taxonomy',
+			$prefix . 'users',
+			$prefix . 'usermeta',
+			$prefix . 'links',
+			$this->connection->get_options_table(),
 		);
 
 		// Add multisite tables if multisite is enabled.
 		if ( is_multisite() ) {
-			$core_tables[] = $wpdb->blogs;
-			$core_tables[] = $wpdb->blogmeta;
-			$core_tables[] = $wpdb->site;
-			$core_tables[] = $wpdb->sitemeta;
-			$core_tables[] = $wpdb->sitecategories;
-			$core_tables[] = $wpdb->registration_log;
-			$core_tables[] = $wpdb->signups;
+			$core_tables[] = $prefix . 'blogs';
+			$core_tables[] = $prefix . 'blogmeta';
+			$core_tables[] = $prefix . 'site';
+			$core_tables[] = $prefix . 'sitemeta';
+			$core_tables[] = $prefix . 'sitecategories';
+			$core_tables[] = $prefix . 'registration_log';
+			$core_tables[] = $prefix . 'signups';
 		}
 
 		// Filter out any null values.
 		$core_tables = array_filter( $core_tables );
+
+		// Cache for 5 minutes.
+		$this->cache->set( $cache_key, $core_tables, 300 );
 
 		return $core_tables;
 	}
@@ -97,12 +141,13 @@ class OrphanedTables {
 	 *
 	 * Scans active plugins for $wpdb->table patterns and custom table registrations.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @return array Array of plugin table names.
 	 */
 	public function get_registered_plugin_tables() {
-		global $wpdb;
+		$prefix = $this->connection->get_prefix();
 
 		$plugin_tables = array();
 
@@ -120,45 +165,45 @@ class OrphanedTables {
 		// Common plugin table patterns.
 		$plugin_table_patterns = array(
 			// WooCommerce tables.
-			$wpdb->prefix . 'wc_',
-			$wpdb->prefix . 'woocommerce_',
+			$prefix . 'wc_',
+			$prefix . 'woocommerce_',
 			// Contact Form 7.
-			$wpdb->prefix . 'cf7_',
-			$wpdb->prefix . 'contact_form_7_',
+			$prefix . 'cf7_',
+			$prefix . 'contact_form_7_',
 			// Yoast SEO.
-			$wpdb->prefix . 'yoast_',
+			$prefix . 'yoast_',
 			// WP Mail SMTP.
-			$wpdb->prefix . 'wpmailsmtp_',
+			$prefix . 'wpmailsmtp_',
 			// Wordfence.
-			$wpdb->prefix . 'wfconfig',
-			$wpdb->prefix . 'wfblocks',
-			$wpdb->prefix . 'wflogins',
-			$wpdb->prefix . 'wffilechanges',
-			$wpdb->prefix . 'wfissues',
-			$wpdb->prefix . 'wfpendingissues',
-			$wpdb->prefix . 'wfknownfilelist',
-			$wpdb->prefix . 'wfsnipcache',
-			$wpdb->prefix . 'wfstatus',
-			$wpdb->prefix . 'wftrafficrates',
-			$wpdb->prefix . 'wfblocksadv',
-			$wpdb->prefix . 'wflivingtraffic',
-			$wpdb->prefix . 'wflocs',
-			$wpdb->prefix . 'wfls_',
+			$prefix . 'wfconfig',
+			$prefix . 'wfblocks',
+			$prefix . 'wflogins',
+			$prefix . 'wffilechanges',
+			$prefix . 'wfissues',
+			$prefix . 'wfpendingissues',
+			$prefix . 'wfknownfilelist',
+			$prefix . 'wfsnipcache',
+			$prefix . 'wfstatus',
+			$prefix . 'wftrafficrates',
+			$prefix . 'wfblocksadv',
+			$prefix . 'wflivingtraffic',
+			$prefix . 'wflocs',
+			$prefix . 'wfls_',
 			// Akismet.
-			$wpdb->prefix . 'akismet_',
+			$prefix . 'akismet_',
 			// bbPress.
-			$wpdb->prefix . 'bbpress_',
-			$wpdb->prefix . 'bb_',
+			$prefix . 'bbpress_',
+			$prefix . 'bb_',
 			// BuddyPress.
-			$wpdb->prefix . 'bp_',
+			$prefix . 'bp_',
 			// Easy Digital Downloads.
-			$wpdb->prefix . 'edd_',
+			$prefix . 'edd_',
 			// WP Admin Health Suite (our own plugin).
-			$wpdb->prefix . 'wpha_',
+			$prefix . 'wpha_',
 			// Elementor.
-			$wpdb->prefix . 'e_',
+			$prefix . 'e_',
 			// WP Rocket.
-			$wpdb->prefix . 'wpr_',
+			$prefix . 'wpr_',
 		);
 
 		// Get all tables in database.
@@ -208,8 +253,6 @@ class OrphanedTables {
 	 * @return array Array of orphaned table information including name, size, and row count.
 	 */
 	public function find_orphaned_tables() {
-		global $wpdb;
-
 		$all_tables    = $this->get_all_wp_tables();
 		$core_tables   = $this->get_known_core_tables();
 		$plugin_tables = $this->get_registered_plugin_tables();
@@ -240,15 +283,16 @@ class OrphanedTables {
 	/**
 	 * Get detailed information about a table.
 	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param string $table_name The table name.
 	 * @return array|null Array with table information or null on failure.
 	 */
 	private function get_table_info( $table_name ) {
-		global $wpdb;
-
 		// Get table size and row count.
-		$query = $wpdb->prepare(
-			"SELECT
+		$query = $this->connection->prepare(
+			'SELECT
 				TABLE_NAME as name,
 				TABLE_ROWS as row_count,
 				(DATA_LENGTH + INDEX_LENGTH) as size_bytes,
@@ -258,12 +302,16 @@ class OrphanedTables {
 				UPDATE_TIME as updated_at
 			FROM information_schema.TABLES
 			WHERE TABLE_SCHEMA = %s
-			AND TABLE_NAME = %s",
+			AND TABLE_NAME = %s',
 			DB_NAME,
 			$table_name
 		);
 
-		$result = $wpdb->get_row( $query, ARRAY_A );
+		if ( null === $query ) {
+			return null;
+		}
+
+		$result = $this->connection->get_row( $query, 'ARRAY_A' );
 
 		if ( ! $result ) {
 			return null;
@@ -281,21 +329,24 @@ class OrphanedTables {
 	 * Re-verifies orphaned status to prevent TOCTOU race conditions.
 	 *
 	 * @since 1.1.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param string $table_name The table name to check.
 	 * @return bool True if table is orphaned, false otherwise.
 	 */
 	private function is_table_orphaned( $table_name ) {
-		global $wpdb;
-
 		// Verify table exists.
-		$exists = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s",
-				DB_NAME,
-				$table_name
-			)
+		$query = $this->connection->prepare(
+			'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s',
+			DB_NAME,
+			$table_name
 		);
+
+		if ( null === $query ) {
+			return false;
+		}
+
+		$exists = $this->connection->get_var( $query );
 
 		if ( ! $exists ) {
 			return false; // Table doesn't exist.
@@ -323,28 +374,33 @@ class OrphanedTables {
 	 * Uses atomic option insertion to prevent TOCTOU race conditions.
 	 *
 	 * @since 1.1.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param string $table_name The table name.
 	 * @return bool True if lock acquired, false if already locked.
 	 */
 	private function acquire_deletion_lock( $table_name ) {
-		global $wpdb;
-
 		$lock_key   = 'wpha_table_delete_lock_' . md5( $table_name );
 		$lock_value = uniqid( 'lock_', true );
 		$expiry     = time() + 30; // Lock expires in 30 seconds.
 
+		$options_table = $this->connection->get_options_table();
+
 		// Use INSERT IGNORE for atomic lock acquisition.
 		// This is atomic - only succeeds if the key doesn't exist.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-		$result = $wpdb->query(
-			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload)
-				VALUES (%s, %s, 'no')",
-				'_transient_' . $lock_key,
-				$lock_value . ':' . $expiry
-			)
+		$query = $this->connection->prepare(
+			"INSERT IGNORE INTO {$options_table} (option_name, option_value, autoload)
+			VALUES (%s, %s, 'no')",
+			'_transient_' . $lock_key,
+			$lock_value . ':' . $expiry
 		);
+
+		if ( null === $query ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
+		$result = $this->connection->query( $query );
 
 		// If insert failed (row exists), check if the existing lock has expired.
 		if ( 0 === $result ) {
@@ -412,15 +468,14 @@ class OrphanedTables {
 	 *
 	 * NEVER auto-deletes - requires explicit confirmation with table name hash.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param string $table_name      The table name to delete.
 	 * @param string $confirmation_hash The confirmation hash.
 	 * @return array Array with 'success' boolean and 'message' string.
 	 */
 	public function delete_orphaned_table( $table_name, $confirmation_hash ) {
-		global $wpdb;
-
 		// Verify the confirmation hash.
 		if ( ! $this->verify_confirmation_hash( $table_name, $confirmation_hash ) ) {
 			return array(
@@ -430,7 +485,8 @@ class OrphanedTables {
 		}
 
 		// Verify table has WordPress prefix.
-		if ( strpos( $table_name, $wpdb->prefix ) !== 0 ) {
+		$prefix = $this->connection->get_prefix();
+		if ( strpos( $table_name, $prefix ) !== 0 ) {
 			return array(
 				'success' => false,
 				'message' => __( 'Table does not have WordPress prefix. Cannot delete.', 'wp-admin-health-suite' ),
@@ -474,11 +530,11 @@ class OrphanedTables {
 			}
 
 			// Drop the table.
-			// Using backticks and direct query since $wpdb->prepare doesn't support table names.
+			// Using backticks and direct query since prepare doesn't support table names.
 			// Additional escaping with esc_sql() for security.
 			$escaped_table = esc_sql( $table_name );
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-			$result = $wpdb->query( "DROP TABLE IF EXISTS `{$escaped_table}`" );
+			$result = $this->connection->query( "DROP TABLE IF EXISTS `{$escaped_table}`" );
 
 			if ( false === $result ) {
 				// Log the full error details securely for debugging.
@@ -487,7 +543,7 @@ class OrphanedTables {
 					sprintf(
 						'[WP Admin Health Suite] Table deletion failed for "%s": %s',
 						$table_name,
-						$wpdb->last_error
+						$this->connection->get_last_error()
 					)
 				);
 
@@ -519,16 +575,17 @@ class OrphanedTables {
 	/**
 	 * Log table deletion to scan history.
 	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param string $table_name The table name.
 	 * @param array  $table_info Table information.
 	 * @return bool True on success, false on failure.
 	 */
 	private function log_table_deletion( $table_name, $table_info ) {
-		global $wpdb;
+		$history_table = $this->connection->get_prefix() . 'wpha_scan_history';
 
-		$history_table = $wpdb->prefix . 'wpha_scan_history';
-
-		$result = $wpdb->insert(
+		$result = $this->connection->insert(
 			$history_table,
 			array(
 				'scan_type'     => 'orphaned_table_deletion',

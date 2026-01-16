@@ -18,6 +18,8 @@ use WPAdminHealth\Contracts\OrphanedCleanerInterface;
 use WPAdminHealth\Contracts\OptimizerInterface;
 use WPAdminHealth\Contracts\ScannerInterface;
 use WPAdminHealth\Contracts\QueryMonitorInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\CacheInterface;
 use WPAdminHealth\AI\OneClickFix;
 use WPAdminHealth\AI\Recommendations;
 
@@ -68,7 +70,8 @@ class AIServiceProvider extends ServiceProvider {
 					$container->get( TransientsCleanerInterface::class ),
 					$container->get( TrashCleanerInterface::class ),
 					$container->get( RevisionsManagerInterface::class ),
-					$container->get( OptimizerInterface::class )
+					$container->get( OptimizerInterface::class ),
+					$container->get( ConnectionInterface::class )
 				);
 			}
 		);
@@ -88,7 +91,9 @@ class AIServiceProvider extends ServiceProvider {
 					$container->get( OrphanedCleanerInterface::class ),
 					$container->get( TrashCleanerInterface::class ),
 					$container->get( ScannerInterface::class ),
-					$container->get( QueryMonitorInterface::class )
+					$container->get( QueryMonitorInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( CacheInterface::class )
 				);
 			}
 		);

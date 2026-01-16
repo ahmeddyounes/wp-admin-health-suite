@@ -97,8 +97,6 @@
 			Chart.defaults.color = this.colors.gray;
 			Chart.defaults.font.family =
 				'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif';
-
-			console.log('WPAdminHealthCharts initialized');
 		},
 
 		/**

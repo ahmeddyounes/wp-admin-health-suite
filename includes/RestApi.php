@@ -63,6 +63,7 @@ class RestApi {
 	 * Register REST API routes.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Updated to use dependency injection from container.
 	 *
 	 * @return void
 	 */
@@ -70,29 +71,64 @@ class RestApi {
 		// Load the REST controller base class.
 		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/RestController.php';
 
+		// Get the container for dependency injection.
+		$container = Plugin::get_instance()->get_container();
+
 		// Load and register activity controller.
 		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/ActivityController.php';
-		$activity_controller = new REST\ActivityController();
+		$activity_controller = new REST\ActivityController(
+			$container->get( \WPAdminHealth\Contracts\SettingsInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\ConnectionInterface::class )
+		);
 		$activity_controller->register_routes();
 
 		// Load and register dashboard controller.
 		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/DashboardController.php';
-		$dashboard_controller = new REST\DashboardController();
+		$dashboard_controller = new REST\DashboardController(
+			$container->get( \WPAdminHealth\Contracts\SettingsInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\ConnectionInterface::class ),
+			$container->get( \WPAdminHealth\HealthCalculator::class )
+		);
 		$dashboard_controller->register_routes();
 
 		// Load and register database controller.
 		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/DatabaseController.php';
-		$database_controller = new REST\DatabaseController();
+		$database_controller = new REST\DatabaseController(
+			$container->get( \WPAdminHealth\Contracts\SettingsInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\ConnectionInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\AnalyzerInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\RevisionsManagerInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\TransientsCleanerInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\OrphanedCleanerInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\TrashCleanerInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\OptimizerInterface::class )
+		);
 		$database_controller->register_routes();
 
 		// Load and register media controller.
 		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/MediaController.php';
-		$media_controller = new REST\MediaController();
+		$media_controller = new REST\MediaController(
+			$container->get( \WPAdminHealth\Contracts\SettingsInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\ConnectionInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\ScannerInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\DuplicateDetectorInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\LargeFilesInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\AltTextCheckerInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\ReferenceFinderInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\SafeDeleteInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\ExclusionsInterface::class )
+		);
 		$media_controller->register_routes();
 
 		// Load and register performance controller.
 		require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/rest/PerformanceController.php';
-		$performance_controller = new REST\PerformanceController();
+		$performance_controller = new REST\PerformanceController(
+			$container->get( \WPAdminHealth\Contracts\SettingsInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\ConnectionInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\AutoloadAnalyzerInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\QueryMonitorInterface::class ),
+			$container->get( \WPAdminHealth\Contracts\PluginProfilerInterface::class )
+		);
 		$performance_controller->register_routes();
 
 		/**

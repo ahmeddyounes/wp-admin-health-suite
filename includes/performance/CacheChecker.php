@@ -127,7 +127,7 @@ class CacheChecker {
 			$item_time = ( microtime( true ) - $item_start ) * 1000;
 			$results['get_operations'][] = $item_time;
 
-			if ( $value === $item['value'] ) {
+			if ( $item['value'] === $value ) {
 				$hits++;
 			}
 		}
@@ -144,7 +144,7 @@ class CacheChecker {
 		$results['avg_get_time_ms']    = round( $get_total / self::BENCHMARK_ITEMS, 4 );
 		$results['operations_per_sec'] = round( ( self::BENCHMARK_ITEMS * 2 ) / ( ( $set_total + $get_total ) / 1000 ), 2 );
 		$results['hit_rate']           = round( ( $hits / self::BENCHMARK_ITEMS ) * 100, 2 );
-		$results['cache_effective']    = $hits === self::BENCHMARK_ITEMS;
+		$results['cache_effective']    = self::BENCHMARK_ITEMS === $hits;
 
 		return $results;
 	}
@@ -174,7 +174,7 @@ class CacheChecker {
 			);
 
 			// Add hit rate recommendation if available.
-			if ( isset( $cache_status['hit_rate'] ) && $cache_status['hit_rate'] !== null ) {
+			if ( isset( $cache_status['hit_rate'] ) && null !== $cache_status['hit_rate'] ) {
 				if ( $cache_status['hit_rate'] < 70 ) {
 					$recommendations[] = array(
 						'type'     => 'warning',

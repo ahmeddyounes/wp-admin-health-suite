@@ -25,7 +25,4 @@ Object.assign(window.WPAdminHealthComponents, {
 	createRoot,
 });
 
-// Initialize any media audit-specific functionality
-document.addEventListener('DOMContentLoaded', () => {
-	console.log('Media Audit page loaded and ready');
-});
+// Initialize any media audit-specific functionality when needed.

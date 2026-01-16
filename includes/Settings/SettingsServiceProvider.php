@@ -343,6 +343,7 @@ class SettingsServiceProvider extends ServiceProvider {
 		header( 'Content-Disposition: attachment; filename=wpha-settings-' . gmdate( 'Y-m-d-His' ) . '.json' );
 		header( 'Expires: 0' );
 
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON export response.
 		echo $json;
 		exit;
 	}

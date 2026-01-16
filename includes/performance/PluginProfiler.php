@@ -14,6 +14,7 @@
 namespace WPAdminHealth\Performance;
 
 use WPAdminHealth\Contracts\PluginProfilerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -34,6 +35,24 @@ class PluginProfiler implements PluginProfilerInterface {
 	 * @var string
 	 */
 	const TRANSIENT_KEY = 'wpahs_plugin_profiler_results';
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
 
 	/**
 	 * Transient expiration time (24 hours).
@@ -81,7 +100,7 @@ class PluginProfiler implements PluginProfilerInterface {
  *
 	 * @return array Results of the profiling operation.
 	 */
-	public function measure_plugin_impact() {
+	public function measure_plugin_impact(): array {
 		// Check if we have cached results.
 		$cached = get_transient( self::TRANSIENT_KEY );
 		if ( false !== $cached ) {
@@ -154,10 +173,8 @@ class PluginProfiler implements PluginProfilerInterface {
 	 * @return array Measurement data.
 	 */
 	private function measure_single_plugin( $plugin_file, $plugin_name ) {
-		global $wpdb;
-
 		// Get baseline query count.
-		$queries_before = $wpdb->num_queries;
+		$queries_before = $this->connection->get_num_queries();
 		$memory_before  = memory_get_usage();
 		$time_before    = microtime( true );
 
@@ -169,7 +186,7 @@ class PluginProfiler implements PluginProfilerInterface {
 		$assets = $this->get_plugin_assets( $plugin_file );
 
 		// Approximate query impact by checking for plugin-specific tables or options.
-		$queries_after = $wpdb->num_queries;
+		$queries_after = $this->connection->get_num_queries();
 		$memory_after  = memory_get_usage();
 		$time_after    = microtime( true );
 
@@ -200,20 +217,24 @@ class PluginProfiler implements PluginProfilerInterface {
 	 * @return int Estimated query count.
 	 */
 	private function estimate_plugin_queries( $plugin_file ) {
-		global $wpdb;
-
 		$plugin_slug = dirname( $plugin_file );
 		if ( '.' === $plugin_slug ) {
 			$plugin_slug = basename( $plugin_file, '.php' );
 		}
 
+		$options_table = $this->connection->get_options_table();
+
 		// Count plugin-specific options (indicates database usage).
-		$option_count = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s",
-				$wpdb->esc_like( $plugin_slug ) . '%'
-			)
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table} WHERE option_name LIKE %s",
+			$this->connection->esc_like( $plugin_slug ) . '%'
 		);
+
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$option_count = $this->connection->get_var( $query );
 
 		// Rough estimate: each option might mean 1-2 queries on load.
 		return absint( $option_count ) * 2;
@@ -339,7 +360,7 @@ class PluginProfiler implements PluginProfilerInterface {
 	 * @param int $limit Number of plugins to return (default: 10).
 	 * @return array Array of slowest plugins.
 	 */
-	public function get_slowest_plugins( $limit = 10 ) {
+	public function get_slowest_plugins( int $limit = 10 ): array {
 		$results = $this->measure_plugin_impact();
 
 		if ( 'error' === $results['status'] || empty( $results['measurements'] ) ) {
@@ -359,7 +380,7 @@ class PluginProfiler implements PluginProfilerInterface {
  *
 	 * @return array Array of plugins with their memory usage.
 	 */
-	public function get_plugin_memory_usage() {
+	public function get_plugin_memory_usage(): array {
 		$results = $this->measure_plugin_impact();
 
 		if ( 'error' === $results['status'] || empty( $results['measurements'] ) ) {
@@ -392,7 +413,7 @@ class PluginProfiler implements PluginProfilerInterface {
  *
 	 * @return array Array of plugins with their query counts.
 	 */
-	public function get_plugin_query_counts() {
+	public function get_plugin_query_counts(): array {
 		$results = $this->measure_plugin_impact();
 
 		if ( 'error' === $results['status'] || empty( $results['measurements'] ) ) {
@@ -425,7 +446,7 @@ class PluginProfiler implements PluginProfilerInterface {
  *
 	 * @return array Array of plugins with their asset counts.
 	 */
-	public function get_asset_counts_by_plugin() {
+	public function get_asset_counts_by_plugin(): array {
 		$results = $this->measure_plugin_impact();
 
 		if ( 'error' === $results['status'] || empty( $results['measurements'] ) ) {
@@ -460,7 +481,7 @@ class PluginProfiler implements PluginProfilerInterface {
  *
 	 * @return bool True on success, false on failure.
 	 */
-	public function clear_cache() {
+	public function clear_cache(): bool {
 		return delete_transient( self::TRANSIENT_KEY );
 	}
 }

@@ -16,8 +16,9 @@ use WPAdminHealth\Contracts\TransientsCleanerInterface;
 use WPAdminHealth\Contracts\OrphanedCleanerInterface;
 use WPAdminHealth\Contracts\TrashCleanerInterface;
 use WPAdminHealth\Contracts\ScannerInterface;
-use WPAdminHealth\Contracts\ExclusionsInterface;
 use WPAdminHealth\Contracts\QueryMonitorInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\CacheInterface;
 use WPAdminHealth\Database\OrphanedTables;
 
 // Exit if accessed directly.
@@ -103,9 +104,26 @@ class Recommendations {
 	private ?QueryMonitorInterface $query_monitor = null;
 
 	/**
+	 * Database connection instance.
+	 *
+	 * @since 1.3.0
+	 * @var ConnectionInterface|null
+	 */
+	private ?ConnectionInterface $connection = null;
+
+	/**
+	 * Cache instance.
+	 *
+	 * @since 1.3.0
+	 * @var CacheInterface|null
+	 */
+	private ?CacheInterface $cache = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.0 Added ConnectionInterface and CacheInterface parameters.
 	 *
 	 * @param AnalyzerInterface|null         $analyzer          Database analyzer.
 	 * @param RevisionsManagerInterface|null $revisions_manager Revisions manager.
@@ -114,6 +132,8 @@ class Recommendations {
 	 * @param TrashCleanerInterface|null     $trash_cleaner     Trash cleaner.
 	 * @param ScannerInterface|null          $scanner           Media scanner.
 	 * @param QueryMonitorInterface|null     $query_monitor     Query monitor.
+	 * @param ConnectionInterface|null       $connection        Database connection.
+	 * @param CacheInterface|null            $cache             Cache instance.
 	 */
 	public function __construct(
 		?AnalyzerInterface $analyzer = null,
@@ -122,7 +142,9 @@ class Recommendations {
 		?OrphanedCleanerInterface $orphaned_cleaner = null,
 		?TrashCleanerInterface $trash_cleaner = null,
 		?ScannerInterface $scanner = null,
-		?QueryMonitorInterface $query_monitor = null
+		?QueryMonitorInterface $query_monitor = null,
+		?ConnectionInterface $connection = null,
+		?CacheInterface $cache = null
 	) {
 		$this->analyzer           = $analyzer;
 		$this->revisions_manager  = $revisions_manager;
@@ -131,13 +153,15 @@ class Recommendations {
 		$this->trash_cleaner      = $trash_cleaner;
 		$this->scanner            = $scanner;
 		$this->query_monitor      = $query_monitor;
+		$this->connection         = $connection;
+		$this->cache              = $cache;
 	}
 
 	/**
 	 * Generate recommendations based on all scan results.
 	 *
-     * @since 1.0.0
-     *
+	 * @since 1.0.0
+	 *
 	 * @param bool $force_refresh Force regeneration of recommendations.
 	 * @return array Array of recommendation objects.
 	 */
@@ -195,7 +219,7 @@ class Recommendations {
 					$score += 2;
 					break;
 				case 'low':
-					$score += 1;
+					++$score;
 					break;
 			}
 
@@ -209,7 +233,7 @@ class Recommendations {
 						$score += 2;
 						break;
 					case 'hard':
-						$score += 1;
+						++$score;
 						break;
 				}
 			}
@@ -221,10 +245,10 @@ class Recommendations {
 						$score += 3;
 						break;
 					case 'medium':
-						$score += 1;
+						++$score;
 						break;
 					case 'high':
-						$score -= 1;
+						--$score;
 						break;
 				}
 			}
@@ -340,14 +364,16 @@ class Recommendations {
 
 			// Get orphaned metadata stats if available.
 			if ( null !== $this->orphaned_cleaner ) {
-				$stats['orphaned_postmeta']    = $this->orphaned_cleaner->get_orphaned_postmeta_count();
-				$stats['orphaned_termmeta']    = $this->orphaned_cleaner->get_orphaned_termmeta_count();
-				$stats['orphaned_commentmeta'] = $this->orphaned_cleaner->get_orphaned_commentmeta_count();
+				$stats['orphaned_postmeta']    = $this->orphaned_cleaner->count_orphaned_postmeta();
+				$stats['orphaned_termmeta']    = $this->orphaned_cleaner->count_orphaned_termmeta();
+				$stats['orphaned_commentmeta'] = $this->orphaned_cleaner->count_orphaned_commentmeta();
 			}
 
-			// Get orphaned tables (still uses direct instantiation - no interface).
-			$orphaned_tables          = new OrphanedTables();
-			$stats['orphaned_tables'] = $orphaned_tables->get_all_wp_tables();
+			// Get orphaned tables.
+			if ( null !== $this->connection && null !== $this->cache ) {
+				$orphaned_tables          = new OrphanedTables( $this->connection, $this->cache );
+				$stats['orphaned_tables'] = $orphaned_tables->get_all_wp_tables();
+			}
 
 			// Get trash stats if available.
 			if ( null !== $this->trash_cleaner ) {

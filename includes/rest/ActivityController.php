@@ -10,6 +10,7 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 
 // Exit if accessed directly.
@@ -37,11 +38,13 @@ class ActivityController extends RestController {
 	 * Constructor.
 	 *
 	 * @since 1.1.0
+	 * @since 1.3.0 Added optional connection parameter.
 	 *
-	 * @param SettingsInterface|null $settings Optional settings instance for dependency injection.
+	 * @param SettingsInterface|null   $settings   Optional settings instance for dependency injection.
+	 * @param ConnectionInterface|null $connection Optional database connection for dependency injection.
 	 */
-	public function __construct( ?SettingsInterface $settings = null ) {
-		parent::__construct( $settings );
+	public function __construct( ?SettingsInterface $settings = null, ?ConnectionInterface $connection = null ) {
+		parent::__construct( $settings, $connection );
 	}
 
 	/**
@@ -69,13 +72,14 @@ class ActivityController extends RestController {
 	/**
 	 * Get recent activities from scan history.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_activities( $request ) {
-		global $wpdb;
+		$connection = $this->get_connection();
 
 		$limit = $request->get_param( 'limit' );
 		if ( null === $limit ) {
@@ -88,17 +92,10 @@ class ActivityController extends RestController {
 			$limit = 10;
 		}
 
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
+		$table_name = $connection->get_prefix() . 'wpha_scan_history';
 
 		// Check if table exists.
-		$table_exists = $wpdb->get_var(
-			$wpdb->prepare(
-				'SHOW TABLES LIKE %s',
-				$table_name
-			)
-		);
-
-		if ( $table_exists !== $table_name ) {
+		if ( ! $connection->table_exists( $table_name ) ) {
 			return $this->format_response(
 				true,
 				array(),
@@ -107,30 +104,37 @@ class ActivityController extends RestController {
 		}
 
 		// Fetch activities from database.
-		$activities = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, scan_type, items_found, items_cleaned, bytes_freed, created_at
-				FROM {$table_name}
-				ORDER BY created_at DESC
-				LIMIT %d",
-				$limit
-			),
-			ARRAY_A
+		$query = $connection->prepare(
+			"SELECT id, scan_type, items_found, items_cleaned, bytes_freed, created_at
+			FROM {$table_name}
+			ORDER BY created_at DESC
+			LIMIT %d",
+			$limit
 		);
 
-		if ( null === $activities ) {
+		if ( null === $query ) {
 			return $this->format_error_response(
 				new WP_Error(
 					'database_error',
-					__( 'Database error occurred while fetching activities.', 'wp-admin-health-suite' )
+					__( 'Database error occurred while preparing query.', 'wp-admin-health-suite' )
 				),
 				500
 			);
 		}
 
+		$activities = $connection->get_results( $query, 'ARRAY_A' );
+
+		if ( empty( $activities ) ) {
+			return $this->format_response(
+				true,
+				array(),
+				__( 'No activities found.', 'wp-admin-health-suite' )
+			);
+		}
+
 		// Format the activities data.
 		$formatted_activities = array_map(
-			function( $activity ) {
+			function ( $activity ) {
 				return array(
 					'id'            => (int) $activity['id'],
 					'scan_type'     => sanitize_text_field( $activity['scan_type'] ),

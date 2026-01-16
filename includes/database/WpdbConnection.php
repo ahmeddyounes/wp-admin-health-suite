@@ -305,7 +305,7 @@ class WpdbConnection implements ConnectionInterface {
 		$result = $this->wpdb->get_var(
 			$this->wpdb->prepare(
 				'SHOW TABLES LIKE %s',
-				$table
+				$this->wpdb->esc_like( $table )
 			)
 		);
 
@@ -370,5 +370,16 @@ class WpdbConnection implements ConnectionInterface {
 			return $this->wpdb->show_errors();
 		}
 		return $this->wpdb->hide_errors();
+	}
+
+	/**
+	 * Get the database character set and collation.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string Character set and collation clause.
+	 */
+	public function get_charset_collate(): string {
+		return $this->wpdb->get_charset_collate();
 	}
 }

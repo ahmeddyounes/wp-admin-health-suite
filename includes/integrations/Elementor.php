@@ -650,6 +650,7 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 		$offset         = 0;
 		$max_batches    = 200; // Safety limit for very large sites.
 		$batches        = 0;
+		$results_count  = 0;
 
 		$meta_keys_placeholders = implode( ',', array_fill( 0, count( self::ELEMENTOR_META_KEYS ), '%s' ) );
 
@@ -681,11 +682,12 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 
 			$offset += $batch_size;
 			++$batches;
+			$results_count = count( $results );
 
-		} while ( count( $results ) === $batch_size && $batches < $max_batches );
+		} while ( $results_count === $batch_size && $batches < $max_batches );
 
 		// Log warning if we hit the safety limit.
-		if ( $batches >= $max_batches && count( $results ) === $batch_size ) {
+		if ( $batches >= $max_batches && $results_count === $batch_size ) {
 			$this->log_batch_limit_warning( 'get_used_attachments', $batches, $max_batches, $batch_size );
 		}
 

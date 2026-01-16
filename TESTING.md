@@ -26,6 +26,7 @@ bash bin/install-wp-tests.sh wordpress_test root '' localhost latest
 ```
 
 **Parameters:**
+
 - `wordpress_test` - Database name for tests (will be created)
 - `root` - MySQL username
 - `''` - MySQL password (empty in this example)
@@ -76,24 +77,24 @@ tests/
 ### Features
 
 1. **Base Test Case Class** (`tests/test-case.php`)
-   - Extends `WP_UnitTestCase`
-   - Includes Yoast PHPUnit Polyfills for cross-version compatibility
-   - Provides helper methods for creating test posts, attachments, and comments
-   - Custom assertions for WordPress-specific testing
+    - Extends `WP_UnitTestCase`
+    - Includes Yoast PHPUnit Polyfills for cross-version compatibility
+    - Provides helper methods for creating test posts, attachments, and comments
+    - Custom assertions for WordPress-specific testing
 
 2. **Custom Factories** (`tests/factories/`)
-   - **Post Factory**: Create posts with revisions, bulk post creation, trashed posts
-   - **Attachment Factory**: Create images with dimensions, alt text, orphaned attachments
-   - **Comment Factory**: Create spam/trashed comments, comment threads, bulk comments
+    - **Post Factory**: Create posts with revisions, bulk post creation, trashed posts
+    - **Attachment Factory**: Create images with dimensions, alt text, orphaned attachments
+    - **Comment Factory**: Create spam/trashed comments, comment threads, bulk comments
 
 3. **Isolated Test Database**
-   - Completely separate from development/production databases
-   - Automatically reset between test runs
-   - Safe to destroy and recreate
+    - Completely separate from development/production databases
+    - Automatically reset between test runs
+    - Safe to destroy and recreate
 
 4. **Test Coverage Support**
-   - Configured to generate code coverage reports
-   - Excludes index.php files and autoload.php from coverage
+    - Configured to generate code coverage reports
+    - Excludes index.php files and autoload.php from coverage
 
 ## Running Tests
 
@@ -205,11 +206,13 @@ chmod -R 755 tests/
 ### SVN Not Installed
 
 On macOS with Homebrew:
+
 ```bash
 brew install subversion
 ```
 
 On Ubuntu/Debian:
+
 ```bash
 sudo apt-get install subversion
 ```
@@ -222,6 +225,7 @@ Customize the test environment:
 - `WP_CORE_DIR` - Path to WordPress core files (default: `/tmp/wordpress`)
 
 Example:
+
 ```bash
 export WP_TESTS_DIR=/custom/path/wordpress-tests-lib
 export WP_CORE_DIR=/custom/path/wordpress
@@ -236,7 +240,7 @@ The test suite works with continuous integration platforms. Example GitHub Actio
 - name: Set up PHP
   uses: shivammathur/setup-php@v2
   with:
-    php-version: '8.0'
+      php-version: '8.0'
 
 - name: Install dependencies
   run: composer install

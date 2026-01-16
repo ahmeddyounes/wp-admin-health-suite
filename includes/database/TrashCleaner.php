@@ -11,6 +11,7 @@
 namespace WPAdminHealth\Database;
 
 use WPAdminHealth\Contracts\TrashCleanerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,6 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  * @since 1.2.0 Implements TrashCleanerInterface.
+ * @since 1.3.0 Added constructor dependency injection for ConnectionInterface.
  */
 class TrashCleaner implements TrashCleanerInterface {
 
@@ -33,6 +35,24 @@ class TrashCleaner implements TrashCleanerInterface {
 	const BATCH_SIZE = 100;
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
+
+	/**
 	 * Get trashed posts by post types.
 	 *
 	 * @since 1.0.0
@@ -42,30 +62,32 @@ class TrashCleaner implements TrashCleanerInterface {
 	 * @return array Array of trashed post objects with ID, post_title, post_type, and post_modified.
 	 */
 	public function get_trashed_posts( array $post_types = array() ): array {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
 		// Sanitize post types.
 		if ( ! empty( $post_types ) && is_array( $post_types ) ) {
 			$post_types   = array_map( 'sanitize_key', $post_types );
 			$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
-			$query        = $wpdb->prepare(
+			$query        = $this->connection->prepare(
 				"SELECT ID, post_title, post_type, post_modified
-				FROM {$wpdb->posts}
+				FROM {$posts_table}
 				WHERE post_status = 'trash'
 				AND post_type IN ($placeholders)
 				ORDER BY post_modified DESC",
 				...$post_types
 			);
+
+			if ( null === $query ) {
+				return array();
+			}
 		} else {
 			$query = "SELECT ID, post_title, post_type, post_modified
-				FROM {$wpdb->posts}
+				FROM {$posts_table}
 				WHERE post_status = 'trash'
 				ORDER BY post_modified DESC";
 		}
 
-		$results = $wpdb->get_results( $query, ARRAY_A );
-
-		return is_array( $results ) ? $results : array();
+		return $this->connection->get_results( $query, 'ARRAY_A' );
 	}
 
 	/**
@@ -76,10 +98,10 @@ class TrashCleaner implements TrashCleanerInterface {
 	 * @return int Number of trashed posts.
 	 */
 	public function count_trashed_posts(): int {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
-		$count = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts}
+		$count = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table}
 			WHERE post_status = 'trash'"
 		);
 
@@ -94,10 +116,10 @@ class TrashCleaner implements TrashCleanerInterface {
 	 * @return int Number of spam comments.
 	 */
 	public function count_spam_comments(): int {
-		global $wpdb;
+		$comments_table = $this->connection->get_comments_table();
 
-		$count = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->comments}
+		$count = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$comments_table}
 			WHERE comment_approved = 'spam'"
 		);
 
@@ -112,10 +134,10 @@ class TrashCleaner implements TrashCleanerInterface {
 	 * @return int Number of trashed comments.
 	 */
 	public function count_trashed_comments(): int {
-		global $wpdb;
+		$comments_table = $this->connection->get_comments_table();
 
-		$count = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->comments}
+		$count = $this->connection->get_var(
+			"SELECT COUNT(*) FROM {$comments_table}
 			WHERE comment_approved = 'trash'"
 		);
 
@@ -132,7 +154,7 @@ class TrashCleaner implements TrashCleanerInterface {
 	 * @return array Array with 'deleted' count and 'errors' count.
 	 */
 	public function delete_trashed_posts( array $post_types = array(), int $older_than_days = 0 ): array {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
 		// Build the query to get trashed posts.
 		$where_clauses = array( "post_status = 'trash'" );
@@ -156,15 +178,22 @@ class TrashCleaner implements TrashCleanerInterface {
 		$where_sql = implode( ' AND ', $where_clauses );
 
 		if ( ! empty( $prepare_args ) ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts} WHERE {$where_sql} ORDER BY ID ASC",
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table} WHERE {$where_sql} ORDER BY ID ASC",
 				...$prepare_args
 			);
+
+			if ( null === $query ) {
+				return array(
+					'deleted' => 0,
+					'errors'  => 0,
+				);
+			}
 		} else {
-			$query = "SELECT ID FROM {$wpdb->posts} WHERE {$where_sql} ORDER BY ID ASC";
+			$query = "SELECT ID FROM {$posts_table} WHERE {$where_sql} ORDER BY ID ASC";
 		}
 
-		$post_ids = $wpdb->get_col( $query );
+		$post_ids = $this->connection->get_col( $query );
 
 		if ( empty( $post_ids ) ) {
 			return array(
@@ -207,7 +236,7 @@ class TrashCleaner implements TrashCleanerInterface {
 	 * @return array Array with 'deleted' count and 'errors' count.
 	 */
 	public function delete_spam_comments( int $older_than_days = 0 ): array {
-		global $wpdb;
+		$comments_table = $this->connection->get_comments_table();
 
 		// Build the query to get spam comments.
 		$where_clauses = array( "comment_approved = 'spam'" );
@@ -223,15 +252,22 @@ class TrashCleaner implements TrashCleanerInterface {
 		$where_sql = implode( ' AND ', $where_clauses );
 
 		if ( ! empty( $prepare_args ) ) {
-			$query = $wpdb->prepare(
-				"SELECT comment_ID FROM {$wpdb->comments} WHERE {$where_sql} ORDER BY comment_ID ASC",
+			$query = $this->connection->prepare(
+				"SELECT comment_ID FROM {$comments_table} WHERE {$where_sql} ORDER BY comment_ID ASC",
 				...$prepare_args
 			);
+
+			if ( null === $query ) {
+				return array(
+					'deleted' => 0,
+					'errors'  => 0,
+				);
+			}
 		} else {
-			$query = "SELECT comment_ID FROM {$wpdb->comments} WHERE {$where_sql} ORDER BY comment_ID ASC";
+			$query = "SELECT comment_ID FROM {$comments_table} WHERE {$where_sql} ORDER BY comment_ID ASC";
 		}
 
-		$comment_ids = $wpdb->get_col( $query );
+		$comment_ids = $this->connection->get_col( $query );
 
 		if ( empty( $comment_ids ) ) {
 			return array(
@@ -274,7 +310,7 @@ class TrashCleaner implements TrashCleanerInterface {
 	 * @return array Array with 'deleted' count and 'errors' count.
 	 */
 	public function delete_trashed_comments( int $older_than_days = 0 ): array {
-		global $wpdb;
+		$comments_table = $this->connection->get_comments_table();
 
 		// Build the query to get trashed comments.
 		$where_clauses = array( "comment_approved = 'trash'" );
@@ -290,15 +326,22 @@ class TrashCleaner implements TrashCleanerInterface {
 		$where_sql = implode( ' AND ', $where_clauses );
 
 		if ( ! empty( $prepare_args ) ) {
-			$query = $wpdb->prepare(
-				"SELECT comment_ID FROM {$wpdb->comments} WHERE {$where_sql} ORDER BY comment_ID ASC",
+			$query = $this->connection->prepare(
+				"SELECT comment_ID FROM {$comments_table} WHERE {$where_sql} ORDER BY comment_ID ASC",
 				...$prepare_args
 			);
+
+			if ( null === $query ) {
+				return array(
+					'deleted' => 0,
+					'errors'  => 0,
+				);
+			}
 		} else {
-			$query = "SELECT comment_ID FROM {$wpdb->comments} WHERE {$where_sql} ORDER BY comment_ID ASC";
+			$query = "SELECT comment_ID FROM {$comments_table} WHERE {$where_sql} ORDER BY comment_ID ASC";
 		}
 
-		$comment_ids = $wpdb->get_col( $query );
+		$comment_ids = $this->connection->get_col( $query );
 
 		if ( empty( $comment_ids ) ) {
 			return array(

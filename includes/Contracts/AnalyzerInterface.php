@@ -43,6 +43,37 @@ interface AnalyzerInterface {
 	public function get_table_sizes(): array;
 
 	/**
+	 * Get the total database size in bytes.
+	 *
+	 * Alias for get_database_size() for semantic clarity in some contexts.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return int Total database size in bytes.
+	 */
+	public function get_total_database_size(): int;
+
+	/**
+	 * Get the count of database tables.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return int Number of database tables.
+	 */
+	public function get_table_count(): int;
+
+	/**
+	 * Get the total database overhead (wasted space) in bytes.
+	 *
+	 * Overhead is the space that could be reclaimed by optimizing tables.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return int Total overhead in bytes.
+	 */
+	public function get_total_overhead(): int;
+
+	/**
 	 * Get the count of post revisions.
 	 *
 	 * @since 1.1.0

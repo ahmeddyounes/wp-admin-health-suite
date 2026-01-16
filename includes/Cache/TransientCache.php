@@ -10,6 +10,7 @@
 namespace WPAdminHealth\Cache;
 
 use WPAdminHealth\Contracts\CacheInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -34,12 +35,24 @@ class TransientCache implements CacheInterface {
 	private string $prefix;
 
 	/**
+	 * Database connection.
+	 *
+	 * @since 1.3.0
+	 * @var ConnectionInterface|null
+	 */
+	private ?ConnectionInterface $connection;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param string $prefix Cache key prefix.
+	 * @since 1.3.0 Added optional ConnectionInterface parameter.
+	 *
+	 * @param string                    $prefix     Cache key prefix.
+	 * @param ConnectionInterface|null $connection Optional database connection.
 	 */
-	public function __construct( string $prefix = 'wpha_' ) {
-		$this->prefix = $prefix;
+	public function __construct( string $prefix = 'wpha_', ?ConnectionInterface $connection = null ) {
+		$this->prefix     = $prefix;
+		$this->connection = $connection;
 	}
 
 	/**
@@ -134,25 +147,49 @@ class TransientCache implements CacheInterface {
 	 * {@inheritdoc}
 	 */
 	public function clear( string $prefix = '' ): bool {
-		global $wpdb;
-
 		$full_prefix = $this->build_key( $prefix );
 
-		// Delete transient values.
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
-				'_transient_' . $wpdb->esc_like( $full_prefix ) . '%'
-			)
-		);
+		// Use ConnectionInterface if available.
+		if ( $this->connection ) {
+			$options_table = $this->connection->get_options_table();
 
-		// Delete transient timeouts.
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
-				'_transient_timeout_' . $wpdb->esc_like( $full_prefix ) . '%'
-			)
-		);
+			// Delete transient values.
+			$query = $this->connection->prepare(
+				"DELETE FROM {$options_table} WHERE option_name LIKE %s",
+				'_transient_' . $this->connection->esc_like( $full_prefix ) . '%'
+			);
+			if ( $query ) {
+				$this->connection->query( $query );
+			}
+
+			// Delete transient timeouts.
+			$query = $this->connection->prepare(
+				"DELETE FROM {$options_table} WHERE option_name LIKE %s",
+				'_transient_timeout_' . $this->connection->esc_like( $full_prefix ) . '%'
+			);
+			if ( $query ) {
+				$this->connection->query( $query );
+			}
+		} else {
+			// Fallback to global $wpdb for backward compatibility.
+			global $wpdb;
+
+			// Delete transient values.
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+					'_transient_' . $wpdb->esc_like( $full_prefix ) . '%'
+				)
+			);
+
+			// Delete transient timeouts.
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+					'_transient_timeout_' . $wpdb->esc_like( $full_prefix ) . '%'
+				)
+			);
+		}
 
 		return true;
 	}

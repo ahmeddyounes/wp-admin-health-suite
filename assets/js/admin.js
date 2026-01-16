@@ -1044,9 +1044,8 @@
 			ErrorHandler.handle(event.reason, { showToast: false });
 		});
 
-		// Log initialization
+		// Trigger ready event.
 		if (typeof wpAdminHealthData !== 'undefined') {
-			console.log('WP Admin Health Suite initialized');
 			Events.trigger('ready', { version: wpAdminHealthData.version });
 		}
 	});

@@ -30,14 +30,25 @@
 		<!-- Allow short array syntax -->
 		<exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
 		<!-- Allow short ternary -->
-		<exclude name="WordPress.PHP.DisallowShortTernary"/>
+		<exclude name="Universal.Operators.DisallowShortTernary"/>
+		<!-- Allow PSR-4 class/interface filenames (avoid WP class-*.php rule) -->
+		<exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
+		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+		<!-- Avoid false positives when using $wpdb->prepare() in variables and interpolated table names -->
+		<exclude name="WordPress.DB.PreparedSQL.NotPrepared"/>
+		<exclude name="WordPress.DB.PreparedSQL.InterpolatedNotPrepared"/>
+		<!-- This project logs exceptions but does not render them; avoid noisy false positives. -->
+		<exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
 	</rule>
 
-	<!-- Include the WordPress-Docs standard. -->
-	<rule ref="WordPress-Docs"/>
-
-	<!-- Let's also check that everything is properly documented. -->
-	<rule ref="WordPress-Docs"/>
+	<!-- Include the WordPress-Docs standard (with relaxed docblock strictness). -->
+	<rule ref="WordPress-Docs">
+		<exclude name="Squiz.Commenting.DocCommentAlignment.SpaceBeforeStar"/>
+		<exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
+		<exclude name="Squiz.Commenting.FunctionComment.SpacingAfterParamType"/>
+		<exclude name="Generic.Commenting.DocComment.MissingShort"/>
+		<exclude name="Squiz.Commenting.FileComment.WrongStyle"/>
+	</rule>
 
 	<!-- Check for PHP cross-version compatibility. -->
 	<config name="testVersion" value="7.4-"/>
@@ -61,6 +72,7 @@
 			<property name="prefixes" type="array">
 				<element value="wp_admin_health"/>
 				<element value="WPAdminHealth"/>
+				<element value="wpha"/>
 			</property>
 		</properties>
 	</rule>

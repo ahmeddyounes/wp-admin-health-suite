@@ -219,7 +219,8 @@ class Multisite {
 			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'wp-admin-health-suite' ) );
 		}
 
-		$settings = isset( $_POST['wpha_network_settings'] ) ? $_POST['wpha_network_settings'] : array();
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized via sanitize_network_settings().
+		$settings = isset( $_POST['wpha_network_settings'] ) ? wp_unslash( $_POST['wpha_network_settings'] ) : array();
 		$sanitized = $this->sanitize_network_settings( $settings );
 
 		update_site_option( self::NETWORK_SETTINGS_OPTION, $sanitized );

@@ -14,6 +14,7 @@ use WPAdminHealth\Settings\Domain\MediaSettings;
 use WPAdminHealth\Settings\Domain\PerformanceSettings;
 use WPAdminHealth\Settings\Domain\SchedulingSettings;
 use WPAdminHealth\Settings\Domain\AdvancedSettings;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -24,6 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Handles plugin installation, upgrades, and database setup.
  *
  * @since 1.0.0
+ * @since 1.3.0 Added ConnectionInterface support with optional injection.
  */
 class Installer {
 
@@ -33,6 +35,44 @@ class Installer {
 	 * @var string
 	 */
 	const VERSION_OPTION = 'wpha_version';
+
+	/**
+	 * Database connection.
+	 *
+	 * @since 1.3.0
+	 * @var ConnectionInterface|null
+	 */
+	private static ?ConnectionInterface $connection = null;
+
+	/**
+	 * Set the database connection.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection instance.
+	 * @return void
+	 */
+	public static function set_connection( ConnectionInterface $connection ): void {
+		self::$connection = $connection;
+	}
+
+	/**
+	 * Get the database connection.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return ConnectionInterface|null Database connection or null if not set.
+	 */
+	private static function get_connection(): ?ConnectionInterface {
+		if ( null === self::$connection && class_exists( Plugin::class ) ) {
+			$container = Plugin::get_instance()->get_container();
+			if ( $container->has( ConnectionInterface::class ) ) {
+				self::$connection = $container->get( ConnectionInterface::class );
+			}
+		}
+
+		return self::$connection;
+	}
 
 	/**
 	 * Run installation process.
@@ -63,14 +103,21 @@ class Installer {
 	 * Create custom database tables.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @return void
 	 */
 	private static function create_tables() {
-		global $wpdb;
+		$connection = self::get_connection();
 
-		$charset_collate = $wpdb->get_charset_collate();
-		$prefix          = $wpdb->prefix;
+		if ( $connection ) {
+			$charset_collate = $connection->get_charset_collate();
+			$prefix          = $connection->get_prefix();
+		} else {
+			global $wpdb;
+			$charset_collate = $wpdb->get_charset_collate();
+			$prefix          = $wpdb->prefix;
+		}
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -455,13 +502,19 @@ class Installer {
 	 * Uninstall plugin from a single site.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @return void
 	 */
 	private static function uninstall_single_site() {
-		global $wpdb;
+		$connection = self::get_connection();
 
-		$prefix = $wpdb->prefix;
+		if ( $connection ) {
+			$prefix = $connection->get_prefix();
+		} else {
+			global $wpdb;
+			$prefix = $wpdb->prefix;
+		}
 
 		// Clear scheduled cron events.
 		self::clear_scheduled_cron_events();
@@ -470,11 +523,20 @@ class Installer {
 		self::clear_plugin_transients();
 
 		// Drop tables.
-		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scan_history" );
-		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scheduled_tasks" );
-		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_deleted_media" );
-		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_query_log" );
-		$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_ajax_log" );
+		if ( $connection ) {
+			$connection->query( "DROP TABLE IF EXISTS `{$prefix}wpha_scan_history`" );
+			$connection->query( "DROP TABLE IF EXISTS `{$prefix}wpha_scheduled_tasks`" );
+			$connection->query( "DROP TABLE IF EXISTS `{$prefix}wpha_deleted_media`" );
+			$connection->query( "DROP TABLE IF EXISTS `{$prefix}wpha_query_log`" );
+			$connection->query( "DROP TABLE IF EXISTS `{$prefix}wpha_ajax_log`" );
+		} else {
+			global $wpdb;
+			$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scan_history" );
+			$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_scheduled_tasks" );
+			$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_deleted_media" );
+			$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_query_log" );
+			$wpdb->query( "DROP TABLE IF EXISTS {$prefix}wpha_ajax_log" );
+		}
 
 		// Delete options.
 		delete_option( self::VERSION_OPTION );
@@ -515,30 +577,59 @@ class Installer {
 	 * Clear all plugin transients.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @return void
 	 */
 	private static function clear_plugin_transients() {
-		global $wpdb;
+		$connection = self::get_connection();
 
-		// Delete transients with our prefix.
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-				$wpdb->esc_like( '_transient_wpha_' ) . '%',
-				$wpdb->esc_like( '_transient_timeout_wpha_' ) . '%'
-			)
-		);
+		if ( $connection ) {
+			$options_table = $connection->get_options_table();
 
-		// Also delete site transients in multisite.
-		if ( is_multisite() ) {
+			// Delete transients with our prefix.
+			$query = $connection->prepare(
+				"DELETE FROM `{$options_table}` WHERE option_name LIKE %s OR option_name LIKE %s",
+				$connection->esc_like( '_transient_wpha_' ) . '%',
+				$connection->esc_like( '_transient_timeout_wpha_' ) . '%'
+			);
+			if ( $query ) {
+				$connection->query( $query );
+			}
+
+			// Also delete site transients in multisite.
+			if ( is_multisite() ) {
+				global $wpdb;
+				$wpdb->query(
+					$wpdb->prepare(
+						"DELETE FROM {$wpdb->sitemeta} WHERE meta_key LIKE %s OR meta_key LIKE %s",
+						$wpdb->esc_like( '_site_transient_wpha_' ) . '%',
+						$wpdb->esc_like( '_site_transient_timeout_wpha_' ) . '%'
+					)
+				);
+			}
+		} else {
+			global $wpdb;
+
+			// Delete transients with our prefix.
 			$wpdb->query(
 				$wpdb->prepare(
-					"DELETE FROM {$wpdb->sitemeta} WHERE meta_key LIKE %s OR meta_key LIKE %s",
-					$wpdb->esc_like( '_site_transient_wpha_' ) . '%',
-					$wpdb->esc_like( '_site_transient_timeout_wpha_' ) . '%'
+					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+					$wpdb->esc_like( '_transient_wpha_' ) . '%',
+					$wpdb->esc_like( '_transient_timeout_wpha_' ) . '%'
 				)
 			);
+
+			// Also delete site transients in multisite.
+			if ( is_multisite() ) {
+				$wpdb->query(
+					$wpdb->prepare(
+						"DELETE FROM {$wpdb->sitemeta} WHERE meta_key LIKE %s OR meta_key LIKE %s",
+						$wpdb->esc_like( '_site_transient_wpha_' ) . '%',
+						$wpdb->esc_like( '_site_transient_timeout_wpha_' ) . '%'
+					)
+				);
+			}
 		}
 	}
 }

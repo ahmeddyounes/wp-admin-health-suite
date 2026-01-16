@@ -10,6 +10,7 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\AnalyzerInterface;
 use WPAdminHealth\Contracts\RevisionsManagerInterface;
@@ -93,17 +94,20 @@ class DatabaseController extends RestController {
 	 *
 	 * @since 1.1.0
 	 * @since 1.2.0 Added all database service dependencies via constructor injection.
+	 * @since 1.3.0 Added ConnectionInterface parameter.
 	 *
-	 * @param SettingsInterface          $settings          Settings instance.
-	 * @param AnalyzerInterface          $analyzer          Analyzer instance.
-	 * @param RevisionsManagerInterface  $revisions_manager Revisions manager instance.
+	 * @param SettingsInterface          $settings           Settings instance.
+	 * @param ConnectionInterface        $connection         Database connection instance.
+	 * @param AnalyzerInterface          $analyzer           Analyzer instance.
+	 * @param RevisionsManagerInterface  $revisions_manager  Revisions manager instance.
 	 * @param TransientsCleanerInterface $transients_cleaner Transients cleaner instance.
-	 * @param OrphanedCleanerInterface   $orphaned_cleaner  Orphaned cleaner instance.
-	 * @param TrashCleanerInterface      $trash_cleaner     Trash cleaner instance.
-	 * @param OptimizerInterface         $optimizer         Optimizer instance.
+	 * @param OrphanedCleanerInterface   $orphaned_cleaner   Orphaned cleaner instance.
+	 * @param TrashCleanerInterface      $trash_cleaner      Trash cleaner instance.
+	 * @param OptimizerInterface         $optimizer          Optimizer instance.
 	 */
 	public function __construct(
 		SettingsInterface $settings,
+		ConnectionInterface $connection,
 		AnalyzerInterface $analyzer,
 		RevisionsManagerInterface $revisions_manager,
 		TransientsCleanerInterface $transients_cleaner,
@@ -111,7 +115,7 @@ class DatabaseController extends RestController {
 		TrashCleanerInterface $trash_cleaner,
 		OptimizerInterface $optimizer
 	) {
-		parent::__construct( $settings );
+		parent::__construct( $settings, $connection );
 		$this->analyzer           = $analyzer;
 		$this->revisions_manager  = $revisions_manager;
 		$this->transients_cleaner = $transients_cleaner;
@@ -361,16 +365,16 @@ class DatabaseController extends RestController {
 	public function get_orphaned( $request ) {
 		$data = array(
 			'orphaned_postmeta' => array(
-				'count' => count( $this->orphaned_cleaner->find_orphaned_postmeta() ),
+				'count' => $this->orphaned_cleaner->count_orphaned_postmeta(),
 			),
 			'orphaned_commentmeta' => array(
-				'count' => count( $this->orphaned_cleaner->find_orphaned_commentmeta() ),
+				'count' => $this->orphaned_cleaner->count_orphaned_commentmeta(),
 			),
 			'orphaned_termmeta' => array(
-				'count' => count( $this->orphaned_cleaner->find_orphaned_termmeta() ),
+				'count' => $this->orphaned_cleaner->count_orphaned_termmeta(),
 			),
 			'orphaned_relationships' => array(
-				'count' => count( $this->orphaned_cleaner->find_orphaned_relationships() ),
+				'count' => $this->orphaned_cleaner->count_orphaned_relationships(),
 			),
 		);
 
@@ -753,24 +757,19 @@ class DatabaseController extends RestController {
 	/**
 	 * Log activity to scan history.
 	 *
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param string $type   The cleanup/operation type.
 	 * @param array  $result The result data.
 	 * @return void
 	 */
 	private function log_activity( $type, $result ) {
-		global $wpdb;
+		$connection = $this->get_connection();
 
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
+		$table_name = $connection->get_prefix() . 'wpha_scan_history';
 
 		// Check if table exists.
-		$table_exists = $wpdb->get_var(
-			$wpdb->prepare(
-				'SHOW TABLES LIKE %s',
-				$table_name
-			)
-		);
-
-		if ( $table_exists !== $table_name ) {
+		if ( ! $connection->table_exists( $table_name ) ) {
 			return;
 		}
 
@@ -819,7 +818,7 @@ class DatabaseController extends RestController {
 
 		$scan_type = 'database_' . $type;
 
-		$wpdb->insert(
+		$connection->insert(
 			$table_name,
 			array(
 				'scan_type'     => sanitize_text_field( $scan_type ),
@@ -867,8 +866,9 @@ class DatabaseController extends RestController {
 	/**
 	 * Sanitize table names array.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param mixed $value The value to sanitize.
 	 * @return array Sanitized table names array.
 	 */
@@ -877,7 +877,8 @@ class DatabaseController extends RestController {
 			return array();
 		}
 
-		global $wpdb;
+		$connection = $this->get_connection();
+		$prefix     = $connection->get_prefix();
 
 		$sanitized = array();
 
@@ -885,7 +886,7 @@ class DatabaseController extends RestController {
 			$table_name = sanitize_text_field( $table_name );
 
 			// Only allow tables with WordPress prefix.
-			if ( 0 === strpos( $table_name, $wpdb->prefix ) ) {
+			if ( 0 === strpos( $table_name, $prefix ) ) {
 				$sanitized[] = $table_name;
 			}
 		}

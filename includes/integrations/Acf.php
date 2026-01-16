@@ -629,6 +629,7 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 		$offset         = 0;
 		$max_batches    = 100; // Safety limit: max 100k rows total.
 		$batches        = 0;
+		$results_count  = 0;
 
 		do {
 			// Query for numeric meta values that could be attachment IDs.
@@ -664,11 +665,12 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 
 			$offset += $batch_size;
 			++$batches;
+			$results_count = count( $results );
 
-		} while ( count( $results ) === $batch_size && $batches < $max_batches );
+		} while ( $results_count === $batch_size && $batches < $max_batches );
 
 		// Log warning if we hit the safety limit.
-		if ( $batches >= $max_batches && count( $results ) === $batch_size ) {
+		if ( $batches >= $max_batches && $results_count === $batch_size ) {
 			$this->log_batch_limit_warning( 'get_used_attachments', $batches, $max_batches, $batch_size );
 		}
 

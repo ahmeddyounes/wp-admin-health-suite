@@ -24,30 +24,36 @@ import { announcer, FocusManager } from '../utils/accessibility';
  */
 const ACTIONS = [
 	{
-		id: 'clean-revisions',
-		label: 'Clean Revisions',
-		icon: 'dashicons-backup',
-		description:
-			'Remove old post revisions to reduce database size and improve performance',
-		action: 'clean_revisions',
-		confirmRequired: true,
-	},
-	{
-		id: 'clear-transients',
-		label: 'Clear Transients',
+		id: 'delete-trash',
+		label: 'Empty Trash',
 		icon: 'dashicons-trash',
-		description: 'Delete expired and orphaned transients from the database',
-		action: 'clear_transients',
+		description: 'Permanently delete all items from the trash',
+		action: 'delete_trash',
 		confirmRequired: true,
 	},
 	{
-		id: 'find-unused-media',
-		label: 'Find Unused Media',
-		icon: 'dashicons-images-alt2',
-		description:
-			'Scan for media files that are not attached to any posts or pages',
-		action: 'find_unused_media',
-		confirmRequired: false,
+		id: 'delete-spam',
+		label: 'Delete Spam Comments',
+		icon: 'dashicons-dismiss',
+		description: 'Permanently delete all spam comments',
+		action: 'delete_spam',
+		confirmRequired: true,
+	},
+	{
+		id: 'delete-auto-drafts',
+		label: 'Delete Auto-Drafts',
+		icon: 'dashicons-edit',
+		description: 'Permanently delete all auto-draft posts',
+		action: 'delete_auto_drafts',
+		confirmRequired: true,
+	},
+	{
+		id: 'clean-expired-transients',
+		label: 'Clean Expired Transients',
+		icon: 'dashicons-clock',
+		description: 'Delete expired transients from the database',
+		action: 'clean_expired_transients',
+		confirmRequired: true,
 	},
 	{
 		id: 'optimize-tables',
@@ -57,15 +63,6 @@ const ACTIONS = [
 			'Optimize database tables to reclaim unused space and improve query performance',
 		action: 'optimize_tables',
 		confirmRequired: true,
-	},
-	{
-		id: 'full-scan',
-		label: 'Full Scan',
-		icon: 'dashicons-search',
-		description:
-			'Run a comprehensive health scan to identify all potential issues',
-		action: 'full_scan',
-		confirmRequired: false,
 	},
 ];
 
@@ -144,13 +141,14 @@ const QuickActions = () => {
 		try {
 			// Use WordPress REST API
 			const response = await fetch(
-				`${window.wpApiSettings?.root || '/wp-json/'}wpha/v1/actions/${action.action}`,
+				`${window.wpApiSettings?.root || '/wp-json/'}wpha/v1/dashboard/quick-action`,
 				{
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
 						'X-WP-Nonce': window.wpApiSettings?.nonce || '',
 					},
+					body: JSON.stringify({ action_id: action.action }),
 				}
 			);
 
@@ -503,16 +501,19 @@ const QuickActions = () => {
 					className="quick-action-modal-overlay"
 					style={modalOverlayStyles}
 					onClick={handleCloseModal}
-					role="dialog"
-					aria-modal="true"
-					aria-labelledby="modal-title"
-					aria-describedby="modal-description"
+					onKeyDown={(e) => e.key === 'Escape' && handleCloseModal()}
+					role="presentation"
 				>
 					<div
 						ref={modalRef}
 						className="quick-action-modal"
 						style={modalStyles}
 						onClick={(e) => e.stopPropagation()}
+						onKeyDown={(e) => e.stopPropagation()}
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="modal-title"
+						aria-describedby="modal-description"
 					>
 						<h2 id="modal-title" style={modalHeaderStyles}>
 							Confirm {activeAction.label}

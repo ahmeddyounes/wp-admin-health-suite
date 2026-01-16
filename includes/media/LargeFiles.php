@@ -9,8 +9,9 @@
 
 namespace WPAdminHealth\Media;
 
-use WPAdminHealth\Contracts\LargeFilesInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\ExclusionsInterface;
+use WPAdminHealth\Contracts\LargeFilesInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -40,6 +41,13 @@ class LargeFiles implements LargeFilesInterface {
 	private $default_threshold_kb = 500;
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
 	 * Exclusions manager instance.
 	 *
 	 * @var ExclusionsInterface
@@ -58,10 +66,13 @@ class LargeFiles implements LargeFilesInterface {
 	 * Constructor.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.0 Added ConnectionInterface dependency injection.
 	 *
+	 * @param ConnectionInterface $connection Database connection.
 	 * @param ExclusionsInterface $exclusions Exclusions manager.
 	 */
-	public function __construct( ExclusionsInterface $exclusions ) {
+	public function __construct( ConnectionInterface $connection, ExclusionsInterface $exclusions ) {
+		$this->connection = $connection;
 		$this->exclusions = $exclusions;
 	}
 
@@ -129,19 +140,18 @@ class LargeFiles implements LargeFilesInterface {
 	 * @return array Array of large files with details.
 	 */
 	public function find_large_files( ?int $threshold_kb = null ): array {
-		global $wpdb;
-
 		if ( null === $threshold_kb ) {
 			$threshold_kb = $this->default_threshold_kb;
 		}
 
 		$threshold_bytes = $threshold_kb * 1024;
-		$large_files = array();
-		$batch_offset = 0;
+		$large_files     = array();
+		$batch_offset    = 0;
+		$posts_table     = $this->connection->get_posts_table();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -149,7 +159,11 @@ class LargeFiles implements LargeFilesInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -216,14 +230,13 @@ class LargeFiles implements LargeFilesInterface {
 	 * @return array Array of optimization suggestions with actionable recommendations.
 	 */
 	public function get_optimization_suggestions(): array {
-		global $wpdb;
-
-		$suggestions = array();
+		$suggestions  = array();
 		$batch_offset = 0;
+		$posts_table  = $this->connection->get_posts_table();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -231,7 +244,11 @@ class LargeFiles implements LargeFilesInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -310,7 +327,10 @@ class LargeFiles implements LargeFilesInterface {
 						'current_size_formatted' => size_format( $file_size ),
 						'mime_type' => $mime_type,
 						'dimensions' => ! empty( $metadata['width'] ) && ! empty( $metadata['height'] )
-							? array( 'width' => $metadata['width'], 'height' => $metadata['height'] )
+							? array(
+								'width' => $metadata['width'],
+								'height' => $metadata['height'],
+							)
 							: null,
 						'suggestions' => $file_suggestions,
 					);
@@ -333,41 +353,40 @@ class LargeFiles implements LargeFilesInterface {
 	 * @return array Array of size buckets with counts.
 	 */
 	public function get_size_distribution(): array {
-		global $wpdb;
-
 		$distribution = array(
-			'under_100kb' => array(
-				'label' => '<100KB',
-				'count' => 0,
+			'under_100kb'    => array(
+				'label'      => '<100KB',
+				'count'      => 0,
 				'total_size' => 0,
 			),
 			'100kb_to_500kb' => array(
-				'label' => '100-500KB',
-				'count' => 0,
+				'label'      => '100-500KB',
+				'count'      => 0,
 				'total_size' => 0,
 			),
-			'500kb_to_1mb' => array(
-				'label' => '500KB-1MB',
-				'count' => 0,
+			'500kb_to_1mb'   => array(
+				'label'      => '500KB-1MB',
+				'count'      => 0,
 				'total_size' => 0,
 			),
-			'1mb_to_5mb' => array(
-				'label' => '1-5MB',
-				'count' => 0,
+			'1mb_to_5mb'     => array(
+				'label'      => '1-5MB',
+				'count'      => 0,
 				'total_size' => 0,
 			),
-			'over_5mb' => array(
-				'label' => '>5MB',
-				'count' => 0,
+			'over_5mb'       => array(
+				'label'      => '>5MB',
+				'count'      => 0,
 				'total_size' => 0,
 			),
 		);
 
 		$batch_offset = 0;
+		$posts_table  = $this->connection->get_posts_table();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -375,7 +394,11 @@ class LargeFiles implements LargeFilesInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;

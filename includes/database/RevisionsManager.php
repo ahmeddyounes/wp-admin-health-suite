@@ -10,6 +10,7 @@
 namespace WPAdminHealth\Database;
 
 use WPAdminHealth\Contracts\RevisionsManagerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -21,6 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  * @since 1.2.0 Implements RevisionsManagerInterface.
+ * @since 1.3.0 Added constructor dependency injection for ConnectionInterface.
  */
 class RevisionsManager implements RevisionsManagerInterface {
 
@@ -30,6 +32,24 @@ class RevisionsManager implements RevisionsManagerInterface {
 	 * @var int
 	 */
 	const BATCH_SIZE = 100;
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
 
 	/**
 	 * Get revisions for a specific post.
@@ -59,14 +79,18 @@ class RevisionsManager implements RevisionsManagerInterface {
 	 * @return int Total number of revisions.
 	 */
 	public function get_all_revisions_count(): int {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = %s",
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_type = %s",
 			'revision'
 		);
 
-		return absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			return 0;
+		}
+
+		return absint( $this->connection->get_var( $query ) );
 	}
 
 	/**
@@ -77,36 +101,45 @@ class RevisionsManager implements RevisionsManagerInterface {
 	 * @return int Estimated bytes used by revisions.
 	 */
 	public function get_revisions_size_estimate(): int {
-		global $wpdb;
+		$posts_table    = $this->connection->get_posts_table();
+		$postmeta_table = $this->connection->get_postmeta_table();
 
 		// Get sum of post_content length and other fields for revisions.
-		$query = $wpdb->prepare(
+		$query = $this->connection->prepare(
 			"SELECT SUM(
 				LENGTH(post_content) +
 				LENGTH(post_title) +
 				LENGTH(post_excerpt) +
 				LENGTH(post_name)
 			) as total_size
-			FROM {$wpdb->posts}
+			FROM {$posts_table}
 			WHERE post_type = %s",
 			'revision'
 		);
 
-		$content_size = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$content_size = absint( $this->connection->get_var( $query ) );
 
 		// Get associated postmeta size.
-		$meta_query = $wpdb->prepare(
+		$meta_query = $this->connection->prepare(
 			"SELECT SUM(
 				LENGTH(meta_key) +
 				LENGTH(meta_value)
 			) as meta_size
-			FROM {$wpdb->postmeta} pm
-			INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+			FROM {$postmeta_table} pm
+			INNER JOIN {$posts_table} p ON pm.post_id = p.ID
 			WHERE p.post_type = %s",
 			'revision'
 		);
 
-		$meta_size = absint( $wpdb->get_var( $meta_query ) );
+		if ( null === $meta_query ) {
+			return absint( $content_size * 1.5 );
+		}
+
+		$meta_size = absint( $this->connection->get_var( $meta_query ) );
 
 		// Add overhead estimate (row overhead, indexes, etc.).
 		$overhead_multiplier = 1.5;
@@ -208,21 +241,28 @@ class RevisionsManager implements RevisionsManagerInterface {
 	 * @return array Array with 'deleted' count and 'bytes_freed' estimate.
 	 */
 	public function delete_all_revisions( int $keep = 0 ): array {
-		global $wpdb;
-
 		$keep = absint( $keep );
 
+		$posts_table = $this->connection->get_posts_table();
+
 		// Get all posts that have revisions.
-		$posts_with_revisions = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT DISTINCT post_parent
-				FROM {$wpdb->posts}
-				WHERE post_type = %s
-				AND post_parent > 0
-				ORDER BY post_parent ASC",
-				'revision'
-			)
+		$query = $this->connection->prepare(
+			"SELECT DISTINCT post_parent
+			FROM {$posts_table}
+			WHERE post_type = %s
+			AND post_parent > 0
+			ORDER BY post_parent ASC",
+			'revision'
 		);
+
+		if ( null === $query ) {
+			return array(
+				'deleted'     => 0,
+				'bytes_freed' => 0,
+			);
+		}
+
+		$posts_with_revisions = $this->connection->get_col( $query );
 
 		if ( empty( $posts_with_revisions ) ) {
 			return array(
@@ -279,21 +319,21 @@ class RevisionsManager implements RevisionsManagerInterface {
 	 * @return array Array of posts with revision counts.
 	 */
 	public function get_posts_with_most_revisions( int $limit = 10 ): array {
-		global $wpdb;
-
 		$limit = absint( $limit );
 		if ( $limit < 1 ) {
 			$limit = 10;
 		}
 
-		$query = $wpdb->prepare(
+		$posts_table = $this->connection->get_posts_table();
+
+		$query = $this->connection->prepare(
 			"SELECT
 				p.ID as post_id,
 				p.post_title,
 				p.post_type,
 				COUNT(r.ID) as revision_count
-			FROM {$wpdb->posts} p
-			INNER JOIN {$wpdb->posts} r ON p.ID = r.post_parent
+			FROM {$posts_table} p
+			INNER JOIN {$posts_table} r ON p.ID = r.post_parent
 			WHERE r.post_type = %s
 			GROUP BY p.ID
 			ORDER BY revision_count DESC
@@ -302,9 +342,11 @@ class RevisionsManager implements RevisionsManagerInterface {
 			$limit
 		);
 
-		$results = $wpdb->get_results( $query, ARRAY_A );
+		if ( null === $query ) {
+			return array();
+		}
 
-		return $results ? $results : array();
+		return $this->connection->get_results( $query, 'ARRAY_A' );
 	}
 
 	/**
@@ -368,37 +410,44 @@ class RevisionsManager implements RevisionsManagerInterface {
 	 * @return int Estimated size in bytes.
 	 */
 	private function estimate_revision_size( $revision_id ) {
-		global $wpdb;
-
 		$revision_id = absint( $revision_id );
 
+		$posts_table    = $this->connection->get_posts_table();
+		$postmeta_table = $this->connection->get_postmeta_table();
+
 		// Get revision post data size.
-		$post_query = $wpdb->prepare(
+		$post_query = $this->connection->prepare(
 			"SELECT
 				LENGTH(post_content) +
 				LENGTH(post_title) +
 				LENGTH(post_excerpt) +
 				LENGTH(post_name)
 			as size
-			FROM {$wpdb->posts}
+			FROM {$posts_table}
 			WHERE ID = %d",
 			$revision_id
 		);
 
-		$post_size = absint( $wpdb->get_var( $post_query ) );
+		$post_size = 0;
+		if ( null !== $post_query ) {
+			$post_size = absint( $this->connection->get_var( $post_query ) );
+		}
 
 		// Get associated postmeta size.
-		$meta_query = $wpdb->prepare(
+		$meta_query = $this->connection->prepare(
 			"SELECT SUM(
 				LENGTH(meta_key) +
 				LENGTH(meta_value)
 			) as meta_size
-			FROM {$wpdb->postmeta}
+			FROM {$postmeta_table}
 			WHERE post_id = %d",
 			$revision_id
 		);
 
-		$meta_size = absint( $wpdb->get_var( $meta_query ) );
+		$meta_size = 0;
+		if ( null !== $meta_query ) {
+			$meta_size = absint( $this->connection->get_var( $meta_query ) );
+		}
 
 		// Add overhead estimate.
 		$overhead_multiplier = 1.5;
@@ -416,11 +465,9 @@ class RevisionsManager implements RevisionsManagerInterface {
 	 * @return bool True on success, false on failure.
 	 */
 	private function log_deletion( $scan_type, $items_found, $items_cleaned, $bytes_freed ) {
-		global $wpdb;
+		$table_name = $this->connection->get_prefix() . 'wpha_scan_history';
 
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
-
-		$result = $wpdb->insert(
+		$result = $this->connection->insert(
 			$table_name,
 			array(
 				'scan_type'     => sanitize_text_field( $scan_type ),

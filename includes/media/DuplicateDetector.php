@@ -9,6 +9,7 @@
 
 namespace WPAdminHealth\Media;
 
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\DuplicateDetectorInterface;
 use WPAdminHealth\Contracts\ExclusionsInterface;
 
@@ -33,6 +34,13 @@ class DuplicateDetector implements DuplicateDetectorInterface {
 	private $batch_size = 50;
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
 	 * Exclusions manager instance.
 	 *
 	 * @var ExclusionsInterface
@@ -43,10 +51,13 @@ class DuplicateDetector implements DuplicateDetectorInterface {
 	 * Constructor.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.0 Added ConnectionInterface dependency injection.
 	 *
+	 * @param ConnectionInterface $connection Database connection.
 	 * @param ExclusionsInterface $exclusions Exclusions manager.
 	 */
-	public function __construct( ExclusionsInterface $exclusions ) {
+	public function __construct( ConnectionInterface $connection, ExclusionsInterface $exclusions ) {
+		$this->connection = $connection;
 		$this->exclusions = $exclusions;
 	}
 
@@ -176,15 +187,14 @@ class DuplicateDetector implements DuplicateDetectorInterface {
 	 * @return array Array of duplicate groups keyed by hash.
 	 */
 	private function find_duplicates_by_hash() {
-		global $wpdb;
-
-		$duplicates = array();
-		$file_hashes = array();
+		$duplicates   = array();
+		$file_hashes  = array();
 		$batch_offset = 0;
+		$posts_table  = $this->connection->get_posts_table();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -192,7 +202,11 @@ class DuplicateDetector implements DuplicateDetectorInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -231,15 +245,14 @@ class DuplicateDetector implements DuplicateDetectorInterface {
 	 * @return array Array of duplicate groups keyed by base filename.
 	 */
 	private function find_duplicates_by_pattern() {
-		global $wpdb;
-
-		$duplicates = array();
-		$filename_groups = array();
-		$batch_offset = 0;
+		$duplicates       = array();
+		$filename_groups  = array();
+		$batch_offset     = 0;
+		$posts_table      = $this->connection->get_posts_table();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -247,7 +260,11 @@ class DuplicateDetector implements DuplicateDetectorInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -296,15 +313,14 @@ class DuplicateDetector implements DuplicateDetectorInterface {
 	 * @return array Array of duplicate groups keyed by dimension signature.
 	 */
 	private function find_duplicates_by_dimensions() {
-		global $wpdb;
-
-		$duplicates = array();
-		$dimension_groups = array();
-		$batch_offset = 0;
+		$duplicates        = array();
+		$dimension_groups  = array();
+		$batch_offset      = 0;
+		$posts_table       = $this->connection->get_posts_table();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				AND post_mime_type LIKE %s
 				LIMIT %d OFFSET %d",
@@ -314,7 +330,11 @@ class DuplicateDetector implements DuplicateDetectorInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;

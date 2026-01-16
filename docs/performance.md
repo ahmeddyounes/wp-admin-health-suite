@@ -30,7 +30,7 @@ Plugin Impact Monitoring measures how each installed plugin affects your site's 
 Navigate to **Admin Health > Performance** in your WordPress admin menu. The Plugin Impact section displays a table showing all active plugins sorted by their overall impact score.
 
 ![Screenshot: Plugin Impact Dashboard](./screenshots/plugin-impact.png)
-*Screenshot: Plugin impact analysis showing slowest plugins first*
+_Screenshot: Plugin impact analysis showing slowest plugins first_
 
 ### Understanding the Impact Score
 
@@ -146,16 +146,19 @@ For each location, you can set the heartbeat frequency:
 ### Recommended Settings by Location
 
 **Admin Area:**
+
 - **Recommended**: 120 seconds
 - **Why**: Most admin tasks don't require real-time updates
 - **Impact**: Minimal user experience change, significant CPU savings
 
 **Post Editor:**
+
 - **Recommended**: 30-60 seconds
 - **Why**: Prevents edit conflicts and saves drafts automatically
 - **Impact**: Keeps collaborative editing features functional
 
 **Frontend:**
+
 - **Recommended**: Disabled
 - **Why**: Frontend pages rarely need heartbeat functionality
 - **Impact**: Free performance boost with no downside for most sites
@@ -165,27 +168,33 @@ For each location, you can set the heartbeat frequency:
 WP Admin Health Suite includes three preconfigured presets:
 
 #### 1. Default Preset (0% CPU Savings)
+
 ```
 Admin: 60 seconds
 Post Editor: 60 seconds
 Frontend: 60 seconds
 ```
+
 Standard WordPress behavior - no optimization.
 
 #### 2. Optimized Preset (35% CPU Savings)
+
 ```
 Admin: 120 seconds
 Post Editor: 30 seconds
 Frontend: Disabled
 ```
+
 Best balance of performance and functionality - **recommended for most sites**.
 
 #### 3. Minimal Preset (65% CPU Savings)
+
 ```
 Admin: Disabled
 Post Editor: 60 seconds
 Frontend: Disabled
 ```
+
 Maximum performance - use only if you don't need edit locking features.
 
 ### Applying Heartbeat Settings
@@ -246,6 +255,7 @@ echo "Requests saved per hour: " . $savings['requests_saved_per_hour'];
 ```
 
 The savings calculation compares your current settings to WordPress defaults and provides:
+
 - **Overall CPU savings percentage** (weighted by location importance)
 - **Requests saved per hour** across all locations
 - **Per-location breakdown** of improvements
@@ -297,12 +307,14 @@ define('SAVEQUERIES', true);
 Navigate to **Admin Health > Performance > Query Analysis** to view:
 
 **Summary Statistics:**
+
 - **Total queries logged**: How many queries have been captured
 - **Average query time**: Mean execution time across all queries
 - **Duplicate queries**: Queries executed multiple times (inefficiency indicator)
 - **Queries needing indexes**: Slow queries that could benefit from database indexes
 
 **Slowest Queries:**
+
 - Individual query SQL
 - Execution time in milliseconds
 - Number of duplicate executions
@@ -336,6 +348,7 @@ WP Admin Health Suite automatically runs EXPLAIN analysis on SELECT queries to d
 ```
 type: ALL
 ```
+
 **Problem**: Full table scan - no index being used
 **Impact**: Query examines every row in the table
 **Solution**: Add an appropriate index on the WHERE/JOIN columns
@@ -343,6 +356,7 @@ type: ALL
 ```
 rows: 50000
 ```
+
 **Problem**: Examining too many rows
 **Impact**: Query must process all rows even if few are returned
 **Solution**: Add WHERE clause or index to narrow the search
@@ -350,6 +364,7 @@ rows: 50000
 ```
 Extra: Using filesort
 ```
+
 **Problem**: Results sorted in memory instead of using an index
 **Impact**: Additional processing overhead
 **Solution**: Add index on ORDER BY column
@@ -357,6 +372,7 @@ Extra: Using filesort
 ```
 Extra: Using temporary
 ```
+
 **Problem**: Temporary table created for query processing
 **Impact**: Extra disk I/O and memory usage
 **Solution**: Optimize query structure or add indexes
@@ -371,6 +387,7 @@ Each logged query is tagged with its source component:
 - **Unknown**: Unable to determine source
 
 Use this information to:
+
 - Identify poorly-optimized plugins
 - Contact plugin developers with specific query performance issues
 - Decide whether to keep or replace a plugin
@@ -382,6 +399,7 @@ Use this information to:
 **Problem**: Same query executed multiple times per page load
 
 **Example**:
+
 ```sql
 SELECT * FROM wp_options WHERE option_name = 'siteurl' LIMIT 1
 (executed 5 times)
@@ -394,12 +412,14 @@ SELECT * FROM wp_options WHERE option_name = 'siteurl' LIMIT 1
 **Problem**: Queries scanning entire tables
 
 **Example**:
+
 ```sql
 SELECT * FROM wp_posts WHERE post_type = 'product' AND post_status = 'publish'
 (no index on post_type + post_status combination)
 ```
 
 **Solution**: Add composite index:
+
 ```sql
 ALTER TABLE wp_posts ADD INDEX idx_type_status (post_type, post_status);
 ```
@@ -411,12 +431,14 @@ ALTER TABLE wp_posts ADD INDEX idx_type_status (post_type, post_status);
 **Problem**: Fetching all results when only a subset is needed
 
 **Example**:
+
 ```sql
 SELECT * FROM wp_posts WHERE post_type = 'page'
 (returns 500 pages, but only 10 are displayed)
 ```
 
 **Solution**: Add LIMIT clause:
+
 ```sql
 SELECT * FROM wp_posts WHERE post_type = 'page' LIMIT 10
 ```
@@ -426,6 +448,7 @@ SELECT * FROM wp_posts WHERE post_type = 'page' LIMIT 10
 **Problem**: Poorly-coded plugin making inefficient queries
 
 **Steps**:
+
 1. Identify the plugin in the query source
 2. Check if there's a newer version with performance improvements
 3. Report the issue to the plugin developer with query details
@@ -436,6 +459,7 @@ SELECT * FROM wp_posts WHERE post_type = 'page' LIMIT 10
 **Scenario 1: Plugin Evaluation**
 
 Before installing a new plugin, run a query analysis:
+
 1. Take a baseline measurement
 2. Install and activate the plugin
 3. Compare query counts and timing
@@ -444,6 +468,7 @@ Before installing a new plugin, run a query analysis:
 **Scenario 2: Troubleshooting Slow Pages**
 
 If specific pages are slow:
+
 1. Navigate to the slow page
 2. Check the query log for that request
 3. Identify queries taking > 100ms
@@ -497,12 +522,14 @@ Install Query Monitor alongside WP Admin Health Suite for the most comprehensive
 Object caching stores frequently-accessed data in fast memory (RAM) instead of repeatedly querying the database. This dramatically reduces database load and speeds up your site.
 
 **Without Object Cache:**
+
 ```
 User visits page → WordPress queries database → Retrieves data → Displays page
 (Database queried every single time)
 ```
 
 **With Object Cache:**
+
 ```
 User visits page → WordPress checks cache → Data in memory → Displays page
 (Database queried once, then cached for subsequent requests)
@@ -522,29 +549,35 @@ Enabling object caching typically provides:
 WP Admin Health Suite detects and supports four types of object caching:
 
 #### 1. Redis (Recommended)
+
 **Best for**: High-traffic sites, WooCommerce, membership sites
 
 **Pros**:
+
 - Extremely fast (in-memory storage)
 - Persistent across server restarts
 - Supports data structures beyond simple key-value
 - Excellent for session storage
 
 **Cons**:
+
 - Requires Redis server installation
 - Uses additional RAM
 
 **Installation**: See [Hosting-Specific Instructions](#hosting-specific-cache-setup)
 
 #### 2. Memcached
+
 **Best for**: Shared hosting, multi-server environments
 
 **Pros**:
+
 - Very fast in-memory caching
 - Low memory overhead
 - Good for distributed caching across multiple servers
 
 **Cons**:
+
 - Non-persistent (lost on restart)
 - Limited data type support
 - Requires Memcached server
@@ -552,14 +585,17 @@ WP Admin Health Suite detects and supports four types of object caching:
 **Installation**: Similar to Redis, check with your hosting provider
 
 #### 3. APCu
+
 **Best for**: Single-server sites, limited server access
 
 **Pros**:
+
 - Built into PHP (no separate server needed)
 - Good performance for small to medium sites
 - Easy to enable
 
 **Cons**:
+
 - Shared with PHP opcode cache
 - Limited by PHP memory
 - Cleared on PHP restart
@@ -567,14 +603,17 @@ WP Admin Health Suite detects and supports four types of object caching:
 **Installation**: Enable via PHP configuration (check with host)
 
 #### 4. File-Based Cache
+
 **Best for**: Shared hosting without Redis/Memcached access
 
 **Pros**:
+
 - Works on any hosting environment
 - No special server requirements
 - Persistent across restarts
 
 **Cons**:
+
 - Slower than memory-based caching
 - Can be slower than database on some hosts
 - Disk I/O overhead
@@ -586,12 +625,14 @@ WP Admin Health Suite detects and supports four types of object caching:
 Navigate to **Admin Health > Performance > Object Cache** to view:
 
 **Cache Status:**
+
 - Whether persistent object cache is active
 - Cache backend type (Redis, Memcached, APCu, File, None)
 - Object cache drop-in status
 - Available cache extensions on your server
 
 **Performance Metrics:**
+
 - Cache hit rate percentage
 - Operations per second
 - Average GET/SET times
@@ -607,6 +648,7 @@ Cache hit rate measures how often data is found in cache vs. fetched from the da
 - **< 50% hit rate**: Poor - investigate cache configuration
 
 **Low hit rate causes:**
+
 1. Cache size too small (data being evicted too quickly)
 2. Short cache TTL (Time To Live)
 3. High traffic variability (each user requests unique data)
@@ -632,12 +674,14 @@ WP Admin Health Suite automatically benchmarks your cache by:
 WP Admin Health Suite provides customized instructions for popular hosting providers:
 
 #### WP Engine
+
 1. Contact WP Engine support to enable Redis
 2. Install "Redis Object Cache" plugin from WordPress.org
 3. Activate the plugin
 4. Redis is automatically configured
 
 #### Kinsta
+
 1. Log in to MyKinsta dashboard
 2. Navigate to your site → Tools
 3. Click "Enable" under Redis
@@ -645,17 +689,20 @@ WP Admin Health Suite provides customized instructions for popular hosting provi
 5. Activate and connect
 
 #### Pantheon
+
 1. Install "WP Redis" plugin
 2. Activate the plugin
 3. Redis is automatically detected and connected
 4. No additional configuration needed
 
 #### Flywheel
+
 1. Contact Flywheel support to request Redis
 2. Install "Redis Object Cache" plugin after approval
 3. Follow Flywheel's specific configuration instructions
 
 #### Cloudways
+
 1. Log in to Cloudways platform
 2. Select your application
 3. Go to Application Settings → Application Management
@@ -663,6 +710,7 @@ WP Admin Health Suite provides customized instructions for popular hosting provi
 5. Install "Redis Object Cache" plugin in WordPress
 
 #### SiteGround
+
 1. Redis available on higher-tier plans
 2. Access SiteGround Site Tools
 3. Go to Speed → Caching
@@ -670,6 +718,7 @@ WP Admin Health Suite provides customized instructions for popular hosting provi
 5. Install "Redis Object Cache" plugin
 
 #### GoDaddy
+
 1. Redis available on managed WordPress plans
 2. Contact GoDaddy support to enable
 3. Install "Redis Object Cache" plugin after enabled
@@ -703,16 +752,20 @@ if ($result === 'test_value') {
 ### Cache Plugins We Recommend
 
 **For Redis:**
+
 - [Redis Object Cache](https://wordpress.org/plugins/redis-cache/) by Till Krüss (most popular)
 - [WP Redis](https://wordpress.org/plugins/wp-redis/) by Pantheon
 
 **For Memcached:**
+
 - [Memcached Object Cache](https://wordpress.org/plugins/memcached/) by WordPress contributors
 
 **For APCu:**
+
 - [APCu Object Cache](https://wordpress.org/plugins/apcu/) by Pierre Schmitz
 
 **For File-Based:**
+
 - [W3 Total Cache](https://wordpress.org/plugins/w3-total-cache/) (comprehensive caching solution)
 - [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) (simple and reliable)
 
@@ -721,6 +774,7 @@ if ($result === 'test_value') {
 **Problem**: "Redis Object Cache" plugin shows "Not Connected"
 
 **Solutions**:
+
 1. Verify Redis server is running on your host
 2. Check Redis host/port configuration in `wp-config.php`
 3. Ensure PHP Redis extension is installed (`phpinfo()` to verify)
@@ -729,6 +783,7 @@ if ($result === 'test_value') {
 **Problem**: Cache hit rate is very low (< 50%)
 
 **Solutions**:
+
 1. Increase cache memory allocation
 2. Adjust cache TTL settings
 3. Verify cache isn't being cleared too frequently
@@ -737,6 +792,7 @@ if ($result === 'test_value') {
 **Problem**: Site slower after enabling cache
 
 **Solutions**:
+
 1. File-based cache can be slower on some hosts - try memory-based cache
 2. Clear all caches and test again
 3. Check for cache plugin conflicts
@@ -794,6 +850,7 @@ WordPress stores site settings in the `wp_options` table. Options marked with `a
 **The Problem:**
 
 If you have too many autoloaded options, or some are very large, WordPress must:
+
 1. Query and load all autoload options from database
 2. Store them in memory
 3. Do this on every single page load
@@ -805,12 +862,14 @@ This slows down your site, especially on high-traffic pages.
 Navigate to **Admin Health > Performance > Autoload Analysis** to see:
 
 **Summary Statistics:**
+
 - Total autoload size (KB/MB)
 - Number of autoloaded options
 - Average option size
 - Severity assessment (Success, Warning, Critical)
 
 **Large Options Table:**
+
 - Option name
 - Size in KB
 - Source (WordPress Core, Plugin Name, Theme Name)
@@ -819,11 +878,13 @@ Navigate to **Admin Health > Performance > Autoload Analysis** to see:
 ### Understanding Autoload Size Thresholds
 
 **Total Autoload Size:**
+
 - **< 500 KB**: Healthy - no action needed
 - **500 KB - 1 MB**: Warning - should optimize
 - **> 1 MB**: Critical - significant performance impact
 
 **Individual Option Sizes:**
+
 - **< 10 KB**: Normal - acceptable
 - **10-50 KB**: Large - consider disabling autoload
 - **50-100 KB**: Very large - should not be autoloaded
@@ -934,6 +995,7 @@ wp_cache_delete('alloptions', 'options');
 **Should you disable autoload?**: No - WordPress core requires this on every page
 
 **How to optimize**:
+
 1. Keep permalink structure simple
 2. Avoid excessive custom post types with complex rewrite rules
 3. Flush rewrite rules after changes: **Settings > Permalinks > Save Changes**
@@ -945,17 +1007,19 @@ wp_cache_delete('alloptions', 'options');
 **Should you disable autoload?**: No - WordPress core requires this
 
 **How to optimize**:
+
 1. Install [WP Crontrol](https://wordpress.org/plugins/wp-crontrol/) plugin
 2. Delete old/orphaned scheduled events from deactivated plugins
 3. Remove duplicate cron entries
 
-#### theme_mods_{theme_name} (Varies)
+#### theme*mods*{theme_name} (Varies)
 
 **What it is**: Theme customizer settings (colors, layouts, etc.)
 
 **Should you disable autoload?**: Generally no, but depends on theme
 
 **How to optimize**:
+
 1. Themes should not store large images or serialized data in theme mods
 2. If > 50 KB, contact theme developer about optimization
 3. Consider switching themes if poorly optimized
@@ -967,6 +1031,7 @@ wp_cache_delete('alloptions', 'options');
 **Should you disable autoload?**: Depends - settings used on every page should autoload, others should not
 
 **How to optimize**:
+
 1. Review if the plugin settings are used on every page
 2. If plugin-specific (only used on plugin admin pages), disable autoload
 3. Contact plugin developer if settings are unnecessarily large
@@ -1061,6 +1126,7 @@ Different types of sites have different performance priorities. Here are optimiz
 ### Personal Blog / Small Business Site
 
 **Characteristics:**
+
 - 1-5 authors
 - < 10,000 monthly visitors
 - Simple content (posts, pages, contact form)
@@ -1068,16 +1134,17 @@ Different types of sites have different performance priorities. Here are optimiz
 
 **Recommended Settings:**
 
-| Feature | Setting | Reason |
-|---------|---------|--------|
-| **Heartbeat - Admin** | 120 seconds | Few simultaneous editors |
-| **Heartbeat - Post Editor** | 60 seconds | Preserve autosave functionality |
-| **Heartbeat - Frontend** | Disabled | Not needed for simple sites |
-| **Object Cache** | APCu or File-based | Low traffic doesn't require Redis |
-| **Autoload Target** | < 500 KB | Keep site fast with shared hosting |
-| **Plugin Limit** | 10-15 plugins | Minimize complexity |
+| Feature                     | Setting            | Reason                             |
+| --------------------------- | ------------------ | ---------------------------------- |
+| **Heartbeat - Admin**       | 120 seconds        | Few simultaneous editors           |
+| **Heartbeat - Post Editor** | 60 seconds         | Preserve autosave functionality    |
+| **Heartbeat - Frontend**    | Disabled           | Not needed for simple sites        |
+| **Object Cache**            | APCu or File-based | Low traffic doesn't require Redis  |
+| **Autoload Target**         | < 500 KB           | Keep site fast with shared hosting |
+| **Plugin Limit**            | 10-15 plugins      | Minimize complexity                |
 
 **Expected Performance:**
+
 - Page load: < 2 seconds
 - Performance score: 85-95 (Grade A/B)
 - Supports 50-100 concurrent visitors
@@ -1085,6 +1152,7 @@ Different types of sites have different performance priorities. Here are optimiz
 ### Medium Business / Magazine Site
 
 **Characteristics:**
+
 - 5-20 authors/editors
 - 10,000-100,000 monthly visitors
 - Multiple content types, categories, tags
@@ -1092,16 +1160,17 @@ Different types of sites have different performance priorities. Here are optimiz
 
 **Recommended Settings:**
 
-| Feature | Setting | Reason |
-|---------|---------|--------|
-| **Heartbeat - Admin** | 120 seconds | Multiple editors, but not constantly active |
-| **Heartbeat - Post Editor** | 30 seconds | Active collaboration, prevent edit conflicts |
-| **Heartbeat - Frontend** | Disabled | No logged-in frontend users |
-| **Object Cache** | Redis or Memcached | High query volume needs memory caching |
-| **Autoload Target** | < 800 KB | More plugins, but keep optimized |
-| **Plugin Limit** | 15-25 plugins | Balance features with performance |
+| Feature                     | Setting            | Reason                                       |
+| --------------------------- | ------------------ | -------------------------------------------- |
+| **Heartbeat - Admin**       | 120 seconds        | Multiple editors, but not constantly active  |
+| **Heartbeat - Post Editor** | 30 seconds         | Active collaboration, prevent edit conflicts |
+| **Heartbeat - Frontend**    | Disabled           | No logged-in frontend users                  |
+| **Object Cache**            | Redis or Memcached | High query volume needs memory caching       |
+| **Autoload Target**         | < 800 KB           | More plugins, but keep optimized             |
+| **Plugin Limit**            | 15-25 plugins      | Balance features with performance            |
 
 **Expected Performance:**
+
 - Page load: < 1.5 seconds
 - Performance score: 80-90 (Grade B/A)
 - Supports 200-500 concurrent visitors
@@ -1109,6 +1178,7 @@ Different types of sites have different performance priorities. Here are optimiz
 ### WooCommerce Store
 
 **Characteristics:**
+
 - E-commerce with product catalog
 - Shopping cart, checkout, payment processing
 - Customer accounts and order history
@@ -1116,15 +1186,15 @@ Different types of sites have different performance priorities. Here are optimiz
 
 **Recommended Settings:**
 
-| Feature | Setting | Reason |
-|---------|---------|--------|
-| **Heartbeat - Admin** | 60 seconds | Frequent order management |
-| **Heartbeat - Post Editor** | 30 seconds | Product editing by multiple staff |
-| **Heartbeat - Frontend** | Disabled | Cart persists without heartbeat |
-| **Object Cache** | **Redis (required)** | WooCommerce is query-intensive |
-| **Autoload Target** | < 1 MB | WooCommerce adds many options |
-| **Plugin Limit** | 20-30 plugins | WooCommerce + extensions |
-| **Query Optimization** | **Critical** | Monitor product queries closely |
+| Feature                     | Setting              | Reason                            |
+| --------------------------- | -------------------- | --------------------------------- |
+| **Heartbeat - Admin**       | 60 seconds           | Frequent order management         |
+| **Heartbeat - Post Editor** | 30 seconds           | Product editing by multiple staff |
+| **Heartbeat - Frontend**    | Disabled             | Cart persists without heartbeat   |
+| **Object Cache**            | **Redis (required)** | WooCommerce is query-intensive    |
+| **Autoload Target**         | < 1 MB               | WooCommerce adds many options     |
+| **Plugin Limit**            | 20-30 plugins        | WooCommerce + extensions          |
+| **Query Optimization**      | **Critical**         | Monitor product queries closely   |
 
 **WooCommerce-Specific Optimizations:**
 
@@ -1135,6 +1205,7 @@ Different types of sites have different performance priorities. Here are optimiz
 5. **Clean Up Old Orders**: Archive orders older than 2 years
 
 **Expected Performance:**
+
 - Page load: < 2 seconds (product pages)
 - Checkout: < 1.5 seconds per step
 - Performance score: 75-85 (Grade B/C)
@@ -1143,6 +1214,7 @@ Different types of sites have different performance priorities. Here are optimiz
 ### Membership / Learning Management Site
 
 **Characteristics:**
+
 - User registration and profiles
 - Restricted content access
 - Course/lesson progression tracking
@@ -1150,15 +1222,15 @@ Different types of sites have different performance priorities. Here are optimiz
 
 **Recommended Settings:**
 
-| Feature | Setting | Reason |
-|---------|---------|--------|
-| **Heartbeat - Admin** | 120 seconds | Course creators need moderate updates |
-| **Heartbeat - Post Editor** | 60 seconds | Course content editing |
-| **Heartbeat - Frontend** | 30 seconds | Live course participation tracking |
-| **Object Cache** | **Redis (required)** | User-specific data caching crucial |
-| **Autoload Target** | < 800 KB | Keep lean despite membership data |
-| **Plugin Limit** | 25-35 plugins | LMS requires many features |
-| **Session Storage** | Redis sessions | Don't use database for sessions |
+| Feature                     | Setting              | Reason                                |
+| --------------------------- | -------------------- | ------------------------------------- |
+| **Heartbeat - Admin**       | 120 seconds          | Course creators need moderate updates |
+| **Heartbeat - Post Editor** | 60 seconds           | Course content editing                |
+| **Heartbeat - Frontend**    | 30 seconds           | Live course participation tracking    |
+| **Object Cache**            | **Redis (required)** | User-specific data caching crucial    |
+| **Autoload Target**         | < 800 KB             | Keep lean despite membership data     |
+| **Plugin Limit**            | 25-35 plugins        | LMS requires many features            |
+| **Session Storage**         | Redis sessions       | Don't use database for sessions       |
 
 **Membership-Specific Optimizations:**
 
@@ -1169,6 +1241,7 @@ Different types of sites have different performance priorities. Here are optimiz
 5. **Background Process Progress**: Use Action Scheduler for lesson completion
 
 **Expected Performance:**
+
 - Page load: < 2 seconds (logged-in users)
 - Course pages: < 2.5 seconds
 - Performance score: 75-85 (Grade B/C)
@@ -1177,6 +1250,7 @@ Different types of sites have different performance priorities. Here are optimiz
 ### High-Traffic News / Content Site
 
 **Characteristics:**
+
 - Thousands to millions of monthly visitors
 - Frequently updated content (multiple posts per day)
 - Heavy media usage (images, videos)
@@ -1184,16 +1258,16 @@ Different types of sites have different performance priorities. Here are optimiz
 
 **Recommended Settings:**
 
-| Feature | Setting | Reason |
-|---------|---------|--------|
-| **Heartbeat - Admin** | Disabled | Editors can work without real-time |
-| **Heartbeat - Post Editor** | 60 seconds | Coordinate publishing workflow |
-| **Heartbeat - Frontend** | Disabled | Anonymous visitors |
-| **Object Cache** | **Redis (required)** | Essential for high traffic |
-| **Autoload Target** | < 600 KB | Lean configuration for scale |
-| **Plugin Limit** | 15-25 plugins | Minimize overhead |
-| **Page Cache** | **Full page cache required** | Varnish, Nginx, or CDN |
-| **CDN** | **Required** | Cloudflare, CloudFront, etc. |
+| Feature                     | Setting                      | Reason                             |
+| --------------------------- | ---------------------------- | ---------------------------------- |
+| **Heartbeat - Admin**       | Disabled                     | Editors can work without real-time |
+| **Heartbeat - Post Editor** | 60 seconds                   | Coordinate publishing workflow     |
+| **Heartbeat - Frontend**    | Disabled                     | Anonymous visitors                 |
+| **Object Cache**            | **Redis (required)**         | Essential for high traffic         |
+| **Autoload Target**         | < 600 KB                     | Lean configuration for scale       |
+| **Plugin Limit**            | 15-25 plugins                | Minimize overhead                  |
+| **Page Cache**              | **Full page cache required** | Varnish, Nginx, or CDN             |
+| **CDN**                     | **Required**                 | Cloudflare, CloudFront, etc.       |
 
 **High-Traffic Optimizations:**
 
@@ -1205,6 +1279,7 @@ Different types of sites have different performance priorities. Here are optimiz
 6. **Optimize Archives**: Limit posts per archive page to 10-20
 
 **Expected Performance:**
+
 - Page load: < 1 second (cached)
 - Performance score: 85-95 (Grade A)
 - Supports 5,000-50,000+ concurrent visitors
@@ -1212,6 +1287,7 @@ Different types of sites have different performance priorities. Here are optimiz
 ### Multisite Network
 
 **Characteristics:**
+
 - Multiple WordPress sites in one installation
 - Shared plugins and themes
 - Central user management
@@ -1219,14 +1295,14 @@ Different types of sites have different performance priorities. Here are optimiz
 
 **Recommended Settings:**
 
-| Feature | Setting | Reason |
-|---------|---------|--------|
-| **Heartbeat - Admin** | 120 seconds | Network admin doesn't need real-time |
-| **Heartbeat - Post Editor** | 60 seconds | Individual site editors |
-| **Heartbeat - Frontend** | Disabled | Unless specific sites need it |
-| **Object Cache** | **Redis (required)** | Shared cache across network |
-| **Autoload Target** | < 600 KB per site | Multiply across all sites |
-| **Plugin Limit** | 20 network + 5 per site | Control plugin sprawl |
+| Feature                     | Setting                 | Reason                               |
+| --------------------------- | ----------------------- | ------------------------------------ |
+| **Heartbeat - Admin**       | 120 seconds             | Network admin doesn't need real-time |
+| **Heartbeat - Post Editor** | 60 seconds              | Individual site editors              |
+| **Heartbeat - Frontend**    | Disabled                | Unless specific sites need it        |
+| **Object Cache**            | **Redis (required)**    | Shared cache across network          |
+| **Autoload Target**         | < 600 KB per site       | Multiply across all sites            |
+| **Plugin Limit**            | 20 network + 5 per site | Control plugin sprawl                |
 
 **Multisite-Specific Optimizations:**
 
@@ -1237,6 +1313,7 @@ Different types of sites have different performance priorities. Here are optimiz
 5. **Monitor Aggregate Autoload**: Total autoload = sum of all sites
 
 **Expected Performance:**
+
 - Varies by site size and traffic
 - Network admin: < 3 seconds
 - Individual sites: Follow type-specific guidelines above
@@ -1272,19 +1349,20 @@ Final Score: 100 - (sum of deductions)
 
 **Grade Mapping:**
 
-| Score | Grade | Meaning |
-|-------|-------|---------|
-| 90-100 | A | Excellent - well-optimized site |
-| 80-89 | B | Good - minor improvements possible |
-| 70-79 | C | Fair - should optimize |
-| 60-69 | D | Poor - significant issues |
-| 0-59 | F | Critical - urgent optimization needed |
+| Score  | Grade | Meaning                               |
+| ------ | ----- | ------------------------------------- |
+| 90-100 | A     | Excellent - well-optimized site       |
+| 80-89  | B     | Good - minor improvements possible    |
+| 70-79  | C     | Fair - should optimize                |
+| 60-69  | D     | Poor - significant issues             |
+| 0-59   | F     | Critical - urgent optimization needed |
 
 ### Improving Your Performance Score
 
 #### From F to D (Score: 50 → 65)
 
 **Quick Wins:**
+
 1. Deactivate unused plugins (can gain +20 points)
 2. Disable autoload on 5-10 large options (can gain +10 points)
 3. Reduce slow queries by enabling SAVEQUERIES and investigating (can gain +5 points)
@@ -1294,6 +1372,7 @@ Final Score: 100 - (sum of deductions)
 #### From D to C (Score: 65 → 75)
 
 **Optimizations:**
+
 1. Install object cache (APCu or file-based) (+15 points)
 2. Optimize autoload to < 500 KB (+5 points)
 3. Apply Heartbeat optimizations (+indirect improvement via lower CPU usage)
@@ -1303,6 +1382,7 @@ Final Score: 100 - (sum of deductions)
 #### From C to B (Score: 75 → 85)
 
 **Enhancements:**
+
 1. Upgrade to Redis object cache if not already using (+indirect improvement via better cache hit rate)
 2. Audit plugins and replace heavy plugins with lighter alternatives (+5-10 points)
 3. Optimize all queries > 100ms (+5 points)
@@ -1312,6 +1392,7 @@ Final Score: 100 - (sum of deductions)
 #### From B to A (Score: 85 → 95)
 
 **Fine-Tuning:**
+
 1. Reduce plugin count to < 20 (+5 points)
 2. Keep autoload < 500 KB with regular audits (+5 points)
 3. Achieve 90%+ object cache hit rate (indirect improvement)
@@ -1375,26 +1456,29 @@ echo "Current Score: " . $stats['score'] . " (Grade: " . $stats['grade'] . ")";
 ### Real-World Performance Score Examples
 
 **Case Study 1: Small Blog**
+
 - **Before**: 72 (Grade C)
-  - 22 plugins, 850 KB autoload, no object cache
+    - 22 plugins, 850 KB autoload, no object cache
 - **After**: 91 (Grade A)
-  - 14 plugins, 420 KB autoload, APCu cache enabled
+    - 14 plugins, 420 KB autoload, APCu cache enabled
 - **Changes**: Removed 8 unused plugins, optimized autoload, enabled APCu
 - **Time Investment**: 2 hours
 
 **Case Study 2: WooCommerce Store**
+
 - **Before**: 58 (Grade F)
-  - 38 plugins, 1.4 MB autoload, no object cache, 150 slow queries
+    - 38 plugins, 1.4 MB autoload, no object cache, 150 slow queries
 - **After**: 81 (Grade B)
-  - 28 plugins, 780 KB autoload, Redis cache, 45 slow queries
+    - 28 plugins, 780 KB autoload, Redis cache, 45 slow queries
 - **Changes**: Consolidated WooCommerce extensions, enabled Redis, indexed database tables
 - **Time Investment**: 8 hours over 2 weeks
 
 **Case Study 3: Membership Site**
+
 - **Before**: 65 (Grade D)
-  - 31 plugins, 920 KB autoload, file cache, 80 slow queries
+    - 31 plugins, 920 KB autoload, file cache, 80 slow queries
 - **After**: 86 (Grade B)
-  - 27 plugins, 600 KB autoload, Redis cache, 35 slow queries
+    - 27 plugins, 600 KB autoload, Redis cache, 35 slow queries
 - **Changes**: Removed redundant membership features, upgraded to Redis, optimized user queries
 - **Time Investment**: 6 hours
 
@@ -1403,12 +1487,14 @@ echo "Current Score: " . $stats['score'] . " (Grade: " . $stats['grade'] . ")";
 Remember: The performance score is a guideline, not an absolute measure of site quality.
 
 **What the score DOES measure:**
+
 - Common performance issues and optimizations
 - Database and query efficiency
 - Plugin overhead
 - Cache implementation
 
 **What the score DOESN'T measure:**
+
 - Actual page load time for users
 - Server hardware quality
 - Network latency
@@ -1418,6 +1504,7 @@ Remember: The performance score is a guideline, not an absolute measure of site 
 - Mobile performance
 
 **For comprehensive performance:**
+
 1. Use WP Admin Health Suite for backend optimization
 2. Test with tools like GTmetrix, Google PageSpeed Insights for frontend
 3. Monitor real user experience with RUM (Real User Monitoring)
@@ -1438,6 +1525,7 @@ Performance optimization is an ongoing process, not a one-time task. Use this gu
 5. Schedule monthly performance audits
 
 For additional help, see:
+
 - [Getting Started Guide](./getting-started.md) - Initial setup and configuration
 - [Database Cleanup Guide](./database-cleanup.md) - Database optimization strategies
 - [Media Audit Guide](./media-audit.md) - Image and media optimization

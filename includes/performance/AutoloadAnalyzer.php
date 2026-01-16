@@ -12,6 +12,7 @@
 namespace WPAdminHealth\Performance;
 
 use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -34,19 +35,37 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
 	const LARGE_OPTION_THRESHOLD = 10240; // 10KB
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
+
+	/**
 	 * Get all autoloaded options from the database.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array of autoloaded options with details.
 	 */
-	public function get_autoloaded_options() {
-		global $wpdb;
+	public function get_autoloaded_options(): array {
+		$options_table = $this->connection->get_options_table();
 
 		// Query all options where autoload is 'yes'.
-		$results = $wpdb->get_results(
+		$results = $this->connection->get_results(
 			"SELECT option_name, option_value, autoload
-			FROM {$wpdb->options}
+			FROM {$options_table}
 			WHERE autoload = 'yes'
 			ORDER BY LENGTH(option_value) DESC",
 			ARRAY_A
@@ -81,13 +100,13 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
  *
 	 * @return array Array with total size and count of autoloaded options.
 	 */
-	public function get_autoload_size() {
-		global $wpdb;
+	public function get_autoload_size(): array {
+		$options_table = $this->connection->get_options_table();
 
 		// Get total size and count of autoloaded options.
-		$result = $wpdb->get_row(
+		$result = $this->connection->get_row(
 			"SELECT COUNT(*) as count, SUM(LENGTH(option_value)) as total_size
-			FROM {$wpdb->options}
+			FROM {$options_table}
 			WHERE autoload = 'yes'",
 			ARRAY_A
 		);
@@ -113,7 +132,7 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
 	 * @param int $threshold Size threshold in bytes (default: 10KB).
 	 * @return array Array of large autoloaded options.
 	 */
-	public function find_large_autoloads( $threshold = null ) {
+	public function find_large_autoloads( ?int $threshold = null ): array {
 		if ( null === $threshold ) {
 			$threshold = self::LARGE_OPTION_THRESHOLD;
 		}
@@ -142,7 +161,7 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
  *
 	 * @return array Array of recommendations with option details and suggested actions.
 	 */
-	public function recommend_autoload_changes() {
+	public function recommend_autoload_changes(): array {
 		$recommendations = array();
 		$large_options = $this->find_large_autoloads();
 		$autoload_stats = $this->get_autoload_size();
@@ -236,9 +255,9 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
  *
 	 * @param string $option_name The name of the option to change.
 	 * @param string $new_autoload New autoload value ('yes' or 'no').
-	 * @return bool|array True on success, array with error details on failure.
+	 * @return array Result array with success status and message.
 	 */
-	public function change_autoload_status( $option_name, $new_autoload ) {
+	public function change_autoload_status( string $option_name, string $new_autoload ): array {
 		// Validate autoload value.
 		if ( ! in_array( $new_autoload, array( 'yes', 'no' ), true ) ) {
 			return array(
@@ -257,11 +276,11 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
 			);
 		}
 
-		global $wpdb;
+		$options_table = $this->connection->get_options_table();
 
 		// Update the autoload field directly in the database.
-		$result = $wpdb->update(
-			$wpdb->options,
+		$result = $this->connection->update(
+			$options_table,
 			array( 'autoload' => $new_autoload ),
 			array( 'option_name' => $option_name ),
 			array( '%s' ),
@@ -298,31 +317,97 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
 	private function detect_option_source( $option_name ) {
 		// WordPress core options.
 		$core_options = array(
-			'siteurl', 'home', 'blogname', 'blogdescription', 'users_can_register',
-			'admin_email', 'start_of_week', 'use_balanceTags', 'use_smilies',
-			'require_name_email', 'comments_notify', 'posts_per_rss', 'rss_use_excerpt',
-			'mailserver_url', 'mailserver_login', 'mailserver_pass', 'mailserver_port',
-			'default_category', 'default_comment_status', 'default_ping_status',
-			'default_pingback_flag', 'posts_per_page', 'date_format', 'time_format',
-			'links_updated_date_format', 'comment_moderation', 'moderation_notify',
-			'permalink_structure', 'rewrite_rules', 'hack_file', 'upload_path',
-			'blog_public', 'default_link_category', 'show_on_front', 'tag_base',
-			'show_avatars', 'avatar_rating', 'upload_url_path', 'thumbnail_size_w',
-			'thumbnail_size_h', 'thumbnail_crop', 'medium_size_w', 'medium_size_h',
-			'avatar_default', 'large_size_w', 'large_size_h', 'image_default_link_type',
-			'image_default_size', 'image_default_align', 'close_comments_for_old_posts',
-			'close_comments_days_old', 'thread_comments', 'thread_comments_depth',
-			'page_comments', 'comments_per_page', 'default_comments_page',
-			'comment_order', 'sticky_posts', 'widget_categories', 'widget_text',
-			'widget_rss', 'uninstall_plugins', 'timezone_string', 'page_for_posts',
-			'page_on_front', 'default_post_format', 'link_manager_enabled',
-			'finished_splitting_shared_terms', 'site_icon', 'medium_large_size_w',
-			'medium_large_size_h', 'wp_page_for_privacy_policy', 'show_comments_cookies_opt_in',
-			'admin_email_lifespan', 'disallowed_keys', 'comment_previously_approved',
-			'auto_plugin_theme_update_emails', 'auto_update_core_dev', 'auto_update_core_minor',
-			'auto_update_core_major', 'wp_force_deactivated_plugins', 'initial_db_version',
-			'db_version', 'db_upgraded', 'can_compress_scripts', 'recently_activated',
-			'template', 'stylesheet', 'cron', 'active_plugins', 'category_base',
+			'siteurl',
+			'home',
+			'blogname',
+			'blogdescription',
+			'users_can_register',
+			'admin_email',
+			'start_of_week',
+			'use_balanceTags',
+			'use_smilies',
+			'require_name_email',
+			'comments_notify',
+			'posts_per_rss',
+			'rss_use_excerpt',
+			'mailserver_url',
+			'mailserver_login',
+			'mailserver_pass',
+			'mailserver_port',
+			'default_category',
+			'default_comment_status',
+			'default_ping_status',
+			'default_pingback_flag',
+			'posts_per_page',
+			'date_format',
+			'time_format',
+			'links_updated_date_format',
+			'comment_moderation',
+			'moderation_notify',
+			'permalink_structure',
+			'rewrite_rules',
+			'hack_file',
+			'upload_path',
+			'blog_public',
+			'default_link_category',
+			'show_on_front',
+			'tag_base',
+			'show_avatars',
+			'avatar_rating',
+			'upload_url_path',
+			'thumbnail_size_w',
+			'thumbnail_size_h',
+			'thumbnail_crop',
+			'medium_size_w',
+			'medium_size_h',
+			'avatar_default',
+			'large_size_w',
+			'large_size_h',
+			'image_default_link_type',
+			'image_default_size',
+			'image_default_align',
+			'close_comments_for_old_posts',
+			'close_comments_days_old',
+			'thread_comments',
+			'thread_comments_depth',
+			'page_comments',
+			'comments_per_page',
+			'default_comments_page',
+			'comment_order',
+			'sticky_posts',
+			'widget_categories',
+			'widget_text',
+			'widget_rss',
+			'uninstall_plugins',
+			'timezone_string',
+			'page_for_posts',
+			'page_on_front',
+			'default_post_format',
+			'link_manager_enabled',
+			'finished_splitting_shared_terms',
+			'site_icon',
+			'medium_large_size_w',
+			'medium_large_size_h',
+			'wp_page_for_privacy_policy',
+			'show_comments_cookies_opt_in',
+			'admin_email_lifespan',
+			'disallowed_keys',
+			'comment_previously_approved',
+			'auto_plugin_theme_update_emails',
+			'auto_update_core_dev',
+			'auto_update_core_minor',
+			'auto_update_core_major',
+			'wp_force_deactivated_plugins',
+			'initial_db_version',
+			'db_version',
+			'db_upgraded',
+			'can_compress_scripts',
+			'recently_activated',
+			'template',
+			'stylesheet',
+			'cron',
+			'active_plugins',
+			'category_base',
 		);
 
 		if ( in_array( $option_name, $core_options, true ) ) {

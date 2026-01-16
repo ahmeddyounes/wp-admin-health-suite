@@ -14,23 +14,25 @@ This directory contains the PHPUnit test suite for the WP Admin Health Suite plu
 ### Installation
 
 1. Install Composer dependencies:
-   ```bash
-   composer install
-   ```
+
+    ```bash
+    composer install
+    ```
 
 2. Set up the WordPress test environment:
-   ```bash
-   bash bin/install-wp-tests.sh wordpress_test root '' localhost latest
-   ```
 
-   **Parameters:**
-   - `wordpress_test` - Database name for tests (will be created)
-   - `root` - MySQL username
-   - `''` - MySQL password (empty in this example)
-   - `localhost` - MySQL host
-   - `latest` - WordPress version (or specify version like `6.4`)
+    ```bash
+    bash bin/install-wp-tests.sh wordpress_test root '' localhost latest
+    ```
 
-   **Note:** The test database will be reset each time tests run, so use a dedicated test database.
+    **Parameters:**
+    - `wordpress_test` - Database name for tests (will be created)
+    - `root` - MySQL username
+    - `''` - MySQL password (empty in this example)
+    - `localhost` - MySQL host
+    - `latest` - WordPress version (or specify version like `6.4`)
+
+    **Note:** The test database will be reset each time tests run, so use a dedicated test database.
 
 ### Environment Variables
 
@@ -42,6 +44,7 @@ You can customize the test environment using these environment variables:
 ## Running Tests
 
 ### Run all tests:
+
 ```bash
 composer test
 ```
@@ -53,11 +56,13 @@ vendor/bin/phpunit
 ```
 
 ### Run specific test file:
+
 ```bash
 vendor/bin/phpunit tests/unit/test-sample.php
 ```
 
 ### Run tests with coverage:
+
 ```bash
 vendor/bin/phpunit --coverage-html coverage
 ```
@@ -101,6 +106,7 @@ class Test_My_Feature extends Test_Case {
 The test suite includes custom factories with helpful methods:
 
 #### Post Factory
+
 ```php
 // Create a post with revisions
 $post_id = $this->create_test_post();
@@ -111,6 +117,7 @@ $post_ids = $this->factory()->post->create_many_posts(10);
 ```
 
 #### Attachment Factory
+
 ```php
 // Create an image attachment
 $attachment_id = $this->create_test_attachment();
@@ -123,6 +130,7 @@ $this->factory()->attachment->create_orphaned();
 ```
 
 #### Comment Factory
+
 ```php
 // Create comments for a post
 $comment_ids = $this->factory()->comment->create_many_for_post($post_id, 5);
@@ -149,6 +157,7 @@ $this->assertHookHasCallback('init', 'my_callback_function');
 ## Test Database
 
 The test suite uses an isolated test database that is:
+
 - Created automatically by the install script
 - Completely separate from your development/production databases
 - Reset between test runs
@@ -171,6 +180,7 @@ This test suite is designed to work with CI/CD pipelines. Example GitHub Actions
 ### "WordPress test suite not found"
 
 Run the install script:
+
 ```bash
 bash bin/install-wp-tests.sh wordpress_test root '' localhost latest
 ```
@@ -182,6 +192,7 @@ Check your database credentials and ensure MySQL/MariaDB is running.
 ### Permission errors
 
 Ensure the test directories are writable:
+
 ```bash
 chmod -R 755 tests/
 ```

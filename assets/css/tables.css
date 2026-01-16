@@ -74,7 +74,9 @@
 	user-select: none;
 	position: relative;
 	padding-right: 32px;
-	transition: background-color 0.2s ease, color 0.2s ease;
+	transition:
+		background-color 0.2s ease,
+		color 0.2s ease;
 }
 
 .wpha-data-table th.sortable:hover {
@@ -99,7 +101,9 @@
 	border-left: 4px solid transparent;
 	border-right: 4px solid transparent;
 	opacity: 0.3;
-	transition: opacity 0.2s ease, transform 0.2s ease;
+	transition:
+		opacity 0.2s ease,
+		transform 0.2s ease;
 }
 
 /* Default sort indicator (neutral) */
@@ -195,7 +199,9 @@
 	cursor: pointer;
 	padding: 0;
 	color: var(--wpha-color-text-secondary, #646970);
-	transition: transform 0.2s ease, color 0.2s ease;
+	transition:
+		transform 0.2s ease,
+		color 0.2s ease;
 }
 
 .wpha-expand-toggle:hover {
@@ -253,7 +259,10 @@ tr.expanded .wpha-expand-toggle {
 	transform: translateY(100%);
 	opacity: 0;
 	visibility: hidden;
-	transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+	transition:
+		transform 0.3s ease,
+		opacity 0.3s ease,
+		visibility 0.3s ease;
 }
 
 .wpha-bulk-actions-bar.active {
@@ -713,7 +722,9 @@ tr.expanded .wpha-expand-toggle {
 		padding: 0;
 	}
 
-	.wpha-data-table-wrapper.card-mode .wpha-data-table td.column-checkbox::before {
+	.wpha-data-table-wrapper.card-mode
+		.wpha-data-table
+		td.column-checkbox::before {
 		display: none;
 	}
 

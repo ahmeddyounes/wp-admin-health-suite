@@ -14,6 +14,7 @@ use WPAdminHealth\Contracts\TransientsCleanerInterface;
 use WPAdminHealth\Contracts\TrashCleanerInterface;
 use WPAdminHealth\Contracts\RevisionsManagerInterface;
 use WPAdminHealth\Contracts\OptimizerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -70,26 +71,37 @@ class OneClickFix {
 	private OptimizerInterface $optimizer;
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.0.0
 	 * @since 1.2.0 Updated to use dependency injection.
+	 * @since 1.3.0 Added ConnectionInterface parameter.
 	 *
 	 * @param TransientsCleanerInterface  $transients_cleaner Transients cleaner instance.
 	 * @param TrashCleanerInterface       $trash_cleaner      Trash cleaner instance.
 	 * @param RevisionsManagerInterface   $revisions_manager  Revisions manager instance.
 	 * @param OptimizerInterface          $optimizer          Optimizer instance.
+	 * @param ConnectionInterface         $connection         Database connection.
 	 */
 	public function __construct(
 		TransientsCleanerInterface $transients_cleaner,
 		TrashCleanerInterface $trash_cleaner,
 		RevisionsManagerInterface $revisions_manager,
-		OptimizerInterface $optimizer
+		OptimizerInterface $optimizer,
+		ConnectionInterface $connection
 	) {
 		$this->transients_cleaner = $transients_cleaner;
 		$this->trash_cleaner      = $trash_cleaner;
 		$this->revisions_manager  = $revisions_manager;
 		$this->optimizer          = $optimizer;
+		$this->connection         = $connection;
 	}
 
 	/**
@@ -225,7 +237,7 @@ class OneClickFix {
 		$is_safe    = false;
 
 		foreach ( $safe_fixes as $fix ) {
-			if ( $fix['id'] === $recommendation_id && $fix['safe'] === true ) {
+			if ( $recommendation_id === $fix['id'] && true === $fix['safe'] ) {
 				$is_safe = true;
 				break;
 			}
@@ -599,18 +611,21 @@ class OneClickFix {
 	 * @return int Count of old spam comments.
 	 */
 	private function get_old_spam_comments_count( $days ) {
-		global $wpdb;
-
 		$date_threshold = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
+		$comments_table = $this->connection->get_comments_table();
 
-		$count = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->comments}
-				WHERE comment_approved = 'spam'
-				AND comment_date < %s",
-				$date_threshold
-			)
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$comments_table}
+			WHERE comment_approved = 'spam'
+			AND comment_date < %s",
+			$date_threshold
 		);
+
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$count = $this->connection->get_var( $query );
 
 		return absint( $count );
 	}
@@ -622,27 +637,27 @@ class OneClickFix {
 	 * @return int Count of excess revisions.
 	 */
 	private function get_excess_revisions_count( $keep_per_post ) {
-		global $wpdb;
-
 		// Sanitize input to prevent SQL injection.
 		$keep_per_post = absint( $keep_per_post );
+		$posts_table   = $this->connection->get_posts_table();
 
 		// Get all posts with revisions.
-		// Note: HAVING clause uses a sanitized integer value.
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $keep_per_post is sanitized with absint().
-		$posts_with_revisions = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT post_parent, COUNT(*) as revision_count
-				FROM {$wpdb->posts}
-				WHERE post_type = %s
-				AND post_parent > 0
-				GROUP BY post_parent
-				HAVING revision_count > %d",
-				'revision',
-				$keep_per_post
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT post_parent, COUNT(*) as revision_count
+			FROM {$posts_table}
+			WHERE post_type = %s
+			AND post_parent > 0
+			GROUP BY post_parent
+			HAVING revision_count > %d",
+			'revision',
+			$keep_per_post
 		);
+
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$posts_with_revisions = $this->connection->get_results( $query, ARRAY_A );
 
 		if ( empty( $posts_with_revisions ) ) {
 			return 0;
@@ -683,14 +698,12 @@ class OneClickFix {
 	 * @return bool True on success, false on failure.
 	 */
 	private function log_activity( $action_type, $data ) {
-		global $wpdb;
-
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
+		$table_name = $this->connection->get_prefix() . 'wpha_scan_history';
 
 		$items_affected = isset( $data['items_affected'] ) ? absint( $data['items_affected'] ) : 0;
 		$bytes_freed    = isset( $data['bytes_freed'] ) ? absint( $data['bytes_freed'] ) : 0;
 
-		$result = $wpdb->insert(
+		$result = $this->connection->insert(
 			$table_name,
 			array(
 				'scan_type'     => sanitize_text_field( 'one_click_fix_' . $action_type ),

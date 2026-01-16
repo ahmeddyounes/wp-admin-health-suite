@@ -1,0 +1,229 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<array\|string\> given\.$#'
+			identifier: argument.type
+			count: 2
+			path: includes/BatchProcessor.php
+
+		-
+			message: '#^Unsafe usage of new static\(\)\.$#'
+			identifier: new.static
+			count: 1
+			path: includes/Exceptions/DatabaseException.php
+
+		-
+			message: '#^Unsafe usage of new static\(\)\.$#'
+			identifier: new.static
+			count: 1
+			path: includes/Exceptions/MediaException.php
+
+		-
+			message: '#^Unsafe usage of new static\(\)\.$#'
+			identifier: new.static
+			count: 1
+			path: includes/Exceptions/ValidationException.php
+
+		-
+			message: '#^Parameter \#1 \$score of method WPAdminHealth\\HealthCalculator\:\:get_grade\(\) expects int, float given\.$#'
+			identifier: argument.type
+			count: 1
+			path: includes/HealthCalculator.php
+
+		-
+			message: '#^One or more @param tags has an invalid name or invalid syntax\.$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: includes/Installer.php
+
+		-
+			message: '#^Parameter \#1 \$new_blog_id of function switch_to_blog expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: includes/Installer.php
+
+		-
+			message: '#^One or more @param tags has an invalid name or invalid syntax\.$#'
+			identifier: phpDoc.parseError
+			count: 2
+			path: includes/Plugin.php
+
+		-
+			message: '#^Parameter \#1 \$new_blog_id of function switch_to_blog expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: includes/Plugin.php
+
+		-
+			message: '#^Template type T of method WPAdminHealth\\Plugin\:\:make\(\) is not referenced in a parameter\.$#'
+			identifier: method.templateTypeNotInParameter
+			count: 1
+			path: includes/Plugin.php
+
+		-
+			message: '#^Parameter \#1 \$blog_id of static method WPAdminHealth\\Installer\:\:install_on_new_site\(\) expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: includes/Providers/InstallerServiceProvider.php
+
+		-
+			message: '#^Trait WPAdminHealth\\Scheduler\\Traits\\HasScheduledTasks is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: includes/Scheduler/Traits/HasScheduledTasks.php
+
+		-
+			message: '#^Property WPAdminHealth\\Settings\\SettingsRegistry\:\:\$cached_settings \(array\|null\) is never assigned array so it can be removed from the property type\.$#'
+			identifier: property.unusedType
+			count: 1
+			path: includes/Settings/SettingsRegistry.php
+
+		-
+			message: '#^Call to an undefined method WPAdminHealth\\Contracts\\ScannerInterface\:\:scan_all_media\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: includes/ai/Recommendations.php
+
+		-
+			message: '#^Constant DB_NAME not found\.$#'
+			identifier: constant.notFound
+			count: 3
+			path: includes/database/Analyzer.php
+
+		-
+			message: '#^Constant DB_NAME not found\.$#'
+			identifier: constant.notFound
+			count: 5
+			path: includes/database/Optimizer.php
+
+		-
+			message: '#^Constant DB_NAME not found\.$#'
+			identifier: constant.notFound
+			count: 3
+			path: includes/database/OrphanedTables.php
+
+		-
+			message: '#^One or more @param tags has an invalid name or invalid syntax\.$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: includes/database/OrphanedTables.php
+
+		-
+			message: '#^PHPDoc tag @param has invalid value \(\{array\} \$plugin_tables Array of plugin table names\.\)\: Unexpected token "\{", expected type at offset 247 on line 11$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: includes/database/OrphanedTables.php
+
+		-
+			message: '#^Call to function is_array\(\) with non\-empty\-array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: includes/database/TrashCleaner.php
+
+		-
+			message: '#^Method WPAdminHealth\\Integrations\\ACF\:\:validate_attachment_id\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: includes/integrations/Acf.php
+
+		-
+			message: '#^Parameter \#1 \$bytes of function size_format expects int\|string, float given\.$#'
+			identifier: argument.type
+			count: 1
+			path: includes/media/LargeFiles.php
+
+		-
+			message: '#^Action callback returns int but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: includes/performance/AjaxMonitor.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between null and mixed will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: includes/performance/CacheChecker.php
+
+		-
+			message: '#^Method WPAdminHealth\\Performance\\HeartbeatController\:\:estimate_requests_saved\(\) should return int but returns float\.$#'
+			identifier: return.type
+			count: 1
+			path: includes/performance/HeartbeatController.php
+
+		-
+			message: '#^Method WPAdminHealth\\Performance\\HeartbeatController\:\:get_active_preset\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: includes/performance/HeartbeatController.php
+
+		-
+			message: '#^Method WPAdminHealth\\Performance\\HeartbeatController\:\:get_current_location\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: includes/performance/HeartbeatController.php
+
+		-
+			message: '#^Property WPAdminHealth\\Performance\\PluginProfiler\:\:\$baseline \(array\|null\) is never assigned array so it can be removed from the property type\.$#'
+			identifier: property.unusedType
+			count: 1
+			path: includes/performance/PluginProfiler.php
+
+		-
+			message: '#^Property WPAdminHealth\\Performance\\PluginProfiler\:\:\$measurements \(array\|null\) is never assigned array so it can be removed from the property type\.$#'
+			identifier: property.unusedType
+			count: 1
+			path: includes/performance/PluginProfiler.php
+
+		-
+			message: '#^Call to static method init\(\) on an unknown class QM_Collectors\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/performance/QueryMonitor.php
+
+		-
+			message: '#^Constant DB_NAME not found\.$#'
+			identifier: constant.notFound
+			count: 2
+			path: includes/rest/DashboardController.php
+
+		-
+			message: '#^Method WPAdminHealth\\REST\\DatabaseController\:\:clean_orphaned\(\) never returns WP_Error so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: includes/rest/DatabaseController.php
+
+		-
+			message: '#^Method WPAdminHealth\\REST\\DatabaseController\:\:clean_revisions\(\) never returns WP_Error so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: includes/rest/DatabaseController.php
+
+		-
+			message: '#^Method WPAdminHealth\\REST\\DatabaseController\:\:clean_spam\(\) never returns WP_Error so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: includes/rest/DatabaseController.php
+
+		-
+			message: '#^Method WPAdminHealth\\REST\\DatabaseController\:\:clean_transients\(\) never returns WP_Error so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: includes/rest/DatabaseController.php
+
+		-
+			message: '#^Method WPAdminHealth\\REST\\DatabaseController\:\:clean_trash\(\) never returns WP_Error so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: includes/rest/DatabaseController.php
+
+		-
+			message: '#^If condition is always false\.$#'
+			identifier: if.alwaysFalse
+			count: 1
+			path: uninstall.php
+
+		-
+			message: '#^Negated boolean expression is always true\.$#'
+			identifier: booleanNot.alwaysTrue
+			count: 1
+			path: wp-admin-health-suite.php

@@ -67,7 +67,7 @@ When you activate WP Admin Health Suite, the plugin automatically:
 - Adds the "Admin Health" menu to your WordPress admin sidebar
 
 ![Screenshot: Successful activation notice](./screenshots/activation-success.png)
-*Screenshot: You'll see this success message after activation*
+_Screenshot: You'll see this success message after activation_
 
 ---
 
@@ -78,9 +78,10 @@ When you activate WP Admin Health Suite, the plugin automatically:
 After activating the plugin, you'll see a welcome notice at the top of your WordPress admin:
 
 ![Screenshot: Welcome notice](./screenshots/welcome-notice.png)
-*Screenshot: Welcome notice with quick start options*
+_Screenshot: Welcome notice with quick start options_
 
 The welcome notice provides quick links to:
+
 - View your initial health score
 - Run your first database scan
 - Configure settings
@@ -95,7 +96,7 @@ Once activated, you can access WP Admin Health Suite from:
 3. **Dashboard Widget:** (Optional) Health overview on your WordPress Dashboard
 
 ![Screenshot: Admin menu location](./screenshots/admin-menu.png)
-*Screenshot: Admin Health menu in the WordPress sidebar*
+_Screenshot: Admin Health menu in the WordPress sidebar_
 
 ### Initial Configuration (Optional)
 
@@ -104,9 +105,9 @@ While WP Admin Health Suite works great with default settings, you may want to c
 1. Navigate to **Admin Health > Settings**
 2. Click on the **General** tab
 3. Configure these optional settings:
-   - **Notification Email:** Enter your email to receive health alerts
-   - **Enable Dashboard Widget:** Show health overview on WordPress Dashboard
-   - **Show Admin Bar Menu:** Quick access from the admin bar
+    - **Notification Email:** Enter your email to receive health alerts
+    - **Enable Dashboard Widget:** Show health overview on WordPress Dashboard
+    - **Show Admin Bar Menu:** Quick access from the admin bar
 4. Click **Save Settings** at the bottom
 
 The plugin is now ready to use!
@@ -124,32 +125,36 @@ Let's assess your site's current health status:
 3. Wait a few seconds while the plugin analyzes your site
 
 ![Screenshot: Dashboard loading](./screenshots/dashboard-loading.png)
-*Screenshot: Health score calculation in progress*
+_Screenshot: Health score calculation in progress_
 
 ### Understanding the Dashboard
 
 Once the scan completes, you'll see:
 
 ![Screenshot: Complete dashboard](./screenshots/dashboard-complete.png)
-*Screenshot: Main dashboard with health score and metrics*
+_Screenshot: Main dashboard with health score and metrics_
 
 **Health Score Circle:**
+
 - Large circular indicator showing your overall score (0-100)
 - Color-coded: Green (80+), Yellow (60-79), Red (0-59)
 - Letter grade: A, B, C, D, or F
 
 **Key Metrics Cards:**
+
 1. **Database Size:** Total size of your WordPress database
 2. **Media Files:** Number of files in your media library
 3. **Active Plugins:** Count of currently active plugins
 4. **Last Cleanup:** Timestamp of most recent maintenance
 
 **Recent Activity:**
+
 - Shows recent cleanup operations
 - Displays items cleaned and space freed
 - Provides audit trail of changes
 
 **AI Recommendations:**
+
 - Automatically generated suggestions based on your site's health
 - Prioritized by impact
 - Actionable steps to improve your score
@@ -161,27 +166,29 @@ Now let's see what can be cleaned up:
 1. Navigate to **Admin Health > Database Health**
 2. The page automatically scans your database
 3. Review the "Overview Cards" showing:
-   - Total database size
-   - Number of tables
-   - Potential space savings
+    - Total database size
+    - Number of tables
+    - Potential space savings
 
 ![Screenshot: Database Health overview](./screenshots/database-overview.png)
-*Screenshot: Database Health page with overview metrics*
+_Screenshot: Database Health page with overview metrics_
 
 ### Reviewing Cleanup Opportunities
 
 Scroll down to see the cleanup modules:
 
 ![Screenshot: Cleanup modules](./screenshots/cleanup-modules.png)
-*Screenshot: Accordion-style cleanup modules*
+_Screenshot: Accordion-style cleanup modules_
 
 Each module shows:
+
 - **Items Found:** Number of items that can be cleaned
 - **Potential Savings:** Estimated space to be freed
 - **Last Run:** When this cleanup was last performed
 - **Actions:** Preview and Clean buttons
 
 **Available Cleanup Modules:**
+
 1. **Post Revisions:** Old versions of posts and pages
 2. **Auto-Drafts:** Automatically saved drafts
 3. **Trashed Posts:** Posts in trash older than configured retention
@@ -209,12 +216,14 @@ Overall Score = (Database Health × 25%) + (Media Health × 20%) +
 #### 1. Database Bloat (25% weight)
 
 Examines database cleanliness:
+
 - Trashed posts and pages
 - Spam comments
 - Orphaned metadata (data from deleted plugins/posts)
 - Auto-draft posts
 
 **What affects this score:**
+
 - More than 100 trashed posts: Score decreases
 - More than 50 spam comments: Score decreases
 - Orphaned metadata present: Score decreases
@@ -223,21 +232,25 @@ Examines database cleanliness:
 #### 2. Unused Media (20% weight)
 
 Analyzes media library efficiency:
+
 - Unattached media files (not used in posts/pages)
 - Total media count vs. usage
 
 **What affects this score:**
+
 - More than 20% unattached media: Score decreases
 - Large number of unused files: Score decreases
 
 #### 3. Plugin Performance (25% weight)
 
 Evaluates plugin health:
+
 - Number of active plugins
 - Number of inactive plugins
 - Total plugin count
 
 **What affects this score:**
+
 - More than 20 active plugins: Score decreases
 - More than 5 inactive plugins: Score decreases
 - Total plugins exceeding 30: Score decreases
@@ -245,32 +258,36 @@ Evaluates plugin health:
 #### 4. Revision Count (15% weight)
 
 Checks post revision efficiency:
+
 - Average revisions per post
 - Total revision count
 
 **What affects this score:**
+
 - More than 5 revisions per post on average: Score decreases
 - Total revisions exceeding 500: Score decreases
 
 #### 5. Transient Bloat (15% weight)
 
 Monitors WordPress cache:
+
 - Total transients (temporary cache entries)
 - Expired transients still in database
 
 **What affects this score:**
+
 - More than 200 total transients: Score decreases
 - More than 50 expired transients: Score decreases
 
 ### Score Grades and What They Mean
 
-| Grade | Score Range | Status | What to Do |
-|-------|-------------|--------|------------|
-| **A** | 90-100 | Excellent | Your site is in great shape! Maintain current practices. |
-| **B** | 80-89 | Good | Solid health. Consider minor optimizations. |
-| **C** | 70-79 | Fair | Some issues present. Follow recommendations. |
-| **D** | 60-69 | Poor | Attention needed. Perform suggested cleanups. |
-| **F** | 0-59 | Critical | Immediate action required. Start with Quick Wins. |
+| Grade | Score Range | Status    | What to Do                                               |
+| ----- | ----------- | --------- | -------------------------------------------------------- |
+| **A** | 90-100      | Excellent | Your site is in great shape! Maintain current practices. |
+| **B** | 80-89       | Good      | Solid health. Consider minor optimizations.              |
+| **C** | 70-79       | Fair      | Some issues present. Follow recommendations.             |
+| **D** | 60-69       | Poor      | Attention needed. Perform suggested cleanups.            |
+| **F** | 0-59        | Critical  | Immediate action required. Start with Quick Wins.        |
 
 ### Score Caching
 
@@ -398,98 +415,100 @@ These are the best settings for most WordPress sites. Adjust based on your speci
 
 Navigate to **Admin Health > Settings > General**:
 
-| Setting | Recommended Value | Why |
-|---------|-------------------|-----|
-| Health Score Cache Duration | 1 hour | Balances performance and freshness |
-| Enable Dashboard Widget | Enabled | Quick visibility into site health |
-| Show Admin Bar Menu | Enabled | Easy access to health tools |
-| Notification Email | Your email | Get alerts about issues |
-| Enable Logging | Enabled | Maintain audit trail |
-| Log Retention Days | 30 days | Keep sufficient history without bloat |
-| Delete Data on Uninstall | Disabled | Preserve data if you reinstall |
-| Health Score Threshold | 70 | Get notified when score drops below "Fair" |
+| Setting                     | Recommended Value | Why                                        |
+| --------------------------- | ----------------- | ------------------------------------------ |
+| Health Score Cache Duration | 1 hour            | Balances performance and freshness         |
+| Enable Dashboard Widget     | Enabled           | Quick visibility into site health          |
+| Show Admin Bar Menu         | Enabled           | Easy access to health tools                |
+| Notification Email          | Your email        | Get alerts about issues                    |
+| Enable Logging              | Enabled           | Maintain audit trail                       |
+| Log Retention Days          | 30 days           | Keep sufficient history without bloat      |
+| Delete Data on Uninstall    | Disabled          | Preserve data if you reinstall             |
+| Health Score Threshold      | 70                | Get notified when score drops below "Fair" |
 
 ### Database Cleanup Settings
 
 Navigate to **Admin Health > Settings > Database Cleanup**:
 
-| Setting | Recommended Value | Why |
-|---------|-------------------|-----|
-| Clean Post Revisions | Enabled | Prevent revision bloat |
-| Revisions to Keep | 5-10 | Balance history with database size |
-| Clean Auto-Drafts | Enabled | Remove unnecessary drafts |
-| Clean Trashed Posts | Enabled | Automatically clean old trash |
-| Auto Clean Trash | 30 days | Standard WordPress retention |
-| Clean Spam Comments | Enabled | Remove spam automatically |
-| Auto Clean Spam Comments | 7 days | Quick removal of spam |
-| Clean Expired Transients | Enabled | Essential for cache health |
-| Clean Orphaned Metadata | Enabled | Remove leftover database entries |
-| Optimize Tables Weekly | Enabled | Maintain database performance |
+| Setting                  | Recommended Value | Why                                |
+| ------------------------ | ----------------- | ---------------------------------- |
+| Clean Post Revisions     | Enabled           | Prevent revision bloat             |
+| Revisions to Keep        | 5-10              | Balance history with database size |
+| Clean Auto-Drafts        | Enabled           | Remove unnecessary drafts          |
+| Clean Trashed Posts      | Enabled           | Automatically clean old trash      |
+| Auto Clean Trash         | 30 days           | Standard WordPress retention       |
+| Clean Spam Comments      | Enabled           | Remove spam automatically          |
+| Auto Clean Spam Comments | 7 days            | Quick removal of spam              |
+| Clean Expired Transients | Enabled           | Essential for cache health         |
+| Clean Orphaned Metadata  | Enabled           | Remove leftover database entries   |
+| Optimize Tables Weekly   | Enabled           | Maintain database performance      |
 
 ### Media Audit Settings
 
 Navigate to **Admin Health > Settings > Media Audit**:
 
-| Setting | Recommended Value | Why |
-|---------|-------------------|-----|
-| Scan for Unused Media | Enabled | Identify optimization opportunities |
-| Media Retention Days | 90 days | Safety buffer before marking unused |
-| Unused Media Scan Depth | All Content | Thorough detection |
-| Large File Threshold | 1000 KB (1 MB) | Identify files that should be optimized |
-| Duplicate Detection Method | Hash | Most accurate detection |
-| Media Trash Retention | 30 days | Time to recover if needed |
-| Scan ACF Fields | Enabled (if using ACF) | Check Advanced Custom Fields |
-| Scan Elementor | Enabled (if using Elementor) | Check page builder content |
-| Scan WooCommerce | Enabled (if using WooCommerce) | Check product images |
+| Setting                    | Recommended Value              | Why                                     |
+| -------------------------- | ------------------------------ | --------------------------------------- |
+| Scan for Unused Media      | Enabled                        | Identify optimization opportunities     |
+| Media Retention Days       | 90 days                        | Safety buffer before marking unused     |
+| Unused Media Scan Depth    | All Content                    | Thorough detection                      |
+| Large File Threshold       | 1000 KB (1 MB)                 | Identify files that should be optimized |
+| Duplicate Detection Method | Hash                           | Most accurate detection                 |
+| Media Trash Retention      | 30 days                        | Time to recover if needed               |
+| Scan ACF Fields            | Enabled (if using ACF)         | Check Advanced Custom Fields            |
+| Scan Elementor             | Enabled (if using Elementor)   | Check page builder content              |
+| Scan WooCommerce           | Enabled (if using WooCommerce) | Check product images                    |
 
 ### Performance Settings
 
 Navigate to **Admin Health > Settings > Performance**:
 
-| Setting | Recommended Value | Why |
-|---------|-------------------|-----|
-| Enable Query Monitoring | Enabled | Identify slow queries |
-| Slow Query Threshold | 500 ms | Catch performance issues |
-| Enable AJAX Monitoring | Enabled | Track async requests |
-| Heartbeat Admin Frequency | 60 seconds | Standard interval |
-| Heartbeat Editor Frequency | 15 seconds | Good for collaborative editing |
-| Enable Heartbeat on Frontend | Disabled | Reduce server load for visitors |
-| Query Logging Enabled | Enabled | Debugging capability |
-| Plugin Profiling Enabled | Enabled | Identify slow plugins |
+| Setting                      | Recommended Value | Why                             |
+| ---------------------------- | ----------------- | ------------------------------- |
+| Enable Query Monitoring      | Enabled           | Identify slow queries           |
+| Slow Query Threshold         | 500 ms            | Catch performance issues        |
+| Enable AJAX Monitoring       | Enabled           | Track async requests            |
+| Heartbeat Admin Frequency    | 60 seconds        | Standard interval               |
+| Heartbeat Editor Frequency   | 15 seconds        | Good for collaborative editing  |
+| Enable Heartbeat on Frontend | Disabled          | Reduce server load for visitors |
+| Query Logging Enabled        | Enabled           | Debugging capability            |
+| Plugin Profiling Enabled     | Enabled           | Identify slow plugins           |
 
 ### Scheduling Settings
 
 Navigate to **Admin Health > Settings > Scheduling**:
 
-| Setting | Recommended Value | Why |
-|---------|-------------------|-----|
-| Enable Scheduler | Enabled | Automated maintenance |
-| Database Cleanup Frequency | Weekly | Regular maintenance without overhead |
-| Media Scan Frequency | Monthly | Balance freshness and performance |
-| Performance Check Frequency | Weekly | Regular monitoring |
-| Preferred Time | 2:00 AM | Low-traffic hours (adjust for your timezone) |
-| Notification on Completion | Enabled | Stay informed |
+| Setting                     | Recommended Value | Why                                          |
+| --------------------------- | ----------------- | -------------------------------------------- |
+| Enable Scheduler            | Enabled           | Automated maintenance                        |
+| Database Cleanup Frequency  | Weekly            | Regular maintenance without overhead         |
+| Media Scan Frequency        | Monthly           | Balance freshness and performance            |
+| Performance Check Frequency | Weekly            | Regular monitoring                           |
+| Preferred Time              | 2:00 AM           | Low-traffic hours (adjust for your timezone) |
+| Notification on Completion  | Enabled           | Stay informed                                |
 
 ### Advanced Settings
 
 Navigate to **Admin Health > Settings > Advanced**:
 
-| Setting | Recommended Value | Why |
-|---------|-------------------|-----|
-| Enable REST API | Enabled | Allow API access if needed |
-| REST API Rate Limit | 60 requests/minute | Prevent abuse |
-| Debug Mode | Disabled | Enable only for troubleshooting |
-| Safe Mode | Disabled | Enable for testing before production |
-| Batch Processing Size | 100 | Balance speed and server resources |
+| Setting               | Recommended Value  | Why                                  |
+| --------------------- | ------------------ | ------------------------------------ |
+| Enable REST API       | Enabled            | Allow API access if needed           |
+| REST API Rate Limit   | 60 requests/minute | Prevent abuse                        |
+| Debug Mode            | Disabled           | Enable only for troubleshooting      |
+| Safe Mode             | Disabled           | Enable for testing before production |
+| Batch Processing Size | 100                | Balance speed and server resources   |
 
 ### Applying Recommended Settings
 
 **Quick Apply (Manual):**
+
 1. Go through each tab and apply settings from tables above
 2. Click **Save Settings** after each tab
 3. Verify settings are saved successfully
 
 **Import Preset (If Available):**
+
 1. Go to **Admin Health > Settings > Advanced**
 2. Download the recommended settings JSON from this documentation
 3. Click **Import Settings**
@@ -507,6 +526,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** Dashboard stuck loading health score
 
 **Solutions:**
+
 1. **Refresh the page:** Sometimes a simple page refresh resolves the issue
 2. **Check for JavaScript errors:** Open browser console (F12) and look for errors
 3. **Disable conflicting plugins:** Temporarily deactivate other plugins to find conflicts
@@ -520,6 +540,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** Error message when trying to run cleanup
 
 **Solutions:**
+
 1. **Check database credentials:** Verify wp-config.php has correct database info
 2. **Database server status:** Ensure MySQL/MariaDB is running
 3. **Database user permissions:** Ensure WordPress database user has sufficient privileges
@@ -530,6 +551,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** Page goes blank or shows timeout error during cleanup
 
 **Solutions:**
+
 1. **Reduce batch size:** Go to Settings > Advanced, lower "Batch Processing Size" to 50
 2. **Increase PHP timeout:** Add to wp-config.php: `set_time_limit(300);`
 3. **Clean in smaller chunks:** Use Preview to see count, then clean categories separately
@@ -540,6 +562,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** Media audit shows 0 unused files when you expect some
 
 **Solutions:**
+
 1. **Increase scan depth:** Settings > Media Audit > Set "Unused Media Scan Depth" to "Deep Scan"
 2. **Check retention days:** Files used within retention period aren't marked unused
 3. **Enable framework scanning:** Turn on ACF, Elementor, WooCommerce scanning if you use those
@@ -551,6 +574,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** Performed cleanup but score stays the same
 
 **Solutions:**
+
 1. **Wait for cache expiry:** Score is cached for 1 hour by default
 2. **Force refresh:** Look for "Refresh Score" button on dashboard
 3. **Clear transient cache:** Use a plugin like "Transients Manager" to clear `wpha_health_score`
@@ -561,6 +585,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** No automatic cleanups happening
 
 **Solutions:**
+
 1. **Check scheduler status:** Settings > Scheduling > Ensure "Enable Scheduler" is checked
 2. **Verify WP-Cron:** Test if WP-Cron is working: `wp cron test` (if using WP-CLI)
 3. **Install Action Scheduler:** This plugin improves scheduled task reliability
@@ -572,6 +597,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** Cannot delete media files or perform cleanups
 
 **Solutions:**
+
 1. **Check file permissions:** Media files should be owned by web server user
 2. **Safe Mode enabled?** If Safe Mode is on, no deletions will occur (by design)
 3. **User capabilities:** Ensure you're logged in as Administrator
@@ -582,6 +608,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** Other plugins stop working after activation
 
 **Solutions:**
+
 1. **Test for conflicts:** Deactivate WP Admin Health Suite, reactivate, see if issue returns
 2. **Check known conflicts:** Security and caching plugins sometimes conflict
 3. **Update all plugins:** Ensure all plugins are running latest versions
@@ -593,6 +620,7 @@ Navigate to **Admin Health > Settings > Advanced**:
 **Symptoms:** Database is large but cleanup shows minimal savings
 
 **Solutions:**
+
 1. **Check what's using space:** Use a plugin like "WP-Optimize" to see table sizes
 2. **Consider post content:** Large posts with images in content affect size
 3. **Check custom tables:** Third-party plugins may create large tables not scanned by this plugin
@@ -604,28 +632,28 @@ Navigate to **Admin Health > Settings > Advanced**:
 If you've tried the solutions above and still have issues:
 
 1. **Enable Debug Mode:**
-   - Go to Settings > Advanced
-   - Enable "Debug Mode"
-   - Enable "Enable Logging"
-   - Reproduce the issue
-   - Check logs for detailed error messages
+    - Go to Settings > Advanced
+    - Enable "Debug Mode"
+    - Enable "Enable Logging"
+    - Reproduce the issue
+    - Check logs for detailed error messages
 
 2. **Check System Status:**
-   - Note your WordPress version
-   - Note your PHP version
-   - Note active plugins
-   - Note theme in use
+    - Note your WordPress version
+    - Note your PHP version
+    - Note active plugins
+    - Note theme in use
 
 3. **Contact Support:**
-   - Provide your health score and grades
-   - Include any error messages
-   - Describe what you've already tried
-   - Include debug logs if available
+    - Provide your health score and grades
+    - Include any error messages
+    - Describe what you've already tried
+    - Include debug logs if available
 
 4. **Community Resources:**
-   - WordPress.org support forums
-   - Plugin documentation
-   - Video tutorials (see below)
+    - WordPress.org support forums
+    - Plugin documentation
+    - Video tutorials (see below)
 
 ---
 
@@ -636,19 +664,24 @@ Watch our comprehensive video walkthrough to see WP Admin Health Suite in action
 ### Getting Started Video
 
 <!-- Video embed placeholder - Replace with actual video when available -->
+
 ```html
-<iframe width="560" height="315"
-  src="https://www.youtube.com/embed/VIDEO_ID_HERE"
-  title="WP Admin Health Suite - Getting Started Guide"
-  frameborder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowfullscreen>
+<iframe
+	width="560"
+	height="315"
+	src="https://www.youtube.com/embed/VIDEO_ID_HERE"
+	title="WP Admin Health Suite - Getting Started Guide"
+	frameborder="0"
+	allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+	allowfullscreen
+>
 </iframe>
 ```
 
 **Video Coming Soon!** Subscribe to be notified when it's available.
 
 **What the video covers:**
+
 - Complete installation walkthrough (0:00-2:30)
 - Understanding the dashboard interface (2:30-5:00)
 - Running your first database cleanup (5:00-8:00)

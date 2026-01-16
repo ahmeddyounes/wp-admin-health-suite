@@ -62,10 +62,10 @@
     ],
     "phpcs": "phpcs",
     "phpcbf": "phpcbf",
-    "phpstan": "phpstan analyse --memory-limit=256M",
+    "phpstan": "phpstan analyse --memory-limit=1G",
     "lint:php": "phpcs",
     "lint:php:fix": "phpcbf",
-    "analyse": "phpstan analyse --memory-limit=256M",
+    "analyse": "phpstan analyse --memory-limit=1G",
     "docs": "phpdoc run -c phpdoc.xml",
     "docs:clear": "rm -rf docs/api .phpdoc"
   },

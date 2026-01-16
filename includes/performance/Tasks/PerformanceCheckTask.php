@@ -13,6 +13,7 @@ use WPAdminHealth\Scheduler\AbstractScheduledTask;
 use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
 use WPAdminHealth\Contracts\QueryMonitorInterface;
 use WPAdminHealth\Contracts\PluginProfilerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -85,20 +86,33 @@ class PerformanceCheckTask extends AbstractScheduledTask {
 	private PluginProfilerInterface $plugin_profiler;
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
 	 * Constructor.
+	 *
+	 * @since 1.2.0
+	 * @since 1.3.0 Added ConnectionInterface parameter.
 	 *
 	 * @param AutoloadAnalyzerInterface $autoload_analyzer Autoload analyzer.
 	 * @param QueryMonitorInterface     $query_monitor     Query monitor.
 	 * @param PluginProfilerInterface   $plugin_profiler   Plugin profiler.
+	 * @param ConnectionInterface       $connection        Database connection.
 	 */
 	public function __construct(
 		AutoloadAnalyzerInterface $autoload_analyzer,
 		QueryMonitorInterface $query_monitor,
-		PluginProfilerInterface $plugin_profiler
+		PluginProfilerInterface $plugin_profiler,
+		ConnectionInterface $connection
 	) {
 		$this->autoload_analyzer = $autoload_analyzer;
 		$this->query_monitor     = $query_monitor;
 		$this->plugin_profiler   = $plugin_profiler;
+		$this->connection        = $connection;
 	}
 
 	/**
@@ -198,11 +212,13 @@ class PerformanceCheckTask extends AbstractScheduledTask {
 		// Store performance results.
 		$this->store_performance_results( $check_results );
 
-		$this->log( sprintf(
-			'Performance check completed. Score: %d, Issues: %d',
-			$check_results['score'],
-			$check_results['total_issues']
-		) );
+		$this->log(
+			sprintf(
+				'Performance check completed. Score: %d, Issues: %d',
+				$check_results['score'],
+				$check_results['total_issues']
+			)
+		);
 
 		return $this->create_result(
 			$check_results['total_issues'],
@@ -218,29 +234,31 @@ class PerformanceCheckTask extends AbstractScheduledTask {
 	 * @return void
 	 */
 	private function store_performance_results( array $results ): void {
-		global $wpdb;
+		$table = $this->connection->get_prefix() . 'wpha_scan_history';
 
-		$table = $wpdb->prefix . 'wpha_scan_history';
-
-		$wpdb->insert(
+		$this->connection->insert(
 			$table,
 			array(
 				'scan_type'     => 'performance',
 				'items_found'   => $results['total_issues'],
 				'items_cleaned' => 0,
 				'bytes_freed'   => 0,
-				'metadata'      => wp_json_encode( array(
-					'score'              => $results['score'],
-					'autoload_size'      => $results['autoload']['total_size'] ?? 0,
-					'slow_queries_count' => count( $results['queries'] ),
-					'slow_plugins_count' => count( array_filter(
-						$results['plugins'],
-						function ( $p ) {
-							$load_time = $p['load_time'] ?? ( $p['impact_score'] ?? 0 );
-							return $load_time > 0.1;
-						}
-					) ),
-				) ),
+				'metadata'      => wp_json_encode(
+					array(
+						'score'              => $results['score'],
+						'autoload_size'      => $results['autoload']['total_size'] ?? 0,
+						'slow_queries_count' => count( $results['queries'] ),
+						'slow_plugins_count' => count(
+							array_filter(
+								$results['plugins'],
+								function ( $p ) {
+									$load_time = $p['load_time'] ?? ( $p['impact_score'] ?? 0 );
+									return $load_time > 0.1;
+								}
+							)
+						),
+					)
+				),
 				'created_at'    => current_time( 'mysql' ),
 			),
 			array( '%s', '%d', '%d', '%d', '%s', '%s' )

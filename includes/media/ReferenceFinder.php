@@ -9,6 +9,7 @@
 
 namespace WPAdminHealth\Media;
 
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\ReferenceFinderInterface;
 
 // Exit if accessed directly.
@@ -23,6 +24,24 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.2.0 Implements ReferenceFinderInterface.
  */
 class ReferenceFinder implements ReferenceFinderInterface {
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
 
 	/**
 	 * Find all references to a media attachment.
@@ -118,26 +137,30 @@ class ReferenceFinder implements ReferenceFinderInterface {
 	 * @return array Array of references found in post content.
 	 */
 	private function search_post_content( $attachment_id, $attachment_path, $attachment_filename ) {
-		global $wpdb;
-
 		$references = array();
 
+		$posts_table = $this->connection->get_posts_table();
+
 		// Search by URL/path or filename or wp-image-{ID} class.
-		$query = $wpdb->prepare(
+		$query = $this->connection->prepare(
 			"SELECT ID, post_title, post_type, post_status
-			FROM {$wpdb->posts}
+			FROM {$posts_table}
 			WHERE post_status NOT IN ('trash', 'auto-draft')
 			AND (
 				post_content LIKE %s
 				OR post_content LIKE %s
 				OR post_content LIKE %s
 			)",
-			'%' . $wpdb->esc_like( $attachment_path ) . '%',
-			'%' . $wpdb->esc_like( $attachment_filename ) . '%',
+			'%' . $this->connection->esc_like( $attachment_path ) . '%',
+			'%' . $this->connection->esc_like( $attachment_filename ) . '%',
 			'%wp-image-' . $attachment_id . '%'
 		);
 
-		$posts = $wpdb->get_results( $query );
+		if ( null === $query ) {
+			return $references;
+		}
+
+		$posts = $this->connection->get_results( $query );
 
 		foreach ( $posts as $post ) {
 			$references[] = array(
@@ -161,18 +184,22 @@ class ReferenceFinder implements ReferenceFinderInterface {
 	 * @return array Array of references found in featured images.
 	 */
 	private function search_featured_images( $attachment_id ) {
-		global $wpdb;
-
 		$references = array();
 
-		$query = $wpdb->prepare(
-			"SELECT post_id FROM {$wpdb->postmeta}
+		$postmeta_table = $this->connection->get_postmeta_table();
+
+		$query = $this->connection->prepare(
+			"SELECT post_id FROM {$postmeta_table}
 			WHERE meta_key = %s AND meta_value = %d",
 			'_thumbnail_id',
 			$attachment_id
 		);
 
-		$post_ids = $wpdb->get_col( $query );
+		if ( null === $query ) {
+			return $references;
+		}
+
+		$post_ids = $this->connection->get_col( $query );
 
 		foreach ( $post_ids as $post_id ) {
 			$post = get_post( $post_id );
@@ -201,16 +228,16 @@ class ReferenceFinder implements ReferenceFinderInterface {
 	 * @return array Array of references found in postmeta.
 	 */
 	private function search_postmeta( $attachment_id, $attachment_path, $attachment_filename ) {
-		global $wpdb;
-
 		$references = array();
 
-		// Build serialized ID pattern safely (for JSON/serialized arrays).
-		$serialized_id_pattern = '%' . $wpdb->esc_like( '"' . (string) $attachment_id . '"' ) . '%';
+		$postmeta_table = $this->connection->get_postmeta_table();
 
-		$query = $wpdb->prepare(
+		// Build serialized ID pattern safely (for JSON/serialized arrays).
+		$serialized_id_pattern = '%' . $this->connection->esc_like( '"' . (string) $attachment_id . '"' ) . '%';
+
+		$query = $this->connection->prepare(
 			"SELECT post_id, meta_key, meta_value
-			FROM {$wpdb->postmeta}
+			FROM {$postmeta_table}
 			WHERE meta_key NOT LIKE %s
 			AND (
 				meta_value LIKE %s
@@ -218,14 +245,18 @@ class ReferenceFinder implements ReferenceFinderInterface {
 				OR meta_value = %d
 				OR meta_value LIKE %s
 			)",
-			'%' . $wpdb->esc_like( '_thumbnail_id' ) . '%',
-			'%' . $wpdb->esc_like( $attachment_path ) . '%',
-			'%' . $wpdb->esc_like( $attachment_filename ) . '%',
+			'%' . $this->connection->esc_like( '_thumbnail_id' ) . '%',
+			'%' . $this->connection->esc_like( $attachment_path ) . '%',
+			'%' . $this->connection->esc_like( $attachment_filename ) . '%',
 			$attachment_id,
 			$serialized_id_pattern
 		);
 
-		$results = $wpdb->get_results( $query );
+		if ( null === $query ) {
+			return $references;
+		}
+
+		$results = $this->connection->get_results( $query );
 
 		foreach ( $results as $result ) {
 			$post = get_post( $result->post_id );
@@ -255,16 +286,16 @@ class ReferenceFinder implements ReferenceFinderInterface {
 	 * @return array Array of references found in options.
 	 */
 	private function search_options( $attachment_id, $attachment_path, $attachment_filename ) {
-		global $wpdb;
-
 		$references = array();
 
-		// Build serialized ID pattern safely (for JSON/serialized arrays).
-		$serialized_id_pattern = '%' . $wpdb->esc_like( '"' . (string) $attachment_id . '"' ) . '%';
+		$options_table = $this->connection->get_options_table();
 
-		$query = $wpdb->prepare(
+		// Build serialized ID pattern safely (for JSON/serialized arrays).
+		$serialized_id_pattern = '%' . $this->connection->esc_like( '"' . (string) $attachment_id . '"' ) . '%';
+
+		$query = $this->connection->prepare(
 			"SELECT option_name, option_value
-			FROM {$wpdb->options}
+			FROM {$options_table}
 			WHERE option_name NOT LIKE %s
 			AND option_name NOT LIKE %s
 			AND (
@@ -273,15 +304,19 @@ class ReferenceFinder implements ReferenceFinderInterface {
 				OR option_value = %d
 				OR option_value LIKE %s
 			)",
-			'%' . $wpdb->esc_like( '_transient_' ) . '%',
-			'%' . $wpdb->esc_like( '_site_transient_' ) . '%',
-			'%' . $wpdb->esc_like( $attachment_path ) . '%',
-			'%' . $wpdb->esc_like( $attachment_filename ) . '%',
+			'%' . $this->connection->esc_like( '_transient_' ) . '%',
+			'%' . $this->connection->esc_like( '_site_transient_' ) . '%',
+			'%' . $this->connection->esc_like( $attachment_path ) . '%',
+			'%' . $this->connection->esc_like( $attachment_filename ) . '%',
 			$attachment_id,
 			$serialized_id_pattern
 		);
 
-		$results = $wpdb->get_results( $query );
+		if ( null === $query ) {
+			return $references;
+		}
+
+		$results = $this->connection->get_results( $query );
 
 		foreach ( $results as $result ) {
 			$context_type = 'Option';
@@ -311,24 +346,28 @@ class ReferenceFinder implements ReferenceFinderInterface {
 	 * @return array Array of references found in WooCommerce galleries.
 	 */
 	private function search_woocommerce_galleries( $attachment_id ) {
-		global $wpdb;
-
 		$references = array();
 
-		$query = $wpdb->prepare(
+		$postmeta_table = $this->connection->get_postmeta_table();
+
+		$query = $this->connection->prepare(
 			"SELECT post_id, meta_value
-			FROM {$wpdb->postmeta}
+			FROM {$postmeta_table}
 			WHERE meta_key = %s
 			AND (
 				meta_value LIKE %s
 				OR meta_value = %d
 			)",
 			'_product_image_gallery',
-			'%' . $wpdb->esc_like( (string) $attachment_id ) . '%',
+			'%' . $this->connection->esc_like( (string) $attachment_id ) . '%',
 			$attachment_id
 		);
 
-		$results = $wpdb->get_results( $query );
+		if ( null === $query ) {
+			return $references;
+		}
+
+		$results = $this->connection->get_results( $query );
 
 		foreach ( $results as $result ) {
 			$post = get_post( $result->post_id );
@@ -355,17 +394,17 @@ class ReferenceFinder implements ReferenceFinderInterface {
 	 * @return array Array of references found in Elementor data.
 	 */
 	private function search_elementor( $attachment_id ) {
-		global $wpdb;
-
 		$references = array();
 
-		// Build Elementor ID patterns safely.
-		$id_pattern  = '%' . $wpdb->esc_like( '"id":' . (string) $attachment_id ) . '%';
-		$url_pattern = '%' . $wpdb->esc_like( '"url"' ) . '%' . $wpdb->esc_like( (string) $attachment_id ) . '%';
+		$postmeta_table = $this->connection->get_postmeta_table();
 
-		$query = $wpdb->prepare(
+		// Build Elementor ID patterns safely.
+		$id_pattern  = '%' . $this->connection->esc_like( '"id":' . (string) $attachment_id ) . '%';
+		$url_pattern = '%' . $this->connection->esc_like( '"url"' ) . '%' . $this->connection->esc_like( (string) $attachment_id ) . '%';
+
+		$query = $this->connection->prepare(
 			"SELECT post_id, meta_value
-			FROM {$wpdb->postmeta}
+			FROM {$postmeta_table}
 			WHERE meta_key = %s
 			AND (
 				meta_value LIKE %s
@@ -376,7 +415,11 @@ class ReferenceFinder implements ReferenceFinderInterface {
 			$url_pattern
 		);
 
-		$results = $wpdb->get_results( $query );
+		if ( null === $query ) {
+			return $references;
+		}
+
+		$results = $this->connection->get_results( $query );
 
 		foreach ( $results as $result ) {
 			$post = get_post( $result->post_id );
@@ -403,21 +446,21 @@ class ReferenceFinder implements ReferenceFinderInterface {
 	 * @return array Array of references found in Beaver Builder data.
 	 */
 	private function search_beaver_builder( $attachment_id ) {
-		global $wpdb;
-
 		$references = array();
+
+		$postmeta_table = $this->connection->get_postmeta_table();
 
 		// Check multiple Beaver Builder meta keys.
 		$bb_meta_keys = array( '_fl_builder_data', '_fl_builder_draft' );
 
 		// Build Beaver Builder patterns safely.
-		$photo_pattern    = '%' . $wpdb->esc_like( '"photo":' . (string) $attachment_id ) . '%';
-		$photo_src_pattern = '%' . $wpdb->esc_like( '"photo_src"' ) . '%' . $wpdb->esc_like( (string) $attachment_id ) . '%';
+		$photo_pattern    = '%' . $this->connection->esc_like( '"photo":' . (string) $attachment_id ) . '%';
+		$photo_src_pattern = '%' . $this->connection->esc_like( '"photo_src"' ) . '%' . $this->connection->esc_like( (string) $attachment_id ) . '%';
 
 		foreach ( $bb_meta_keys as $meta_key ) {
-			$query = $wpdb->prepare(
+			$query = $this->connection->prepare(
 				"SELECT post_id, meta_value
-				FROM {$wpdb->postmeta}
+				FROM {$postmeta_table}
 				WHERE meta_key = %s
 				AND (
 					meta_value LIKE %s
@@ -428,7 +471,11 @@ class ReferenceFinder implements ReferenceFinderInterface {
 				$photo_src_pattern
 			);
 
-			$results = $wpdb->get_results( $query );
+			if ( null === $query ) {
+				continue;
+			}
+
+			$results = $this->connection->get_results( $query );
 
 			foreach ( $results as $result ) {
 				$post = get_post( $result->post_id );
@@ -456,31 +503,35 @@ class ReferenceFinder implements ReferenceFinderInterface {
 	 * @return array Array of references found in ACF fields.
 	 */
 	private function search_acf_fields( $attachment_id ) {
-		global $wpdb;
-
 		$references = array();
+
+		$postmeta_table = $this->connection->get_postmeta_table();
 
 		// ACF stores attachment IDs as plain integers or serialized arrays.
 		// Build serialized patterns safely.
-		$serialized_int_pattern = '%' . $wpdb->esc_like( 'i:' . (string) $attachment_id . ';' ) . '%';
-		$serialized_str_pattern = '%' . $wpdb->esc_like( ':"' . (string) $attachment_id . '"' ) . '%';
+		$serialized_int_pattern = '%' . $this->connection->esc_like( 'i:' . (string) $attachment_id . ';' ) . '%';
+		$serialized_str_pattern = '%' . $this->connection->esc_like( ':"' . (string) $attachment_id . '"' ) . '%';
 
-		$query = $wpdb->prepare(
+		$query = $this->connection->prepare(
 			"SELECT post_id, meta_key, meta_value
-			FROM {$wpdb->postmeta}
+			FROM {$postmeta_table}
 			WHERE meta_key NOT LIKE %s
 			AND (
 				meta_value = %d
 				OR meta_value LIKE %s
 				OR meta_value LIKE %s
 			)",
-			$wpdb->esc_like( '_' ) . '%',
+			$this->connection->esc_like( '_' ) . '%',
 			$attachment_id,
 			$serialized_int_pattern,
 			$serialized_str_pattern
 		);
 
-		$results = $wpdb->get_results( $query );
+		if ( null === $query ) {
+			return $references;
+		}
+
+		$results = $this->connection->get_results( $query );
 
 		foreach ( $results as $result ) {
 			// Check if this might be an ACF field.

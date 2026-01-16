@@ -10,6 +10,7 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\HealthCalculator;
 
@@ -66,12 +67,14 @@ class DashboardController extends RestController {
 	 *
 	 * @since 1.1.0
 	 * @since 1.2.0 Made HealthCalculator dependency required.
+	 * @since 1.3.0 Added ConnectionInterface dependency.
 	 *
-	 * @param SettingsInterface $settings          Settings instance.
-	 * @param HealthCalculator  $health_calculator Health calculator instance.
+	 * @param SettingsInterface   $settings          Settings instance.
+	 * @param ConnectionInterface $connection        Database connection instance.
+	 * @param HealthCalculator    $health_calculator Health calculator instance.
 	 */
-	public function __construct( SettingsInterface $settings, HealthCalculator $health_calculator ) {
-		parent::__construct( $settings );
+	public function __construct( SettingsInterface $settings, ConnectionInterface $connection, HealthCalculator $health_calculator ) {
+		parent::__construct( $settings, $connection );
 		$this->health_calculator = $health_calculator;
 	}
 
@@ -94,7 +97,7 @@ class DashboardController extends RestController {
 	 * @return void
 	 */
 	public function register_routes() {
-		// GET /wpha/v1/dashboard/stats
+		// GET /wpha/v1/dashboard/stats.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/stats',
@@ -107,7 +110,7 @@ class DashboardController extends RestController {
 			)
 		);
 
-		// GET /wpha/v1/dashboard/health-score
+		// GET /wpha/v1/dashboard/health-score.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/health-score',
@@ -120,7 +123,7 @@ class DashboardController extends RestController {
 			)
 		);
 
-		// GET /wpha/v1/dashboard/activity
+		// GET /wpha/v1/dashboard/activity.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/activity',
@@ -134,7 +137,7 @@ class DashboardController extends RestController {
 			)
 		);
 
-		// POST /wpha/v1/dashboard/quick-action
+		// POST /wpha/v1/dashboard/quick-action.
 		register_rest_route(
 			$this->namespace,
 			'/' . $this->rest_base . '/quick-action',
@@ -184,14 +187,15 @@ class DashboardController extends RestController {
 			);
 		}
 
-		global $wpdb;
+		$connection = $this->get_connection();
 
 		// Calculate total database size.
 		$total_db_size = $this->calculate_database_size();
 
 		// Calculate total media count.
-		$total_media_count = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'attachment'"
+		$posts_table       = $connection->get_posts_table();
+		$total_media_count = $connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_type = 'attachment'"
 		);
 
 		// Calculate cleanable items.
@@ -266,7 +270,7 @@ class DashboardController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_activity( $request ) {
-		global $wpdb;
+		$connection = $this->get_connection();
 
 		$page     = $request->get_param( 'page' );
 		$per_page = $request->get_param( 'per_page' );
@@ -274,17 +278,10 @@ class DashboardController extends RestController {
 		// Calculate offset.
 		$offset = ( $page - 1 ) * $per_page;
 
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
+		$table_name = $connection->get_prefix() . 'wpha_scan_history';
 
 		// Check if table exists.
-		$table_exists = $wpdb->get_var(
-			$wpdb->prepare(
-				'SHOW TABLES LIKE %s',
-				$table_name
-			)
-		);
-
-		if ( $table_exists !== $table_name ) {
+		if ( ! $connection->table_exists( $table_name ) ) {
 			return $this->format_response(
 				true,
 				array(
@@ -299,22 +296,21 @@ class DashboardController extends RestController {
 		}
 
 		// Get total count for pagination.
-		$total = $wpdb->get_var(
+		$total = $connection->get_var(
 			"SELECT COUNT(*) FROM {$table_name}"
 		);
 
 		// Fetch paginated activities.
-		$activities = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, scan_type, items_found, items_cleaned, bytes_freed, created_at
-				FROM {$table_name}
-				ORDER BY created_at DESC
-				LIMIT %d OFFSET %d",
-				$per_page,
-				$offset
-			),
-			ARRAY_A
+		$query = $connection->prepare(
+			"SELECT id, scan_type, items_found, items_cleaned, bytes_freed, created_at
+			FROM {$table_name}
+			ORDER BY created_at DESC
+			LIMIT %d OFFSET %d",
+			$per_page,
+			$offset
 		);
+
+		$activities = $query ? $connection->get_results( $query, 'ARRAY_A' ) : null;
 
 		if ( null === $activities ) {
 			return $this->format_error_response(
@@ -328,7 +324,7 @@ class DashboardController extends RestController {
 
 		// Format the activities data.
 		$formatted_activities = array_map(
-			function( $activity ) {
+			function ( $activity ) {
 				return array(
 					'id'            => (int) $activity['id'],
 					'scan_type'     => sanitize_text_field( $activity['scan_type'] ),
@@ -370,7 +366,7 @@ class DashboardController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function execute_quick_action( $request ) {
-		global $wpdb;
+		$connection = $this->get_connection();
 
 		$action_id = $request->get_param( 'action_id' );
 
@@ -381,29 +377,36 @@ class DashboardController extends RestController {
 			return $this->format_error_response( $result, 400 );
 		}
 
-		// Log the action to scan history.
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
+		// Log the action to scan history (non-fatal if the table doesn't exist yet).
+		$table_name = $connection->get_prefix() . 'wpha_scan_history';
+		$log_id     = null;
+		$logged     = false;
 
-		$inserted = $wpdb->insert(
-			$table_name,
-			array(
-				'scan_type'      => $result['scan_type'],
-				'items_found'    => $result['items_found'],
-				'items_cleaned'  => $result['items_cleaned'],
-				'bytes_freed'    => $result['bytes_freed'],
-				'created_at'     => current_time( 'mysql' ),
-			),
-			array( '%s', '%d', '%d', '%d', '%s' )
-		);
-
-		if ( false === $inserted ) {
-			return $this->format_error_response(
-				new WP_Error(
-					'database_error',
-					__( 'Failed to log action to database.', 'wp-admin-health-suite' )
+		if ( $connection->table_exists( $table_name ) ) {
+			$inserted = $connection->insert(
+				$table_name,
+				array(
+					'scan_type'     => $result['scan_type'],
+					'items_found'   => $result['items_found'],
+					'items_cleaned' => $result['items_cleaned'],
+					'bytes_freed'   => $result['bytes_freed'],
+					'created_at'    => current_time( 'mysql' ),
 				),
-				500
+				array( '%s', '%d', '%d', '%d', '%s' )
 			);
+
+			if ( false === $inserted ) {
+				return $this->format_error_response(
+					new WP_Error(
+						'database_error',
+						__( 'Failed to log action to database.', 'wp-admin-health-suite' )
+					),
+					500
+				);
+			}
+
+			$log_id = $connection->get_insert_id();
+			$logged = true;
 		}
 
 		// Clear the stats cache since data has changed.
@@ -413,103 +416,141 @@ class DashboardController extends RestController {
 		$health_calculator = $this->get_health_calculator();
 		$health_calculator->clear_cache();
 
+		$message = sprintf(
+			/* translators: %d: number of items cleaned */
+			__( 'Action executed successfully. %d items cleaned.', 'wp-admin-health-suite' ),
+			$result['items_cleaned']
+		);
+
+		if ( ! $logged ) {
+			$message .= ' ' . __( 'Warning: activity log table not found, so this action was not logged.', 'wp-admin-health-suite' );
+		}
+
 		return $this->format_response(
 			true,
 			array(
-				'action_id'      => $action_id,
-				'items_cleaned'  => $result['items_cleaned'],
-				'bytes_freed'    => $result['bytes_freed'],
-				'log_id'         => $wpdb->insert_id,
+				'action_id'     => $action_id,
+				'items_cleaned' => $result['items_cleaned'],
+				'bytes_freed'   => $result['bytes_freed'],
+				'log_id'        => $log_id,
+				'logged'        => $logged,
 			),
-			sprintf(
-				/* translators: %d: number of items cleaned */
-				__( 'Action executed successfully. %d items cleaned.', 'wp-admin-health-suite' ),
-				$result['items_cleaned']
-			)
+			$message
 		);
 	}
 
 	/**
 	 * Execute action based on action ID.
 	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param string $action_id The action ID to execute.
 	 * @return array|WP_Error Result array or WP_Error on failure.
 	 */
 	private function execute_action( $action_id ) {
-		global $wpdb;
+		$connection     = $this->get_connection();
+		$posts_table    = $connection->get_posts_table();
+		$comments_table = $connection->get_comments_table();
+		$options_table  = $connection->get_options_table();
 
 		switch ( $action_id ) {
 			case 'delete_trash':
-				$items_found = $wpdb->get_var(
-					"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'trash'"
+				$delete_limit = 200;
+				$items_found  = $connection->get_var(
+					"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = 'trash'"
 				);
+				$query    = $connection->prepare(
+					"SELECT ID FROM {$posts_table} WHERE post_status = 'trash' LIMIT %d",
+					$delete_limit
+				);
+				$post_ids = $query ? $connection->get_col( $query ) : array();
 
-				$deleted = $wpdb->query(
-					"DELETE FROM {$wpdb->posts} WHERE post_status = 'trash'"
-				);
+				$deleted = 0;
+				foreach ( $post_ids as $post_id ) {
+					if ( wp_delete_post( (int) $post_id, true ) ) {
+						$deleted++;
+					}
+				}
 
 				return array(
 					'scan_type'     => 'delete_trash',
 					'items_found'   => (int) $items_found,
-					'items_cleaned' => (int) $deleted,
+					'items_cleaned' => $deleted,
 					'bytes_freed'   => 0,
 				);
 
 			case 'delete_spam':
-				$items_found = $wpdb->get_var(
-					"SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = 'spam'"
+				$delete_limit = 200;
+				$items_found  = $connection->get_var(
+					"SELECT COUNT(*) FROM {$comments_table} WHERE comment_approved = 'spam'"
 				);
+				$query       = $connection->prepare(
+					"SELECT comment_ID FROM {$comments_table} WHERE comment_approved = 'spam' LIMIT %d",
+					$delete_limit
+				);
+				$comment_ids = $query ? $connection->get_col( $query ) : array();
 
-				$deleted = $wpdb->query(
-					"DELETE FROM {$wpdb->comments} WHERE comment_approved = 'spam'"
-				);
+				$deleted = 0;
+				foreach ( $comment_ids as $comment_id ) {
+					if ( wp_delete_comment( (int) $comment_id, true ) ) {
+						$deleted++;
+					}
+				}
 
 				return array(
 					'scan_type'     => 'delete_spam',
 					'items_found'   => (int) $items_found,
-					'items_cleaned' => (int) $deleted,
+					'items_cleaned' => $deleted,
 					'bytes_freed'   => 0,
 				);
 
 			case 'delete_auto_drafts':
-				$items_found = $wpdb->get_var(
-					"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'auto-draft'"
+				$delete_limit = 200;
+				$items_found  = $connection->get_var(
+					"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = 'auto-draft'"
 				);
+				$query    = $connection->prepare(
+					"SELECT ID FROM {$posts_table} WHERE post_status = 'auto-draft' LIMIT %d",
+					$delete_limit
+				);
+				$post_ids = $query ? $connection->get_col( $query ) : array();
 
-				$deleted = $wpdb->query(
-					"DELETE FROM {$wpdb->posts} WHERE post_status = 'auto-draft'"
-				);
+				$deleted = 0;
+				foreach ( $post_ids as $post_id ) {
+					if ( wp_delete_post( (int) $post_id, true ) ) {
+						$deleted++;
+					}
+				}
 
 				return array(
 					'scan_type'     => 'delete_auto_drafts',
 					'items_found'   => (int) $items_found,
-					'items_cleaned' => (int) $deleted,
+					'items_cleaned' => $deleted,
 					'bytes_freed'   => 0,
 				);
 
 			case 'clean_expired_transients':
-				$items_found = $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT COUNT(*) FROM {$wpdb->options} t1
-						INNER JOIN {$wpdb->options} t2 ON t2.option_name = REPLACE(t1.option_name, '_transient_timeout_', '_transient_')
-						WHERE t1.option_name LIKE %s
-						AND t1.option_value < %d",
-						$wpdb->esc_like( '_transient_timeout_' ) . '%',
-						time()
-					)
+				$count_query = $connection->prepare(
+					"SELECT COUNT(*) FROM {$options_table} t1
+					INNER JOIN {$options_table} t2 ON t2.option_name = REPLACE(t1.option_name, '_transient_timeout_', '_transient_')
+					WHERE t1.option_name LIKE %s
+					AND t1.option_value < %d",
+					$connection->esc_like( '_transient_timeout_' ) . '%',
+					time()
 				);
+				$items_found = $count_query ? $connection->get_var( $count_query ) : 0;
 
 				// Delete expired transients.
-				$deleted = $wpdb->query(
-					$wpdb->prepare(
-						"DELETE t1, t2 FROM {$wpdb->options} t1
-						LEFT JOIN {$wpdb->options} t2 ON t2.option_name = REPLACE(t1.option_name, '_transient_timeout_', '_transient_')
-						WHERE t1.option_name LIKE %s
-						AND t1.option_value < %d",
-						$wpdb->esc_like( '_transient_timeout_' ) . '%',
-						time()
-					)
+				$delete_query = $connection->prepare(
+					"DELETE t1, t2 FROM {$options_table} t1
+					LEFT JOIN {$options_table} t2 ON t2.option_name = REPLACE(t1.option_name, '_transient_timeout_', '_transient_')
+					WHERE t1.option_name LIKE %s
+					AND t1.option_value < %d",
+					$connection->esc_like( '_transient_timeout_' ) . '%',
+					time()
 				);
+				$deleted = $delete_query ? $connection->query( $delete_query ) : 0;
 
 				return array(
 					'scan_type'     => 'clean_expired_transients',
@@ -520,16 +561,16 @@ class DashboardController extends RestController {
 
 			case 'optimize_tables':
 				// Get all tables using INFORMATION_SCHEMA for security.
-				$tables = $wpdb->get_col(
-					$wpdb->prepare(
-						"SELECT table_name
-						FROM information_schema.TABLES
-						WHERE table_schema = %s
-						AND table_name LIKE %s",
-						DB_NAME,
-						$wpdb->esc_like( $wpdb->prefix ) . '%'
-					)
+				$query  = $connection->prepare(
+					'SELECT table_name
+					FROM information_schema.TABLES
+					WHERE table_schema = %s
+					AND table_name LIKE %s',
+					DB_NAME,
+					$connection->esc_like( $connection->get_prefix() ) . '%'
 				);
+				$tables = $query ? $connection->get_col( $query ) : array();
+
 				$optimized = 0;
 
 				foreach ( $tables as $table_name ) {
@@ -538,7 +579,7 @@ class DashboardController extends RestController {
 						continue;
 					}
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names cannot use placeholders, esc_sql and backticks used.
-					$wpdb->query( 'OPTIMIZE TABLE `' . esc_sql( $table_name ) . '`' );
+					$connection->query( 'OPTIMIZE TABLE `' . esc_sql( $table_name ) . '`' );
 					$optimized++;
 				}
 
@@ -564,95 +605,100 @@ class DashboardController extends RestController {
 	/**
 	 * Calculate total database size in bytes.
 	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @return int Database size in bytes.
 	 */
 	private function calculate_database_size() {
-		global $wpdb;
+		$connection = $this->get_connection();
 
 		$database = DB_NAME;
 
-		$result = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT SUM(data_length + index_length) AS size
-				FROM information_schema.TABLES
-				WHERE table_schema = %s",
-				$database
-			)
+		$query = $connection->prepare(
+			'SELECT SUM(data_length + index_length) AS size
+			FROM information_schema.TABLES
+			WHERE table_schema = %s',
+			$database
 		);
 
-		return $result ? (int) $result->size : 0;
+		$result = $query ? $connection->get_row( $query, 'OBJECT' ) : null;
+
+		return ( $result && is_object( $result ) && isset( $result->size ) ) ? (int) $result->size : 0;
 	}
 
 	/**
 	 * Calculate total number of cleanable items.
 	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @return int Total cleanable items count.
 	 */
 	private function calculate_cleanable_items() {
-		global $wpdb;
+		$connection      = $this->get_connection();
+		$posts_table     = $connection->get_posts_table();
+		$comments_table  = $connection->get_comments_table();
+		$options_table   = $connection->get_options_table();
+		$postmeta_table  = $connection->get_postmeta_table();
 
 		$cleanable = 0;
 
 		// Trashed posts.
-		$cleanable += $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'trash'"
+		$cleanable += (int) $connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = 'trash'"
 		);
 
 		// Spam comments.
-		$cleanable += $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = 'spam'"
+		$cleanable += (int) $connection->get_var(
+			"SELECT COUNT(*) FROM {$comments_table} WHERE comment_approved = 'spam'"
 		);
 
 		// Auto-drafts.
-		$cleanable += $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'auto-draft'"
+		$cleanable += (int) $connection->get_var(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = 'auto-draft'"
 		);
 
 		// Expired transients.
-		$cleanable += $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->options} t1
-				INNER JOIN {$wpdb->options} t2 ON t2.option_name = REPLACE(t1.option_name, '_transient_timeout_', '_transient_')
-				WHERE t1.option_name LIKE %s
-				AND t1.option_value < %d",
-				$wpdb->esc_like( '_transient_timeout_' ) . '%',
-				time()
-			)
+		$transients_query = $connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table} t1
+			INNER JOIN {$options_table} t2 ON t2.option_name = REPLACE(t1.option_name, '_transient_timeout_', '_transient_')
+			WHERE t1.option_name LIKE %s
+			AND t1.option_value < %d",
+			$connection->esc_like( '_transient_timeout_' ) . '%',
+			time()
 		);
+		$cleanable += $transients_query ? (int) $connection->get_var( $transients_query ) : 0;
 
 		// Orphaned postmeta.
-		$cleanable += $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta} pm
-			LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+		$cleanable += (int) $connection->get_var(
+			"SELECT COUNT(*) FROM {$postmeta_table} pm
+			LEFT JOIN {$posts_table} p ON pm.post_id = p.ID
 			WHERE p.ID IS NULL"
 		);
 
-		return (int) $cleanable;
+		return $cleanable;
 	}
 
 	/**
 	 * Get the date of the last cleanup action.
 	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @return string|null Last cleanup date or null if none found.
 	 */
 	private function get_last_cleanup_date() {
-		global $wpdb;
+		$connection = $this->get_connection();
 
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
+		$table_name = $connection->get_prefix() . 'wpha_scan_history';
 
 		// Check if table exists.
-		$table_exists = $wpdb->get_var(
-			$wpdb->prepare(
-				'SHOW TABLES LIKE %s',
-				$table_name
-			)
-		);
-
-		if ( $table_exists !== $table_name ) {
+		if ( ! $connection->table_exists( $table_name ) ) {
 			return null;
 		}
 
-		$last_date = $wpdb->get_var(
+		$last_date = $connection->get_var(
 			"SELECT created_at FROM {$table_name}
 			WHERE items_cleaned > 0
 			ORDER BY created_at DESC

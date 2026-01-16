@@ -10,6 +10,7 @@
 namespace WPAdminHealth\Database;
 
 use WPAdminHealth\Contracts\AnalyzerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -20,6 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Database Analyzer class for analyzing database health and statistics.
  *
  * @since 1.0.0
+ * @since 1.3.0 Added constructor dependency injection for ConnectionInterface.
  */
 class Analyzer implements AnalyzerInterface {
 
@@ -36,6 +38,13 @@ class Analyzer implements AnalyzerInterface {
 	 * @var string
 	 */
 	const CACHE_PREFIX = 'wpha_db_analyzer_';
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
 
 	/**
 	 * Cache for database size.
@@ -115,6 +124,17 @@ class Analyzer implements AnalyzerInterface {
 	private $orphaned_termmeta_count = null;
 
 	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
+
+	/**
 	 * Get the total database size in bytes.
 	 *
 	 * Uses transient caching to avoid expensive queries on large databases.
@@ -137,16 +157,19 @@ class Analyzer implements AnalyzerInterface {
 			return $this->database_size;
 		}
 
-		global $wpdb;
-
-		$query = $wpdb->prepare(
-			"SELECT SUM(data_length + index_length) as size
+		$query = $this->connection->prepare(
+			'SELECT SUM(data_length + index_length) as size
 			FROM information_schema.TABLES
-			WHERE table_schema = %s",
+			WHERE table_schema = %s',
 			DB_NAME
 		);
 
-		$result = $wpdb->get_var( $query );
+		if ( null === $query ) {
+			$this->database_size = 0;
+			return $this->database_size;
+		}
+
+		$result = $this->connection->get_var( $query );
 
 		$this->database_size = absint( $result );
 
@@ -179,9 +202,7 @@ class Analyzer implements AnalyzerInterface {
 			return $this->table_sizes;
 		}
 
-		global $wpdb;
-
-		$query = $wpdb->prepare(
+		$query = $this->connection->prepare(
 			"SELECT table_name as 'table',
 			(data_length + index_length) as size
 			FROM information_schema.TABLES
@@ -190,7 +211,12 @@ class Analyzer implements AnalyzerInterface {
 			DB_NAME
 		);
 
-		$results = $wpdb->get_results( $query );
+		if ( null === $query ) {
+			$this->table_sizes = array();
+			return $this->table_sizes;
+		}
+
+		$results = $this->connection->get_results( $query );
 
 		$this->table_sizes = array();
 		if ( $results ) {
@@ -206,6 +232,66 @@ class Analyzer implements AnalyzerInterface {
 	}
 
 	/**
+	 * Get the total database size in bytes.
+	 *
+	 * Alias for get_database_size() to match expected interface.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return int Total database size in bytes.
+	 */
+	public function get_total_database_size(): int {
+		return $this->get_database_size();
+	}
+
+	/**
+	 * Get the count of database tables.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return int Number of database tables.
+	 */
+	public function get_table_count(): int {
+		return count( $this->get_table_sizes() );
+	}
+
+	/**
+	 * Get the total database overhead (wasted space) in bytes.
+	 *
+	 * Overhead is the space that could be reclaimed by optimizing tables.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return int Total overhead in bytes.
+	 */
+	public function get_total_overhead(): int {
+		$cache_key = self::CACHE_PREFIX . 'total_overhead';
+		$cached    = get_transient( $cache_key );
+
+		if ( false !== $cached ) {
+			return absint( $cached );
+		}
+
+		$query = $this->connection->prepare(
+			'SELECT SUM(data_free) as overhead
+			FROM information_schema.TABLES
+			WHERE table_schema = %s',
+			DB_NAME
+		);
+
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$result   = $this->connection->get_var( $query );
+		$overhead = absint( $result );
+
+		set_transient( $cache_key, $overhead, self::CACHE_EXPIRATION );
+
+		return $overhead;
+	}
+
+	/**
 	 * Get the count of post revisions.
 	 *
  * @since 1.0.0
@@ -217,14 +303,18 @@ class Analyzer implements AnalyzerInterface {
 			return $this->revisions_count;
 		}
 
-		global $wpdb;
-
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = %s",
+		$posts_table = $this->connection->get_posts_table();
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_type = %s",
 			'revision'
 		);
 
-		$this->revisions_count = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			$this->revisions_count = 0;
+			return $this->revisions_count;
+		}
+
+		$this->revisions_count = absint( $this->connection->get_var( $query ) );
 
 		return $this->revisions_count;
 	}
@@ -241,14 +331,18 @@ class Analyzer implements AnalyzerInterface {
 			return $this->auto_drafts_count;
 		}
 
-		global $wpdb;
-
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = %s",
+		$posts_table = $this->connection->get_posts_table();
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = %s",
 			'auto-draft'
 		);
 
-		$this->auto_drafts_count = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			$this->auto_drafts_count = 0;
+			return $this->auto_drafts_count;
+		}
+
+		$this->auto_drafts_count = absint( $this->connection->get_var( $query ) );
 
 		return $this->auto_drafts_count;
 	}
@@ -265,14 +359,18 @@ class Analyzer implements AnalyzerInterface {
 			return $this->trashed_posts_count;
 		}
 
-		global $wpdb;
-
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = %s",
+		$posts_table = $this->connection->get_posts_table();
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = %s",
 			'trash'
 		);
 
-		$this->trashed_posts_count = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			$this->trashed_posts_count = 0;
+			return $this->trashed_posts_count;
+		}
+
+		$this->trashed_posts_count = absint( $this->connection->get_var( $query ) );
 
 		return $this->trashed_posts_count;
 	}
@@ -289,14 +387,18 @@ class Analyzer implements AnalyzerInterface {
 			return $this->spam_comments_count;
 		}
 
-		global $wpdb;
-
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = %s",
+		$comments_table = $this->connection->get_comments_table();
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$comments_table} WHERE comment_approved = %s",
 			'spam'
 		);
 
-		$this->spam_comments_count = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			$this->spam_comments_count = 0;
+			return $this->spam_comments_count;
+		}
+
+		$this->spam_comments_count = absint( $this->connection->get_var( $query ) );
 
 		return $this->spam_comments_count;
 	}
@@ -313,14 +415,18 @@ class Analyzer implements AnalyzerInterface {
 			return $this->trashed_comments_count;
 		}
 
-		global $wpdb;
-
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = %s",
+		$comments_table = $this->connection->get_comments_table();
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$comments_table} WHERE comment_approved = %s",
 			'trash'
 		);
 
-		$this->trashed_comments_count = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			$this->trashed_comments_count = 0;
+			return $this->trashed_comments_count;
+		}
+
+		$this->trashed_comments_count = absint( $this->connection->get_var( $query ) );
 
 		return $this->trashed_comments_count;
 	}
@@ -337,17 +443,21 @@ class Analyzer implements AnalyzerInterface {
 			return $this->expired_transients_count;
 		}
 
-		global $wpdb;
-
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->options}
+		$options_table = $this->connection->get_options_table();
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table}
 			WHERE option_name LIKE %s
 			AND option_value < %d",
-			$wpdb->esc_like( '_transient_timeout_' ) . '%',
+			$this->connection->esc_like( '_transient_timeout_' ) . '%',
 			time()
 		);
 
-		$this->expired_transients_count = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			$this->expired_transients_count = 0;
+			return $this->expired_transients_count;
+		}
+
+		$this->expired_transients_count = absint( $this->connection->get_var( $query ) );
 
 		return $this->expired_transients_count;
 	}
@@ -364,15 +474,18 @@ class Analyzer implements AnalyzerInterface {
 			return $this->orphaned_postmeta_count;
 		}
 
-		global $wpdb;
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$posts_table    = $this->connection->get_posts_table();
 
-		// Query uses WPDB table properties which are safe - no prepare() needed.
+		// Query uses connection table methods which are safe - no prepare() needed.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$this->orphaned_postmeta_count = absint( $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta} pm
-			LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+		$this->orphaned_postmeta_count = absint(
+			$this->connection->get_var(
+				"SELECT COUNT(*) FROM {$postmeta_table} pm
+			LEFT JOIN {$posts_table} p ON pm.post_id = p.ID
 			WHERE p.ID IS NULL"
-		) );
+			)
+		);
 
 		return $this->orphaned_postmeta_count;
 	}
@@ -389,15 +502,18 @@ class Analyzer implements AnalyzerInterface {
 			return $this->orphaned_commentmeta_count;
 		}
 
-		global $wpdb;
+		$commentmeta_table = $this->connection->get_commentmeta_table();
+		$comments_table    = $this->connection->get_comments_table();
 
-		// Query uses WPDB table properties which are safe - no prepare() needed.
+		// Query uses connection table methods which are safe - no prepare() needed.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$this->orphaned_commentmeta_count = absint( $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->commentmeta} cm
-			LEFT JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID
+		$this->orphaned_commentmeta_count = absint(
+			$this->connection->get_var(
+				"SELECT COUNT(*) FROM {$commentmeta_table} cm
+			LEFT JOIN {$comments_table} c ON cm.comment_id = c.comment_ID
 			WHERE c.comment_ID IS NULL"
-		) );
+			)
+		);
 
 		return $this->orphaned_commentmeta_count;
 	}
@@ -414,15 +530,18 @@ class Analyzer implements AnalyzerInterface {
 			return $this->orphaned_termmeta_count;
 		}
 
-		global $wpdb;
+		$termmeta_table = $this->connection->get_termmeta_table();
+		$terms_table    = $this->connection->get_terms_table();
 
-		// Query uses WPDB table properties which are safe - no prepare() needed.
+		// Query uses connection table methods which are safe - no prepare() needed.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$this->orphaned_termmeta_count = absint( $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->termmeta} tm
-			LEFT JOIN {$wpdb->terms} t ON tm.term_id = t.term_id
+		$this->orphaned_termmeta_count = absint(
+			$this->connection->get_var(
+				"SELECT COUNT(*) FROM {$termmeta_table} tm
+			LEFT JOIN {$terms_table} t ON tm.term_id = t.term_id
 			WHERE t.term_id IS NULL"
-		) );
+			)
+		);
 
 		return $this->orphaned_termmeta_count;
 	}

@@ -11,6 +11,8 @@
 
 namespace WPAdminHealth\Performance;
 
+use WPAdminHealth\Contracts\ConnectionInterface;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -22,6 +24,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.0.0
  */
 class AjaxMonitor {
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
 
 	/**
 	 * Table name for AJAX logs.
@@ -53,12 +62,15 @@ class AjaxMonitor {
 
 	/**
 	 * Constructor.
- * @since 1.0.0
- *
+	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Added ConnectionInterface parameter.
+	 *
+	 * @param ConnectionInterface $connection Database connection.
 	 */
-	public function __construct() {
-		global $wpdb;
-		$this->table_name = $wpdb->prefix . 'wpha_ajax_log';
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+		$this->table_name = $this->connection->get_prefix() . 'wpha_ajax_log';
 		$this->init_hooks();
 	}
 
@@ -154,9 +166,7 @@ class AjaxMonitor {
 	 * @return bool True on success, false on failure.
 	 */
 	public function log_ajax_request( $action, $execution_time, $memory_used, $user_role ) {
-		global $wpdb;
-
-		$result = $wpdb->insert(
+		$result = $this->connection->insert(
 			$this->table_name,
 			array(
 				'action'         => $action,
@@ -180,63 +190,54 @@ class AjaxMonitor {
 	 * @return array Summary statistics.
 	 */
 	public function get_ajax_summary( $period = '24hours' ) {
-		global $wpdb;
-
 		$since = $this->get_period_start_time( $period );
 
 		// Total requests.
-		$total_requests = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$this->table_name} WHERE created_at >= %s",
-				$since
-			)
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$this->table_name} WHERE created_at >= %s",
+			$since
 		);
+		$total_requests = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Average response time.
-		$avg_response_time = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT AVG(execution_time) FROM {$this->table_name} WHERE created_at >= %s",
-				$since
-			)
+		$query = $this->connection->prepare(
+			"SELECT AVG(execution_time) FROM {$this->table_name} WHERE created_at >= %s",
+			$since
 		);
+		$avg_response_time = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Average memory used.
-		$avg_memory = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT AVG(memory_used) FROM {$this->table_name} WHERE created_at >= %s",
-				$since
-			)
+		$query = $this->connection->prepare(
+			"SELECT AVG(memory_used) FROM {$this->table_name} WHERE created_at >= %s",
+			$since
 		);
+		$avg_memory = $query ? $this->connection->get_var( $query ) : 0;
 
 		// Requests per minute.
 		$period_minutes  = $this->get_period_minutes( $period );
 		$requests_per_min = $period_minutes > 0 ? $total_requests / $period_minutes : 0;
 
 		// Slowest request.
-		$slowest_request = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT action, execution_time, created_at
-				FROM {$this->table_name}
-				WHERE created_at >= %s
-				ORDER BY execution_time DESC
-				LIMIT 1",
-				$since
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT action, execution_time, created_at
+			FROM {$this->table_name}
+			WHERE created_at >= %s
+			ORDER BY execution_time DESC
+			LIMIT 1",
+			$since
 		);
+		$slowest_request = $query ? $this->connection->get_row( $query, ARRAY_A ) : null;
 
 		// Requests by user role.
-		$by_role = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT user_role, COUNT(*) as count
-				FROM {$this->table_name}
-				WHERE created_at >= %s
-				GROUP BY user_role
-				ORDER BY count DESC",
-				$since
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT user_role, COUNT(*) as count
+			FROM {$this->table_name}
+			WHERE created_at >= %s
+			GROUP BY user_role
+			ORDER BY count DESC",
+			$since
 		);
+		$by_role = $query ? $this->connection->get_results( $query, ARRAY_A ) : array();
 
 		return array(
 			'period'             => $period,
@@ -260,29 +261,30 @@ class AjaxMonitor {
 	 * @return array Frequent AJAX actions with statistics.
 	 */
 	public function get_frequent_ajax_actions( $period = '24hours', $limit = 10 ) {
-		global $wpdb;
-
 		$since = $this->get_period_start_time( $period );
 
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
-					action,
-					COUNT(*) as request_count,
-					AVG(execution_time) as avg_time,
-					MAX(execution_time) as max_time,
-					MIN(execution_time) as min_time,
-					AVG(memory_used) as avg_memory
-				FROM {$this->table_name}
-				WHERE created_at >= %s
-				GROUP BY action
-				ORDER BY request_count DESC
-				LIMIT %d",
-				$since,
-				$limit
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT
+				action,
+				COUNT(*) as request_count,
+				AVG(execution_time) as avg_time,
+				MAX(execution_time) as max_time,
+				MIN(execution_time) as min_time,
+				AVG(memory_used) as avg_memory
+			FROM {$this->table_name}
+			WHERE created_at >= %s
+			GROUP BY action
+			ORDER BY request_count DESC
+			LIMIT %d",
+			$since,
+			$limit
 		);
+
+		if ( null === $query ) {
+			return array();
+		}
+
+		$results = $this->connection->get_results( $query, ARRAY_A );
 
 		// Format results.
 		$formatted = array();
@@ -311,28 +313,29 @@ class AjaxMonitor {
 	 * @return array Slow AJAX actions.
 	 */
 	public function get_slow_ajax_actions( $threshold_ms = 1000.0, $period = '24hours', $limit = 10 ) {
-		global $wpdb;
-
 		$since = $this->get_period_start_time( $period );
 
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
-					action,
-					COUNT(*) as slow_count,
-					AVG(execution_time) as avg_time,
-					MAX(execution_time) as max_time
-				FROM {$this->table_name}
-				WHERE created_at >= %s AND execution_time >= %f
-				GROUP BY action
-				ORDER BY avg_time DESC
-				LIMIT %d",
-				$since,
-				$threshold_ms,
-				$limit
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT
+				action,
+				COUNT(*) as slow_count,
+				AVG(execution_time) as avg_time,
+				MAX(execution_time) as max_time
+			FROM {$this->table_name}
+			WHERE created_at >= %s AND execution_time >= %f
+			GROUP BY action
+			ORDER BY avg_time DESC
+			LIMIT %d",
+			$since,
+			$threshold_ms,
+			$limit
 		);
+
+		if ( null === $query ) {
+			return array();
+		}
+
+		$results = $this->connection->get_results( $query, ARRAY_A );
 
 		// Format results.
 		$formatted = array();
@@ -358,27 +361,28 @@ class AjaxMonitor {
 	 * @return array Actions with excessive polling detected.
 	 */
 	public function get_excessive_polling( $period = '1hour', $min_requests = 60 ) {
-		global $wpdb;
-
 		$since = $this->get_period_start_time( $period );
 		$period_minutes = $this->get_period_minutes( $period );
 
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
-					action,
-					COUNT(*) as request_count,
-					AVG(execution_time) as avg_time
-				FROM {$this->table_name}
-				WHERE created_at >= %s
-				GROUP BY action
-				HAVING request_count >= %d
-				ORDER BY request_count DESC",
-				$since,
-				$min_requests
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT
+				action,
+				COUNT(*) as request_count,
+				AVG(execution_time) as avg_time
+			FROM {$this->table_name}
+			WHERE created_at >= %s
+			GROUP BY action
+			HAVING request_count >= %d
+			ORDER BY request_count DESC",
+			$since,
+			$min_requests
 		);
+
+		if ( null === $query ) {
+			return array();
+		}
+
+		$results = $this->connection->get_results( $query, ARRAY_A );
 
 		// Format results with requests per minute.
 		$formatted = array();
@@ -408,25 +412,26 @@ class AjaxMonitor {
 	 * @return array Redundant request patterns.
 	 */
 	public function get_redundant_requests( $timeframe_seconds = 60, $min_occurrences = 3 ) {
-		global $wpdb;
-
 		// Get recent requests.
 		$since = gmdate( 'Y-m-d H:i:s', time() - 3600 ); // Last hour.
 
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
-					action,
-					user_role,
-					created_at,
-					execution_time
-				FROM {$this->table_name}
-				WHERE created_at >= %s
-				ORDER BY action, created_at",
-				$since
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT
+				action,
+				user_role,
+				created_at,
+				execution_time
+			FROM {$this->table_name}
+			WHERE created_at >= %s
+			ORDER BY action, created_at",
+			$since
 		);
+
+		if ( null === $query ) {
+			return array();
+		}
+
+		$results = $this->connection->get_results( $query, ARRAY_A );
 
 		// Analyze for redundancy patterns.
 		$redundant = array();
@@ -516,18 +521,20 @@ class AjaxMonitor {
 	 * @return int Number of rows deleted.
 	 */
 	public function prune_old_logs() {
-		global $wpdb;
-
 		$cutoff = gmdate( 'Y-m-d H:i:s', time() - self::LOG_TTL );
 
-		$deleted = $wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$this->table_name} WHERE created_at < %s",
-				$cutoff
-			)
+		$query = $this->connection->prepare(
+			"DELETE FROM {$this->table_name} WHERE created_at < %s",
+			$cutoff
 		);
 
-		return absint( $deleted );
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$deleted = $this->connection->query( $query );
+
+		return is_int( $deleted ) ? $deleted : 0;
 	}
 
 	/**
@@ -538,21 +545,19 @@ class AjaxMonitor {
 	 * @return array Status information.
 	 */
 	public function get_monitoring_status() {
-		global $wpdb;
-
-		$total_logged = $wpdb->get_var(
+		$total_logged = $this->connection->get_var(
 			"SELECT COUNT(*) FROM {$this->table_name}"
 		);
 
-		$oldest_log = $wpdb->get_var(
+		$oldest_log = $this->connection->get_var(
 			"SELECT created_at FROM {$this->table_name} ORDER BY created_at ASC LIMIT 1"
 		);
 
 		return array(
-			'monitoring_enabled' => true,
+			'monitoring_enabled'    => true,
 			'total_requests_logged' => absint( $total_logged ),
-			'oldest_log' => $oldest_log,
-			'log_ttl_days' => self::LOG_TTL / DAY_IN_SECONDS,
+			'oldest_log'            => $oldest_log,
+			'log_ttl_days'          => self::LOG_TTL / DAY_IN_SECONDS,
 		);
 	}
 }

@@ -11,6 +11,7 @@ namespace WPAdminHealth\Media;
 
 use WPAdminHealth\Contracts\ScannerInterface;
 use WPAdminHealth\Contracts\ExclusionsInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -21,6 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Media Scanner class for analyzing media library health and statistics.
  *
  * @since 1.0.0
+ * @since 1.3.0 Added ConnectionInterface dependency injection.
  */
 class Scanner implements ScannerInterface {
 
@@ -46,14 +48,24 @@ class Scanner implements ScannerInterface {
 	private ExclusionsInterface $exclusions;
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.0 Added ConnectionInterface parameter.
 	 *
 	 * @param ExclusionsInterface $exclusions Exclusions manager.
+	 * @param ConnectionInterface $connection Database connection.
 	 */
-	public function __construct( ExclusionsInterface $exclusions ) {
+	public function __construct( ExclusionsInterface $exclusions, ConnectionInterface $connection ) {
 		$this->exclusions = $exclusions;
+		$this->connection = $connection;
 	}
 
 	/**
@@ -81,19 +93,36 @@ class Scanner implements ScannerInterface {
 	 * echo "Unused files: " . $results['unused_count'];
 	 */
 	public function scan_all_media() {
-		global $wpdb;
+		// Start scan.
+		set_transient( $this->transient_prefix . 'progress', 0, HOUR_IN_SECONDS );
 
 		$total_count = $this->get_media_count();
-		$total_size = $this->get_media_total_size();
+		$total_size  = $this->get_media_total_size();
+
+		$unused       = $this->find_unused_media();
+		$unused_count = count( $unused );
+
+		$duplicates      = $this->find_duplicate_files();
+		$duplicate_count = 0;
+		foreach ( $duplicates as $ids ) {
+			$duplicate_count += max( 0, count( $ids ) - 1 );
+		}
+
+		// Files > 1MB.
+		$large_files       = $this->find_large_files( 1 );
+		$large_files_count = count( $large_files );
+
+		$missing_alt       = $this->find_missing_alt_text();
+		$missing_alt_count = count( $missing_alt );
 
 		$results = array(
-			'total_count' => $total_count,
-			'total_size' => $total_size,
-			'unused_count' => 0,
-			'duplicate_count' => 0,
-			'large_files_count' => 0,
-			'missing_alt_count' => 0,
-			'scanned_at' => current_time( 'mysql' ),
+			'total_count'       => $total_count,
+			'total_size'        => $total_size,
+			'unused_count'      => $unused_count,
+			'duplicate_count'   => $duplicate_count,
+			'large_files_count' => $large_files_count,
+			'missing_alt_count' => $missing_alt_count,
+			'scanned_at'        => current_time( 'mysql' ),
 		);
 
 		// Store results in transient.
@@ -106,30 +135,37 @@ class Scanner implements ScannerInterface {
 	/**
 	 * Get the total count of media attachments.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @return int Total number of media attachments.
 	 */
 	public function get_media_count() {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = %s",
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$posts_table} WHERE post_type = %s",
 			'attachment'
 		);
 
-		return absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$result = $this->connection->get_var( $query );
+		return absint( $result );
 	}
 
 	/**
 	 * Get the total size of all media attachments.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @return int Total size in bytes.
 	 */
 	public function get_media_total_size() {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
 		$total_size = 0;
 		$batch_offset = 0;
@@ -138,8 +174,8 @@ class Scanner implements ScannerInterface {
 		$total_count = $this->get_media_count();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -147,7 +183,11 @@ class Scanner implements ScannerInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -194,11 +234,12 @@ class Scanner implements ScannerInterface {
 	 * Find unused media attachments.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @return array Array of unused attachment IDs.
 	 */
 	public function find_unused_media() {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
 		$unused = array();
 		$batch_offset = 0;
@@ -207,8 +248,8 @@ class Scanner implements ScannerInterface {
 		$total_count = $this->get_media_count();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -216,7 +257,11 @@ class Scanner implements ScannerInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -260,21 +305,26 @@ class Scanner implements ScannerInterface {
 	/**
 	 * Check if an attachment is used anywhere.
 	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param int $attachment_id Attachment ID to check.
 	 * @return bool True if used, false otherwise.
 	 */
 	private function is_attachment_used( $attachment_id ): bool {
-		global $wpdb;
+		$posts_table    = $this->connection->get_posts_table();
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$options_table  = $this->connection->get_options_table();
 
 		// Check if it's a featured image.
-		$featured_check = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta}
+		$featured_check = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$postmeta_table}
 			WHERE meta_key = %s AND meta_value = %d",
 			'_thumbnail_id',
 			$attachment_id
 		);
 
-		if ( $wpdb->get_var( $featured_check ) > 0 ) {
+		if ( null !== $featured_check && $this->connection->get_var( $featured_check ) > 0 ) {
 			return true;
 		}
 
@@ -290,67 +340,67 @@ class Scanner implements ScannerInterface {
 		$attachment_filename = basename( $attachment_url );
 
 		// Check in post content.
-		$content_check = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->posts}
+		$content_check = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$posts_table}
 			WHERE post_status NOT IN ('trash', 'auto-draft')
 			AND (post_content LIKE %s OR post_content LIKE %s)",
-			'%' . $wpdb->esc_like( $attachment_path ) . '%',
-			'%' . $wpdb->esc_like( $attachment_filename ) . '%'
+			'%' . $this->connection->esc_like( $attachment_path ) . '%',
+			'%' . $this->connection->esc_like( $attachment_filename ) . '%'
 		);
 
-		if ( $wpdb->get_var( $content_check ) > 0 ) {
+		if ( null !== $content_check && $this->connection->get_var( $content_check ) > 0 ) {
 			return true;
 		}
 
 		// Check in postmeta (for galleries, ACF fields, etc.).
-		$postmeta_check = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta}
+		$postmeta_check = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$postmeta_table}
 			WHERE (meta_value LIKE %s OR meta_value LIKE %s OR meta_value = %d)",
-			'%' . $wpdb->esc_like( $attachment_path ) . '%',
-			'%' . $wpdb->esc_like( $attachment_filename ) . '%',
+			'%' . $this->connection->esc_like( $attachment_path ) . '%',
+			'%' . $this->connection->esc_like( $attachment_filename ) . '%',
 			$attachment_id
 		);
 
-		if ( $wpdb->get_var( $postmeta_check ) > 0 ) {
+		if ( null !== $postmeta_check && $this->connection->get_var( $postmeta_check ) > 0 ) {
 			return true;
 		}
 
 		// Check in options (for widgets, customizer, site logo, etc.).
-		$options_check = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->options}
+		$options_check = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table}
 			WHERE option_name NOT LIKE %s
 			AND (option_value LIKE %s OR option_value LIKE %s OR option_value = %d)",
-			'%' . $wpdb->esc_like( '_transient_' ) . '%',
-			'%' . $wpdb->esc_like( $attachment_path ) . '%',
-			'%' . $wpdb->esc_like( $attachment_filename ) . '%',
+			'%' . $this->connection->esc_like( '_transient_' ) . '%',
+			'%' . $this->connection->esc_like( $attachment_path ) . '%',
+			'%' . $this->connection->esc_like( $attachment_filename ) . '%',
 			$attachment_id
 		);
 
-		if ( $wpdb->get_var( $options_check ) > 0 ) {
+		if ( null !== $options_check && $this->connection->get_var( $options_check ) > 0 ) {
 			return true;
 		}
 
 		// Check for WooCommerce product galleries.
-		$woo_gallery_check = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta}
+		$woo_gallery_check = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$postmeta_table}
 			WHERE meta_key = %s AND meta_value LIKE %s",
 			'_product_image_gallery',
-			'%' . $wpdb->esc_like( (string) $attachment_id ) . '%'
+			'%' . $this->connection->esc_like( (string) $attachment_id ) . '%'
 		);
 
-		if ( $wpdb->get_var( $woo_gallery_check ) > 0 ) {
+		if ( null !== $woo_gallery_check && $this->connection->get_var( $woo_gallery_check ) > 0 ) {
 			return true;
 		}
 
 		// Check for Elementor data.
-		$elementor_check = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta}
+		$elementor_check = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$postmeta_table}
 			WHERE meta_key = %s AND meta_value LIKE %s",
 			'_elementor_data',
-			'%' . $wpdb->esc_like( (string) $attachment_id ) . '%'
+			'%' . $this->connection->esc_like( (string) $attachment_id ) . '%'
 		);
 
-		if ( $wpdb->get_var( $elementor_check ) > 0 ) {
+		if ( null !== $elementor_check && $this->connection->get_var( $elementor_check ) > 0 ) {
 			return true;
 		}
 
@@ -370,11 +420,12 @@ class Scanner implements ScannerInterface {
 	 * Find duplicate files based on file hash.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @return array Array of duplicate file groups.
 	 */
 	public function find_duplicate_files() {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
 		$duplicates = array();
 		$file_hashes = array();
@@ -384,8 +435,8 @@ class Scanner implements ScannerInterface {
 		$total_count = $this->get_media_count();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -393,7 +444,11 @@ class Scanner implements ScannerInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -430,12 +485,13 @@ class Scanner implements ScannerInterface {
 	 * Find large files above a specified size.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param int $min_size_mb Minimum file size in MB.
 	 * @return array Array of attachment IDs with their sizes.
 	 */
 	public function find_large_files( $min_size_mb ) {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
 		$min_size_bytes = $min_size_mb * 1024 * 1024;
 		$large_files = array();
@@ -445,8 +501,8 @@ class Scanner implements ScannerInterface {
 		$total_count = $this->get_media_count();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				LIMIT %d OFFSET %d",
 				'attachment',
@@ -454,7 +510,11 @@ class Scanner implements ScannerInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -490,11 +550,12 @@ class Scanner implements ScannerInterface {
 	 * Find images missing alt text.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @return array Array of attachment IDs missing alt text.
 	 */
 	public function find_missing_alt_text() {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
 		$missing_alt = array();
 		$batch_offset = 0;
@@ -503,8 +564,8 @@ class Scanner implements ScannerInterface {
 		$total_count = $this->get_media_count();
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_type = %s
 				AND post_mime_type LIKE %s
 				LIMIT %d OFFSET %d",
@@ -514,7 +575,11 @@ class Scanner implements ScannerInterface {
 				$batch_offset
 			);
 
-			$attachments = $wpdb->get_col( $query );
+			if ( null === $query ) {
+				break;
+			}
+
+			$attachments = $this->connection->get_col( $query );
 
 			if ( empty( $attachments ) ) {
 				break;
@@ -548,13 +613,14 @@ class Scanner implements ScannerInterface {
 	 */
 	public function get_scan_progress() {
 		$progress = get_transient( $this->transient_prefix . 'progress' );
-		return $progress !== false ? absint( $progress ) : 0;
+		return false !== $progress ? absint( $progress ) : 0;
 	}
 
 	/**
 	 * Scan for unused media files.
 	 *
 	 * @since 1.1.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param int $batch_size Number of attachments to scan per batch.
 	 * @param int $offset     Starting offset for pagination.
@@ -566,13 +632,13 @@ class Scanner implements ScannerInterface {
 	 * } Scan results.
 	 */
 	public function scan_unused_media( int $batch_size = 100, int $offset = 0 ): array {
-		global $wpdb;
+		$posts_table = $this->connection->get_posts_table();
 
 		$total = $this->get_media_count();
 		$unused = array();
 
-		$query = $wpdb->prepare(
-			"SELECT ID FROM {$wpdb->posts}
+		$query = $this->connection->prepare(
+			"SELECT ID FROM {$posts_table}
 			WHERE post_type = %s
 			LIMIT %d OFFSET %d",
 			'attachment',
@@ -580,7 +646,16 @@ class Scanner implements ScannerInterface {
 			$offset
 		);
 
-		$attachments = $wpdb->get_col( $query );
+		if ( null === $query ) {
+			return array(
+				'unused'   => array(),
+				'scanned'  => 0,
+				'total'    => $total,
+				'has_more' => false,
+			);
+		}
+
+		$attachments = $this->connection->get_col( $query );
 		$scanned = count( $attachments );
 
 		foreach ( $attachments as $attachment_id ) {
@@ -668,31 +743,37 @@ class Scanner implements ScannerInterface {
 	 * Get usage locations for an attachment.
 	 *
 	 * @since 1.1.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param int $attachment_id Attachment ID.
 	 * @return array<array{type: string, id: int, title: string}> Usage locations.
 	 */
 	public function get_attachment_usage( int $attachment_id ): array {
-		global $wpdb;
+		$posts_table    = $this->connection->get_posts_table();
+		$postmeta_table = $this->connection->get_postmeta_table();
 
 		$usages = array();
 
 		// Check featured image usage.
-		$featured_posts = $wpdb->get_col( $wpdb->prepare(
-			"SELECT post_id FROM {$wpdb->postmeta}
+		$featured_query = $this->connection->prepare(
+			"SELECT post_id FROM {$postmeta_table}
 			WHERE meta_key = %s AND meta_value = %d",
 			'_thumbnail_id',
 			$attachment_id
-		) );
+		);
 
-		foreach ( $featured_posts as $post_id ) {
-			$post = get_post( $post_id );
-			if ( $post ) {
-				$usages[] = array(
-					'type'  => 'featured_image',
-					'id'    => (int) $post_id,
-					'title' => $post->post_title,
-				);
+		if ( null !== $featured_query ) {
+			$featured_posts = $this->connection->get_col( $featured_query );
+
+			foreach ( $featured_posts as $post_id ) {
+				$post = get_post( $post_id );
+				if ( $post ) {
+					$usages[] = array(
+						'type'  => 'featured_image',
+						'id'    => (int) $post_id,
+						'title' => $post->post_title,
+					);
+				}
 			}
 		}
 
@@ -702,22 +783,26 @@ class Scanner implements ScannerInterface {
 			$upload_dir = wp_upload_dir();
 			$attachment_path = str_replace( $upload_dir['baseurl'], '', $attachment_url );
 
-			$content_posts = $wpdb->get_col( $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
+			$content_query = $this->connection->prepare(
+				"SELECT ID FROM {$posts_table}
 				WHERE post_status NOT IN ('trash', 'auto-draft')
 				AND post_content LIKE %s
 				LIMIT 20",
-				'%' . $wpdb->esc_like( $attachment_path ) . '%'
-			) );
+				'%' . $this->connection->esc_like( $attachment_path ) . '%'
+			);
 
-			foreach ( $content_posts as $post_id ) {
-				$post = get_post( $post_id );
-				if ( $post ) {
-					$usages[] = array(
-						'type'  => 'content',
-						'id'    => (int) $post_id,
-						'title' => $post->post_title,
-					);
+			if ( null !== $content_query ) {
+				$content_posts = $this->connection->get_col( $content_query );
+
+				foreach ( $content_posts as $post_id ) {
+					$post = get_post( $post_id );
+					if ( $post ) {
+						$usages[] = array(
+							'type'  => 'content',
+							'id'    => (int) $post_id,
+							'title' => $post->post_title,
+						);
+					}
 				}
 			}
 		}

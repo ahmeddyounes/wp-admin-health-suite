@@ -526,7 +526,7 @@ const Recommendations = ({
 			</div>
 
 			{/* Recommendations List */}
-			<ul style={listStyles} role="list">
+			<ul style={listStyles}>
 				{filteredRecommendations.map((recommendation, index) => {
 					const isExpanded = expandedItems.has(recommendation.id);
 					const isExecuting = executingAction === recommendation.id;
@@ -768,7 +768,19 @@ const RecommendationItem = ({
 			)}
 
 			{/* Header (clickable to expand) */}
-			<div style={headerStyles} onClick={onToggleExpanded}>
+			<div
+				style={headerStyles}
+				onClick={onToggleExpanded}
+				onKeyDown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						onToggleExpanded();
+					}
+				}}
+				role="button"
+				tabIndex={0}
+				aria-expanded={isExpanded}
+			>
 				{/* Category Icon */}
 				<div style={iconContainerStyles}>
 					<span

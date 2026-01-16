@@ -28,7 +28,4 @@ Object.assign(window.WPAdminHealthComponents, {
 	createRoot,
 });
 
-// Initialize any performance-specific functionality
-document.addEventListener('DOMContentLoaded', () => {
-	console.log('Performance page loaded and ready');
-});
+// Initialize any performance-specific functionality when needed.

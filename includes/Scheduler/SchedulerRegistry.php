@@ -9,6 +9,7 @@
 
 namespace WPAdminHealth\Scheduler;
 
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Scheduler\Contracts\SchedulableInterface;
 use WPAdminHealth\Scheduler\Contracts\SchedulerRegistryInterface;
 
@@ -48,6 +49,14 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	private array $tasks = array();
 
 	/**
+	 * Database connection.
+	 *
+	 * @since 1.3.0
+	 * @var ConnectionInterface|null
+	 */
+	private ?ConnectionInterface $connection = null;
+
+	/**
 	 * {@inheritdoc}
 	 */
 	public function register( SchedulableInterface $task ): void {
@@ -78,6 +87,18 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	 */
 	public function get_all(): array {
 		return $this->tasks;
+	}
+
+	/**
+	 * Set the database connection.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection instance.
+	 * @return void
+	 */
+	public function set_connection( ConnectionInterface $connection ): void {
+		$this->connection = $connection;
 	}
 
 	/**
@@ -202,19 +223,23 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	 * @return bool True if lock acquired, false if task is already locked.
 	 */
 	private function acquire_lock( string $task_id ): bool {
-		global $wpdb;
-
 		$lock_name = 'wpha_task_' . md5( $task_id );
 
 		// Try MySQL advisory lock first (atomic operation).
 		// GET_LOCK returns: 1 = acquired, 0 = already held, NULL = error.
 		// Using timeout of 0 means don't wait, return immediately.
-		$result = $wpdb->get_var(
-			$wpdb->prepare(
-				'SELECT GET_LOCK(%s, 0)',
-				$lock_name
-			)
-		);
+		if ( $this->connection ) {
+			$query  = $this->connection->prepare( 'SELECT GET_LOCK(%s, 0)', $lock_name );
+			$result = $query ? $this->connection->get_var( $query ) : null;
+		} else {
+			global $wpdb;
+			$result = $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT GET_LOCK(%s, 0)',
+					$lock_name
+				)
+			);
+		}
 
 		if ( 1 === (int) $result ) {
 			// Store lock info in transient for debugging/monitoring.
@@ -239,17 +264,21 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	 * @return bool True if lock was released, false otherwise.
 	 */
 	private function release_lock( string $task_id ): bool {
-		global $wpdb;
-
 		$lock_name = 'wpha_task_' . md5( $task_id );
 
 		// Release MySQL advisory lock.
-		$result = $wpdb->get_var(
-			$wpdb->prepare(
-				'SELECT RELEASE_LOCK(%s)',
-				$lock_name
-			)
-		);
+		if ( $this->connection ) {
+			$query  = $this->connection->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name );
+			$result = $query ? $this->connection->get_var( $query ) : null;
+		} else {
+			global $wpdb;
+			$result = $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT RELEASE_LOCK(%s)',
+					$lock_name
+				)
+			);
+		}
 
 		// Also clean up the transient.
 		delete_transient( self::LOCK_PREFIX . $task_id );

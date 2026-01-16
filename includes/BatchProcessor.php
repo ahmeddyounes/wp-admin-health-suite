@@ -10,6 +10,8 @@
 
 namespace WPAdminHealth;
 
+use WPAdminHealth\Contracts\ConnectionInterface;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -23,6 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * issues on large sites.
  *
  * @since 1.0.0
+ * @since 1.3.0 Added ConnectionInterface support with optional injection.
  */
 class BatchProcessor {
 
@@ -34,16 +37,55 @@ class BatchProcessor {
 	const DEFAULT_BATCH_SIZE = 100;
 
 	/**
+	 * Database connection.
+	 *
+	 * @since 1.3.0
+	 * @var ConnectionInterface|null
+	 */
+	private static ?ConnectionInterface $connection = null;
+
+	/**
+	 * Set the database connection.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection instance.
+	 * @return void
+	 */
+	public static function set_connection( ConnectionInterface $connection ): void {
+		self::$connection = $connection;
+	}
+
+	/**
+	 * Get the database connection.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return ConnectionInterface|null Database connection or null if not set.
+	 */
+	private static function get_connection(): ?ConnectionInterface {
+		if ( null === self::$connection && class_exists( Plugin::class ) ) {
+			$container = Plugin::get_instance()->get_container();
+			if ( $container->has( ConnectionInterface::class ) ) {
+				self::$connection = $container->get( ConnectionInterface::class );
+			}
+		}
+
+		return self::$connection;
+	}
+
+	/**
 	 * Process posts in batches using a generator.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param array $args    WP_Query arguments.
 	 * @param int   $batch_size Batch size for processing.
 	 * @return \Generator Generator yielding posts in batches.
 	 */
 	public static function process_posts( $args = array(), $batch_size = self::DEFAULT_BATCH_SIZE ) {
-		global $wpdb;
+		$connection = self::get_connection();
 
 		// Default query args.
 		$defaults = array(
@@ -69,17 +111,31 @@ class BatchProcessor {
 		$offset = 0;
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
-				WHERE post_type IN ($post_type_in)
-				AND post_status IN ($post_status_in)
-				ORDER BY ID ASC
-				LIMIT %d OFFSET %d",
-				$batch_size,
-				$offset
-			);
-
-			$post_ids = $wpdb->get_col( $query );
+			if ( $connection ) {
+				$posts_table = $connection->get_posts_table();
+				$query = $connection->prepare(
+					"SELECT ID FROM `{$posts_table}`
+					WHERE post_type IN ($post_type_in)
+					AND post_status IN ($post_status_in)
+					ORDER BY ID ASC
+					LIMIT %d OFFSET %d",
+					$batch_size,
+					$offset
+				);
+				$post_ids = $query ? $connection->get_col( $query ) : array();
+			} else {
+				global $wpdb;
+				$query = $wpdb->prepare(
+					"SELECT ID FROM {$wpdb->posts}
+					WHERE post_type IN ($post_type_in)
+					AND post_status IN ($post_status_in)
+					ORDER BY ID ASC
+					LIMIT %d OFFSET %d",
+					$batch_size,
+					$offset
+				);
+				$post_ids = $wpdb->get_col( $query );
+			}
 
 			if ( empty( $post_ids ) ) {
 				break;
@@ -100,43 +156,72 @@ class BatchProcessor {
 	 * Process attachments in batches using a generator.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param array $args    Additional query arguments.
 	 * @param int   $batch_size Batch size for processing.
 	 * @return \Generator Generator yielding attachment IDs in batches.
 	 */
 	public static function process_attachments( $args = array(), $batch_size = self::DEFAULT_BATCH_SIZE ) {
-		global $wpdb;
+		$connection = self::get_connection();
 
 		$mime_type = isset( $args['mime_type'] ) ? $args['mime_type'] : '';
 		$offset = 0;
 
 		while ( true ) {
-			if ( ! empty( $mime_type ) ) {
-				$query = $wpdb->prepare(
-					"SELECT ID FROM {$wpdb->posts}
-					WHERE post_type = %s
-					AND post_mime_type LIKE %s
-					ORDER BY ID ASC
-					LIMIT %d OFFSET %d",
-					'attachment',
-					$wpdb->esc_like( $mime_type ) . '%',
-					$batch_size,
-					$offset
-				);
+			if ( $connection ) {
+				$posts_table = $connection->get_posts_table();
+				if ( ! empty( $mime_type ) ) {
+					$query = $connection->prepare(
+						"SELECT ID FROM `{$posts_table}`
+						WHERE post_type = %s
+						AND post_mime_type LIKE %s
+						ORDER BY ID ASC
+						LIMIT %d OFFSET %d",
+						'attachment',
+						$connection->esc_like( $mime_type ) . '%',
+						$batch_size,
+						$offset
+					);
+				} else {
+					$query = $connection->prepare(
+						"SELECT ID FROM `{$posts_table}`
+						WHERE post_type = %s
+						ORDER BY ID ASC
+						LIMIT %d OFFSET %d",
+						'attachment',
+						$batch_size,
+						$offset
+					);
+				}
+				$attachment_ids = $query ? $connection->get_col( $query ) : array();
 			} else {
-				$query = $wpdb->prepare(
-					"SELECT ID FROM {$wpdb->posts}
-					WHERE post_type = %s
-					ORDER BY ID ASC
-					LIMIT %d OFFSET %d",
-					'attachment',
-					$batch_size,
-					$offset
-				);
+				global $wpdb;
+				if ( ! empty( $mime_type ) ) {
+					$query = $wpdb->prepare(
+						"SELECT ID FROM {$wpdb->posts}
+						WHERE post_type = %s
+						AND post_mime_type LIKE %s
+						ORDER BY ID ASC
+						LIMIT %d OFFSET %d",
+						'attachment',
+						$wpdb->esc_like( $mime_type ) . '%',
+						$batch_size,
+						$offset
+					);
+				} else {
+					$query = $wpdb->prepare(
+						"SELECT ID FROM {$wpdb->posts}
+						WHERE post_type = %s
+						ORDER BY ID ASC
+						LIMIT %d OFFSET %d",
+						'attachment',
+						$batch_size,
+						$offset
+					);
+				}
+				$attachment_ids = $wpdb->get_col( $query );
 			}
-
-			$attachment_ids = $wpdb->get_col( $query );
 
 			if ( empty( $attachment_ids ) ) {
 				break;
@@ -157,6 +242,7 @@ class BatchProcessor {
 	 * Process database rows in batches using a generator.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param string $table      Table name.
 	 * @param string $where      WHERE clause (without WHERE keyword).
@@ -165,21 +251,33 @@ class BatchProcessor {
 	 * @return \Generator Generator yielding rows in batches.
 	 */
 	public static function process_table_rows( $table, $where = '1=1', $batch_size = self::DEFAULT_BATCH_SIZE, $id_column = 'ID' ) {
-		global $wpdb;
+		$connection = self::get_connection();
 
 		$offset = 0;
 
 		while ( true ) {
-			$query = $wpdb->prepare(
-				"SELECT * FROM {$table}
-				WHERE {$where}
-				ORDER BY {$id_column} ASC
-				LIMIT %d OFFSET %d",
-				$batch_size,
-				$offset
-			);
-
-			$rows = $wpdb->get_results( $query );
+			if ( $connection ) {
+				$query = $connection->prepare(
+					"SELECT * FROM `{$table}`
+					WHERE {$where}
+					ORDER BY {$id_column} ASC
+					LIMIT %d OFFSET %d",
+					$batch_size,
+					$offset
+				);
+				$rows = $query ? $connection->get_results( $query ) : array();
+			} else {
+				global $wpdb;
+				$query = $wpdb->prepare(
+					"SELECT * FROM {$table}
+					WHERE {$where}
+					ORDER BY {$id_column} ASC
+					LIMIT %d OFFSET %d",
+					$batch_size,
+					$offset
+				);
+				$rows = $wpdb->get_results( $query );
+			}
 
 			if ( empty( $rows ) ) {
 				break;
@@ -200,39 +298,64 @@ class BatchProcessor {
 	 * Process comments in batches using a generator.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param array $args    Additional query arguments.
 	 * @param int   $batch_size Batch size for processing.
 	 * @return \Generator Generator yielding comment IDs in batches.
 	 */
 	public static function process_comments( $args = array(), $batch_size = self::DEFAULT_BATCH_SIZE ) {
-		global $wpdb;
+		$connection = self::get_connection();
 
 		$status = isset( $args['status'] ) ? $args['status'] : '';
 		$offset = 0;
 
 		while ( true ) {
-			if ( ! empty( $status ) ) {
-				$query = $wpdb->prepare(
-					"SELECT comment_ID FROM {$wpdb->comments}
-					WHERE comment_approved = %s
-					ORDER BY comment_ID ASC
-					LIMIT %d OFFSET %d",
-					$status,
-					$batch_size,
-					$offset
-				);
+			if ( $connection ) {
+				$comments_table = $connection->get_comments_table();
+				if ( ! empty( $status ) ) {
+					$query = $connection->prepare(
+						"SELECT comment_ID FROM `{$comments_table}`
+						WHERE comment_approved = %s
+						ORDER BY comment_ID ASC
+						LIMIT %d OFFSET %d",
+						$status,
+						$batch_size,
+						$offset
+					);
+				} else {
+					$query = $connection->prepare(
+						"SELECT comment_ID FROM `{$comments_table}`
+						ORDER BY comment_ID ASC
+						LIMIT %d OFFSET %d",
+						$batch_size,
+						$offset
+					);
+				}
+				$comment_ids = $query ? $connection->get_col( $query ) : array();
 			} else {
-				$query = $wpdb->prepare(
-					"SELECT comment_ID FROM {$wpdb->comments}
-					ORDER BY comment_ID ASC
-					LIMIT %d OFFSET %d",
-					$batch_size,
-					$offset
-				);
+				global $wpdb;
+				if ( ! empty( $status ) ) {
+					$query = $wpdb->prepare(
+						"SELECT comment_ID FROM {$wpdb->comments}
+						WHERE comment_approved = %s
+						ORDER BY comment_ID ASC
+						LIMIT %d OFFSET %d",
+						$status,
+						$batch_size,
+						$offset
+					);
+				} else {
+					$query = $wpdb->prepare(
+						"SELECT comment_ID FROM {$wpdb->comments}
+						ORDER BY comment_ID ASC
+						LIMIT %d OFFSET %d",
+						$batch_size,
+						$offset
+					);
+				}
+				$comment_ids = $wpdb->get_col( $query );
 			}
-
-			$comment_ids = $wpdb->get_col( $query );
 
 			if ( empty( $comment_ids ) ) {
 				break;
@@ -253,15 +376,23 @@ class BatchProcessor {
 	 * Get total count for a query without loading all results.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param string $table Table name.
 	 * @param string $where WHERE clause (without WHERE keyword).
 	 * @return int Total count.
 	 */
 	public static function get_total_count( $table, $where = '1=1' ) {
-		global $wpdb;
+		$connection = self::get_connection();
 
-		$query = "SELECT COUNT(*) FROM {$table} WHERE {$where}";
+		$query = "SELECT COUNT(*) FROM `{$table}` WHERE {$where}";
+
+		if ( $connection ) {
+			$result = $connection->get_var( $query );
+			return $result ? absint( $result ) : 0;
+		}
+
+		global $wpdb;
 		return absint( $wpdb->get_var( $query ) );
 	}
 

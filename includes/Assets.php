@@ -164,7 +164,7 @@ class Assets {
 	private function enqueue_admin_scripts() {
 		$screen = get_current_screen();
 
-		// Determine which bundle to load based on current screen
+		// Determine which bundle to load based on current screen.
 		$bundle_map = array(
 			'toplevel_page_admin-health'             => 'dashboard',
 			'admin-health_page_admin-health-database' => 'database-health',
@@ -173,10 +173,10 @@ class Assets {
 			'admin-health_page_admin-health-settings' => 'settings',
 		);
 
-		// Get the bundle name for current screen
+		// Get the bundle name for current screen.
 		$bundle_name = isset( $bundle_map[ $screen->id ] ) ? $bundle_map[ $screen->id ] : 'dashboard';
 
-		// Enqueue vendor bundle (shared dependencies)
+		// Enqueue vendor bundle (shared dependencies).
 		$vendor_path = 'assets/js/dist/vendor.bundle.js';
 		if ( file_exists( $this->plugin_path . $vendor_path ) ) {
 			$vendor_asset = $this->get_asset_data( 'vendor' );
@@ -189,12 +189,12 @@ class Assets {
 			);
 		}
 
-		// Enqueue page-specific bundle
+		// Enqueue page-specific bundle.
 		$bundle_path      = 'assets/js/dist/' . $bundle_name . '.bundle.js';
 		$bundle_asset     = $this->get_asset_data( $bundle_name );
 		$bundle_deps      = array_merge( array( 'react', 'react-dom', 'wp-i18n' ), $bundle_asset['dependencies'] );
 
-		// Add vendor bundle as dependency if it exists
+		// Add vendor bundle as dependency if it exists.
 		if ( file_exists( $this->plugin_path . 'assets/js/dist/vendor.bundle.js' ) ) {
 			$bundle_deps[] = 'wpha-vendor-js';
 		}

@@ -7,10 +7,11 @@
 
 namespace WPAdminHealth\REST;
 
-use WP_RestController;
+use WP_REST_Controller;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 
 // Exit if accessed directly.
@@ -30,7 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  */
-class RestController extends WP_RestController {
+class RestController extends WP_REST_Controller {
 
 	/**
 	 * API namespace.
@@ -62,14 +63,25 @@ class RestController extends WP_RestController {
 	protected ?SettingsInterface $settings = null;
 
 	/**
+	 * Database connection.
+	 *
+	 * @since 1.3.0
+	 * @var ConnectionInterface|null
+	 */
+	protected ?ConnectionInterface $connection = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.1.0
+	 * @since 1.3.0 Added optional connection parameter.
 	 *
-	 * @param SettingsInterface|null $settings Optional settings instance for dependency injection.
+	 * @param SettingsInterface|null   $settings   Optional settings instance for dependency injection.
+	 * @param ConnectionInterface|null $connection Optional database connection for dependency injection.
 	 */
-	public function __construct( ?SettingsInterface $settings = null ) {
-		$this->settings = $settings;
+	public function __construct( ?SettingsInterface $settings = null, ?ConnectionInterface $connection = null ) {
+		$this->settings   = $settings;
+		$this->connection = $connection;
 	}
 
 	/**
@@ -83,10 +95,31 @@ class RestController extends WP_RestController {
 	 */
 	protected function get_settings(): SettingsInterface {
 		if ( null === $this->settings ) {
-			$this->settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
+			/** @var SettingsInterface $settings */
+			$settings       = \WPAdminHealth\Plugin::get_instance()->get_container()->get( SettingsInterface::class );
+			$this->settings = $settings;
 		}
 
 		return $this->settings;
+	}
+
+	/**
+	 * Get the database connection instance.
+	 *
+	 * Falls back to retrieving from plugin singleton if not injected.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return ConnectionInterface The database connection instance.
+	 */
+	protected function get_connection(): ConnectionInterface {
+		if ( null === $this->connection ) {
+			/** @var ConnectionInterface $connection */
+			$connection       = \WPAdminHealth\Plugin::get_instance()->get_container()->get( ConnectionInterface::class );
+			$this->connection = $connection;
+		}
+
+		return $this->connection;
 	}
 
 	/**
@@ -422,31 +455,33 @@ class RestController extends WP_RestController {
 	 * Attempt to acquire a transient-based lock.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
 	 *
 	 * @param string $lock_key Lock key name.
 	 * @param int    $timeout  Lock timeout in seconds.
 	 * @return bool True if lock acquired, false otherwise.
 	 */
 	private function acquire_transient_lock( string $lock_key, int $timeout ): bool {
-		global $wpdb;
+		$connection = $this->get_connection();
 
 		// Use direct database insert to make this atomic.
 		// set_transient is not atomic - it checks then sets.
 		$option_name  = '_transient_' . $lock_key;
 		$timeout_name = '_transient_timeout_' . $lock_key;
 		$expiration   = time() + $timeout;
+		$options_table = $connection->get_options_table();
 
 		// Try to insert. Will fail if option already exists.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$result = $wpdb->query(
-			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no'), (%s, %s, 'no')",
-				$timeout_name,
-				$expiration,
-				$option_name,
-				'1'
-			)
+		$query = $connection->prepare(
+			"INSERT IGNORE INTO {$options_table} (option_name, option_value, autoload) VALUES (%s, %s, 'no'), (%s, %s, 'no')",
+			$timeout_name,
+			$expiration,
+			$option_name,
+			'1'
 		);
+
+		$result = $query ? $connection->query( $query ) : false;
 
 		// If 2 rows inserted, we got the lock.
 		if ( 2 === $result ) {
@@ -468,6 +503,8 @@ class RestController extends WP_RestController {
 	/**
 	 * Format response in standard format.
 	 *
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param bool   $success Whether the request was successful.
 	 * @param mixed  $data    The response data.
 	 * @param string $message The response message.
@@ -484,10 +521,10 @@ class RestController extends WP_RestController {
 		// Add debug information if debug mode is enabled.
 		// Security: Only include basic metrics, never expose full queries or stack traces.
 		if ( $this->is_debug_mode_enabled() ) {
-			global $wpdb;
+			$connection = $this->get_connection();
 
 			$response['debug'] = array(
-				'queries'       => $wpdb->num_queries,
+				'queries'       => $connection->get_num_queries(),
 				'memory_usage'  => size_format( memory_get_usage() ),
 				'memory_peak'   => size_format( memory_get_peak_usage() ),
 				'time_elapsed'  => timer_stop( 0, 3 ),
@@ -495,15 +532,16 @@ class RestController extends WP_RestController {
 
 			// Security: Only expose query timing for super admins with WPHA_DEBUG explicitly set.
 			// Never expose full query text or stack traces via REST API.
-			if ( $this->can_view_detailed_debug() && defined( 'SAVEQUERIES' ) && SAVEQUERIES && ! empty( $wpdb->queries ) ) {
+			$query_log = $connection->get_query_log();
+			if ( $this->can_view_detailed_debug() && defined( 'SAVEQUERIES' ) && SAVEQUERIES && ! empty( $query_log ) ) {
 				$response['debug']['query_timing'] = array_map(
-					function( $query ) {
+					function ( $query ) {
 						return array(
 							'query_type' => $this->get_query_type( $query[0] ),
 							'time'       => round( $query[1], 5 ) . 's',
 						);
 					},
-					array_slice( $wpdb->queries, -10 ) // Last 10 queries
+					array_slice( $query_log, -10 ) // Last 10 queries.
 				);
 			}
 		}

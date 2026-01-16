@@ -11,6 +11,7 @@
 namespace WPAdminHealth\Database;
 
 use WPAdminHealth\Contracts\TransientsCleanerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,6 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  * @since 1.2.0 Implements TransientsCleanerInterface.
+ * @since 1.3.0 Added constructor dependency injection for ConnectionInterface.
  */
 class TransientsCleaner implements TransientsCleanerInterface {
 
@@ -31,6 +33,24 @@ class TransientsCleaner implements TransientsCleanerInterface {
 	 * @var int
 	 */
 	const BATCH_SIZE = 500;
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
 
 	/**
 	 * Get the total count of all transients.
@@ -45,19 +65,23 @@ class TransientsCleaner implements TransientsCleanerInterface {
 			return 0;
 		}
 
-		global $wpdb;
+		$options_table = $this->connection->get_options_table();
 
 		// Count both regular and site transients.
-		$query = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->options}
+		$query = $this->connection->prepare(
+			"SELECT COUNT(*) FROM {$options_table}
 			WHERE option_name LIKE %s
 			OR option_name LIKE %s",
-			$wpdb->esc_like( '_transient_' ) . '%',
-			$wpdb->esc_like( '_site_transient_' ) . '%'
+			$this->connection->esc_like( '_transient_' ) . '%',
+			$this->connection->esc_like( '_site_transient_' ) . '%'
 		);
 
+		if ( null === $query ) {
+			return 0;
+		}
+
 		// Divide by 2 because each transient has a value and a timeout option.
-		$count = absint( $wpdb->get_var( $query ) );
+		$count = absint( $this->connection->get_var( $query ) );
 
 		return intval( $count / 2 );
 	}
@@ -76,20 +100,24 @@ class TransientsCleaner implements TransientsCleanerInterface {
 			return array();
 		}
 
-		global $wpdb;
+		$options_table = $this->connection->get_options_table();
 
 		// Get expired transients.
-		$query = $wpdb->prepare(
-			"SELECT option_name FROM {$wpdb->options}
+		$query = $this->connection->prepare(
+			"SELECT option_name FROM {$options_table}
 			WHERE (option_name LIKE %s OR option_name LIKE %s)
 			AND option_value < %d
 			ORDER BY option_name ASC",
-			$wpdb->esc_like( '_transient_timeout_' ) . '%',
-			$wpdb->esc_like( '_site_transient_timeout_' ) . '%',
+			$this->connection->esc_like( '_transient_timeout_' ) . '%',
+			$this->connection->esc_like( '_site_transient_timeout_' ) . '%',
 			time()
 		);
 
-		$results = $wpdb->get_col( $query );
+		if ( null === $query ) {
+			return array();
+		}
+
+		$results = $this->connection->get_col( $query );
 
 		if ( empty( $results ) ) {
 			return array();
@@ -142,22 +170,26 @@ class TransientsCleaner implements TransientsCleanerInterface {
 			return 0;
 		}
 
-		global $wpdb;
+		$options_table = $this->connection->get_options_table();
 
 		// Get sum of option_name and option_value lengths for all transients.
-		$query = $wpdb->prepare(
+		$query = $this->connection->prepare(
 			"SELECT SUM(
 				LENGTH(option_name) +
 				LENGTH(option_value)
 			) as total_size
-			FROM {$wpdb->options}
+			FROM {$options_table}
 			WHERE option_name LIKE %s
 			OR option_name LIKE %s",
-			$wpdb->esc_like( '_transient_' ) . '%',
-			$wpdb->esc_like( '_site_transient_' ) . '%'
+			$this->connection->esc_like( '_transient_' ) . '%',
+			$this->connection->esc_like( '_site_transient_' ) . '%'
 		);
 
-		$size = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$size = absint( $this->connection->get_var( $query ) );
 
 		// Add overhead estimate (row overhead, indexes, etc.).
 		$overhead_multiplier = 1.5;
@@ -235,19 +267,26 @@ class TransientsCleaner implements TransientsCleanerInterface {
 			);
 		}
 
-		global $wpdb;
+		$options_table = $this->connection->get_options_table();
 
 		// Get all transient timeout option names.
-		$query = $wpdb->prepare(
-			"SELECT option_name FROM {$wpdb->options}
+		$query = $this->connection->prepare(
+			"SELECT option_name FROM {$options_table}
 			WHERE option_name LIKE %s
 			OR option_name LIKE %s
 			ORDER BY option_name ASC",
-			$wpdb->esc_like( '_transient_timeout_' ) . '%',
-			$wpdb->esc_like( '_site_transient_timeout_' ) . '%'
+			$this->connection->esc_like( '_transient_timeout_' ) . '%',
+			$this->connection->esc_like( '_site_transient_timeout_' ) . '%'
 		);
 
-		$results = $wpdb->get_col( $query );
+		if ( null === $query ) {
+			return array(
+				'deleted'     => 0,
+				'bytes_freed' => 0,
+			);
+		}
+
+		$results = $this->connection->get_col( $query );
 
 		if ( empty( $results ) ) {
 			return array(
@@ -321,23 +360,26 @@ class TransientsCleaner implements TransientsCleanerInterface {
 			return array();
 		}
 
-		global $wpdb;
-
-		$prefix = sanitize_text_field( $prefix );
+		$options_table = $this->connection->get_options_table();
+		$prefix        = sanitize_text_field( $prefix );
 
 		// Search for transients with the given prefix.
-		$query = $wpdb->prepare(
-			"SELECT option_name FROM {$wpdb->options}
+		$query = $this->connection->prepare(
+			"SELECT option_name FROM {$options_table}
 			WHERE (option_name LIKE %s OR option_name LIKE %s)
 			AND (option_name LIKE %s OR option_name LIKE %s)
 			ORDER BY option_name ASC",
-			$wpdb->esc_like( '_transient_' ) . '%',
-			$wpdb->esc_like( '_site_transient_' ) . '%',
-			$wpdb->esc_like( '_transient_' . $prefix ) . '%',
-			$wpdb->esc_like( '_site_transient_' . $prefix ) . '%'
+			$this->connection->esc_like( '_transient_' ) . '%',
+			$this->connection->esc_like( '_site_transient_' ) . '%',
+			$this->connection->esc_like( '_transient_' . $prefix ) . '%',
+			$this->connection->esc_like( '_site_transient_' . $prefix ) . '%'
 		);
 
-		$results = $wpdb->get_col( $query );
+		if ( null === $query ) {
+			return array();
+		}
+
+		$results = $this->connection->get_col( $query );
 
 		if ( empty( $results ) ) {
 			return array();
@@ -390,8 +432,7 @@ class TransientsCleaner implements TransientsCleanerInterface {
 	 * @return array Array with 'deleted' count and 'bytes_freed' estimate.
 	 */
 	private function delete_transients_batch( $transient_names ) {
-		global $wpdb;
-
+		$options_table = $this->connection->get_options_table();
 		$deleted_count = 0;
 		$bytes_freed   = 0;
 
@@ -403,17 +444,19 @@ class TransientsCleaner implements TransientsCleanerInterface {
 			$is_site_transient = false;
 
 			// Try to get the timeout value to determine if it's a site transient.
-			$timeout_option = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT option_name FROM {$wpdb->options}
-					WHERE option_name = %s
-					LIMIT 1",
-					'_site_transient_timeout_' . $transient_name
-				)
+			$query = $this->connection->prepare(
+				"SELECT option_name FROM {$options_table}
+				WHERE option_name = %s
+				LIMIT 1",
+				'_site_transient_timeout_' . $transient_name
 			);
 
-			if ( $timeout_option ) {
-				$is_site_transient = true;
+			if ( null !== $query ) {
+				$timeout_option = $this->connection->get_var( $query );
+
+				if ( $timeout_option ) {
+					$is_site_transient = true;
+				}
 			}
 
 			// Delete the transient using WordPress functions.
@@ -442,15 +485,15 @@ class TransientsCleaner implements TransientsCleanerInterface {
 	 * @return int Estimated size in bytes.
 	 */
 	private function estimate_transient_size( $transient_name ) {
-		global $wpdb;
+		$options_table = $this->connection->get_options_table();
 
 		// Get sizes for both regular and site transient options.
-		$query = $wpdb->prepare(
+		$query = $this->connection->prepare(
 			"SELECT SUM(
 				LENGTH(option_name) +
 				LENGTH(option_value)
 			) as size
-			FROM {$wpdb->options}
+			FROM {$options_table}
 			WHERE option_name IN (%s, %s, %s, %s)",
 			'_transient_' . $transient_name,
 			'_transient_timeout_' . $transient_name,
@@ -458,7 +501,11 @@ class TransientsCleaner implements TransientsCleanerInterface {
 			'_site_transient_timeout_' . $transient_name
 		);
 
-		$size = absint( $wpdb->get_var( $query ) );
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$size = absint( $this->connection->get_var( $query ) );
 
 		// Add overhead estimate.
 		$overhead_multiplier = 1.5;
@@ -476,11 +523,9 @@ class TransientsCleaner implements TransientsCleanerInterface {
 	 * @return bool True on success, false on failure.
 	 */
 	private function log_deletion( $scan_type, $items_found, $items_cleaned, $bytes_freed ) {
-		global $wpdb;
+		$table_name = $this->connection->get_prefix() . 'wpha_scan_history';
 
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
-
-		$result = $wpdb->insert(
+		$result = $this->connection->insert(
 			$table_name,
 			array(
 				'scan_type'     => sanitize_text_field( $scan_type ),

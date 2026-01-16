@@ -11,6 +11,7 @@
 namespace WPAdminHealth\Database;
 
 use WPAdminHealth\Contracts\OrphanedCleanerInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,6 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  * @since 1.2.0 Implements OrphanedCleanerInterface.
+ * @since 1.3.0 Added constructor dependency injection for ConnectionInterface.
  */
 class OrphanedCleaner implements OrphanedCleanerInterface {
 
@@ -31,6 +33,24 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @var int
 	 */
 	const BATCH_SIZE = 1000;
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param ConnectionInterface $connection Database connection.
+	 */
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+	}
 
 	/**
 	 * Count orphaned postmeta records.
@@ -43,13 +63,14 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return int Number of orphaned postmeta records.
 	 */
 	public function count_orphaned_postmeta(): int {
-		global $wpdb;
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$posts_table    = $this->connection->get_posts_table();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$count = $wpdb->get_var(
+		$count = $this->connection->get_var(
 			"SELECT COUNT(pm.meta_id)
-			FROM {$wpdb->postmeta} pm
-			LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+			FROM {$postmeta_table} pm
+			LEFT JOIN {$posts_table} p ON pm.post_id = p.ID
 			WHERE p.ID IS NULL"
 		);
 
@@ -66,13 +87,14 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return int Number of orphaned commentmeta records.
 	 */
 	public function count_orphaned_commentmeta(): int {
-		global $wpdb;
+		$commentmeta_table = $this->connection->get_commentmeta_table();
+		$comments_table    = $this->connection->get_comments_table();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$count = $wpdb->get_var(
+		$count = $this->connection->get_var(
 			"SELECT COUNT(cm.meta_id)
-			FROM {$wpdb->commentmeta} cm
-			LEFT JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID
+			FROM {$commentmeta_table} cm
+			LEFT JOIN {$comments_table} c ON cm.comment_id = c.comment_ID
 			WHERE c.comment_ID IS NULL"
 		);
 
@@ -89,13 +111,14 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return int Number of orphaned termmeta records.
 	 */
 	public function count_orphaned_termmeta(): int {
-		global $wpdb;
+		$termmeta_table = $this->connection->get_termmeta_table();
+		$terms_table    = $this->connection->get_terms_table();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$count = $wpdb->get_var(
+		$count = $this->connection->get_var(
 			"SELECT COUNT(tm.meta_id)
-			FROM {$wpdb->termmeta} tm
-			LEFT JOIN {$wpdb->terms} t ON tm.term_id = t.term_id
+			FROM {$termmeta_table} tm
+			LEFT JOIN {$terms_table} t ON tm.term_id = t.term_id
 			WHERE t.term_id IS NULL"
 		);
 
@@ -112,23 +135,26 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return int Number of orphaned term relationships.
 	 */
 	public function count_orphaned_relationships(): int {
-		global $wpdb;
+		$prefix                    = $this->connection->get_prefix();
+		$term_relationships_table  = $prefix . 'term_relationships';
+		$term_taxonomy_table       = $prefix . 'term_taxonomy';
+		$posts_table               = $this->connection->get_posts_table();
 
 		// Count relationships where the post doesn't exist.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$orphaned_posts = $wpdb->get_var(
+		$orphaned_posts = $this->connection->get_var(
 			"SELECT COUNT(tr.object_id)
-			FROM {$wpdb->term_relationships} tr
-			LEFT JOIN {$wpdb->posts} p ON tr.object_id = p.ID
+			FROM {$term_relationships_table} tr
+			LEFT JOIN {$posts_table} p ON tr.object_id = p.ID
 			WHERE p.ID IS NULL"
 		);
 
 		// Count relationships where the term_taxonomy doesn't exist.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$orphaned_terms = $wpdb->get_var(
+		$orphaned_terms = $this->connection->get_var(
 			"SELECT COUNT(tr.object_id)
-			FROM {$wpdb->term_relationships} tr
-			LEFT JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+			FROM {$term_relationships_table} tr
+			LEFT JOIN {$term_taxonomy_table} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
 			WHERE tt.term_taxonomy_id IS NULL"
 		);
 
@@ -145,17 +171,16 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return array Array of orphaned meta_ids.
 	 */
 	public function find_orphaned_postmeta(): array {
-		global $wpdb;
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$posts_table    = $this->connection->get_posts_table();
 
 		$query = "SELECT pm.meta_id
-			FROM {$wpdb->postmeta} pm
-			LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+			FROM {$postmeta_table} pm
+			LEFT JOIN {$posts_table} p ON pm.post_id = p.ID
 			WHERE p.ID IS NULL
 			ORDER BY pm.meta_id ASC";
 
-		$results = $wpdb->get_col( $query );
-
-		return is_array( $results ) ? $results : array();
+		return $this->connection->get_col( $query );
 	}
 
 	/**
@@ -168,17 +193,16 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return array Array of orphaned meta_ids.
 	 */
 	public function find_orphaned_commentmeta(): array {
-		global $wpdb;
+		$commentmeta_table = $this->connection->get_commentmeta_table();
+		$comments_table    = $this->connection->get_comments_table();
 
 		$query = "SELECT cm.meta_id
-			FROM {$wpdb->commentmeta} cm
-			LEFT JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID
+			FROM {$commentmeta_table} cm
+			LEFT JOIN {$comments_table} c ON cm.comment_id = c.comment_ID
 			WHERE c.comment_ID IS NULL
 			ORDER BY cm.meta_id ASC";
 
-		$results = $wpdb->get_col( $query );
-
-		return is_array( $results ) ? $results : array();
+		return $this->connection->get_col( $query );
 	}
 
 	/**
@@ -191,17 +215,16 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return array Array of orphaned meta_ids.
 	 */
 	public function find_orphaned_termmeta(): array {
-		global $wpdb;
+		$termmeta_table = $this->connection->get_termmeta_table();
+		$terms_table    = $this->connection->get_terms_table();
 
 		$query = "SELECT tm.meta_id
-			FROM {$wpdb->termmeta} tm
-			LEFT JOIN {$wpdb->terms} t ON tm.term_id = t.term_id
+			FROM {$termmeta_table} tm
+			LEFT JOIN {$terms_table} t ON tm.term_id = t.term_id
 			WHERE t.term_id IS NULL
 			ORDER BY tm.meta_id ASC";
 
-		$results = $wpdb->get_col( $query );
-
-		return is_array( $results ) ? $results : array();
+		return $this->connection->get_col( $query );
 	}
 
 	/**
@@ -214,17 +237,17 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return array Array of orphaned relationship data (object_id and term_taxonomy_id pairs).
 	 */
 	public function find_orphaned_relationships(): array {
-		global $wpdb;
+		$prefix                   = $this->connection->get_prefix();
+		$term_relationships_table = $prefix . 'term_relationships';
+		$posts_table              = $this->connection->get_posts_table();
 
 		$query = "SELECT tr.object_id, tr.term_taxonomy_id
-			FROM {$wpdb->term_relationships} tr
-			LEFT JOIN {$wpdb->posts} p ON tr.object_id = p.ID
+			FROM {$term_relationships_table} tr
+			LEFT JOIN {$posts_table} p ON tr.object_id = p.ID
 			WHERE p.ID IS NULL
 			ORDER BY tr.object_id ASC, tr.term_taxonomy_id ASC";
 
-		$results = $wpdb->get_results( $query, ARRAY_A );
-
-		return is_array( $results ) ? $results : array();
+		return $this->connection->get_results( $query, 'ARRAY_A' );
 	}
 
 	/**
@@ -239,24 +262,28 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return int Number of records deleted.
 	 */
 	public function delete_orphaned_postmeta(): int {
-		global $wpdb;
-
-		$deleted_count = 0;
-		$batch_limit   = self::BATCH_SIZE;
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$posts_table    = $this->connection->get_posts_table();
+		$deleted_count  = 0;
+		$batch_limit    = self::BATCH_SIZE;
 
 		// Use atomic DELETE with JOIN - finds and deletes in one operation.
 		// Process in batches to avoid long-running queries.
 		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$result = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE pm FROM {$wpdb->postmeta} pm
-					LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-					WHERE p.ID IS NULL
-					LIMIT %d",
-					$batch_limit
-				)
+			$query = $this->connection->prepare(
+				"DELETE pm FROM {$postmeta_table} pm
+				LEFT JOIN {$posts_table} p ON pm.post_id = p.ID
+				WHERE p.ID IS NULL
+				LIMIT %d",
+				$batch_limit
 			);
+
+			if ( null === $query ) {
+				break;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$result = $this->connection->query( $query );
 
 			if ( false === $result ) {
 				break;
@@ -282,23 +309,27 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return int Number of records deleted.
 	 */
 	public function delete_orphaned_commentmeta(): int {
-		global $wpdb;
-
-		$deleted_count = 0;
-		$batch_limit   = self::BATCH_SIZE;
+		$commentmeta_table = $this->connection->get_commentmeta_table();
+		$comments_table    = $this->connection->get_comments_table();
+		$deleted_count     = 0;
+		$batch_limit       = self::BATCH_SIZE;
 
 		// Use atomic DELETE with JOIN - finds and deletes in one operation.
 		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$result = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE cm FROM {$wpdb->commentmeta} cm
-					LEFT JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID
-					WHERE c.comment_ID IS NULL
-					LIMIT %d",
-					$batch_limit
-				)
+			$query = $this->connection->prepare(
+				"DELETE cm FROM {$commentmeta_table} cm
+				LEFT JOIN {$comments_table} c ON cm.comment_id = c.comment_ID
+				WHERE c.comment_ID IS NULL
+				LIMIT %d",
+				$batch_limit
 			);
+
+			if ( null === $query ) {
+				break;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$result = $this->connection->query( $query );
 
 			if ( false === $result ) {
 				break;
@@ -322,23 +353,27 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return int Number of records deleted.
 	 */
 	public function delete_orphaned_termmeta(): int {
-		global $wpdb;
-
-		$deleted_count = 0;
-		$batch_limit   = self::BATCH_SIZE;
+		$termmeta_table = $this->connection->get_termmeta_table();
+		$terms_table    = $this->connection->get_terms_table();
+		$deleted_count  = 0;
+		$batch_limit    = self::BATCH_SIZE;
 
 		// Use atomic DELETE with JOIN - finds and deletes in one operation.
 		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$result = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE tm FROM {$wpdb->termmeta} tm
-					LEFT JOIN {$wpdb->terms} t ON tm.term_id = t.term_id
-					WHERE t.term_id IS NULL
-					LIMIT %d",
-					$batch_limit
-				)
+			$query = $this->connection->prepare(
+				"DELETE tm FROM {$termmeta_table} tm
+				LEFT JOIN {$terms_table} t ON tm.term_id = t.term_id
+				WHERE t.term_id IS NULL
+				LIMIT %d",
+				$batch_limit
 			);
+
+			if ( null === $query ) {
+				break;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$result = $this->connection->query( $query );
 
 			if ( false === $result ) {
 				break;
@@ -362,23 +397,29 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	 * @return int Number of records deleted.
 	 */
 	public function delete_orphaned_relationships(): int {
-		global $wpdb;
-
-		$deleted_count = 0;
-		$batch_limit   = self::BATCH_SIZE;
+		$prefix                   = $this->connection->get_prefix();
+		$term_relationships_table = $prefix . 'term_relationships';
+		$term_taxonomy_table      = $prefix . 'term_taxonomy';
+		$posts_table              = $this->connection->get_posts_table();
+		$deleted_count            = 0;
+		$batch_limit              = self::BATCH_SIZE;
 
 		// Delete relationships where the post doesn't exist.
 		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$result = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE tr FROM {$wpdb->term_relationships} tr
-					LEFT JOIN {$wpdb->posts} p ON tr.object_id = p.ID
-					WHERE p.ID IS NULL
-					LIMIT %d",
-					$batch_limit
-				)
+			$query = $this->connection->prepare(
+				"DELETE tr FROM {$term_relationships_table} tr
+				LEFT JOIN {$posts_table} p ON tr.object_id = p.ID
+				WHERE p.ID IS NULL
+				LIMIT %d",
+				$batch_limit
 			);
+
+			if ( null === $query ) {
+				break;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$result = $this->connection->query( $query );
 
 			if ( false === $result ) {
 				break;
@@ -389,16 +430,20 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 
 		// Delete relationships where the term_taxonomy doesn't exist.
 		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$result = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE tr FROM {$wpdb->term_relationships} tr
-					LEFT JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
-					WHERE tt.term_taxonomy_id IS NULL
-					LIMIT %d",
-					$batch_limit
-				)
+			$query = $this->connection->prepare(
+				"DELETE tr FROM {$term_relationships_table} tr
+				LEFT JOIN {$term_taxonomy_table} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+				WHERE tt.term_taxonomy_id IS NULL
+				LIMIT %d",
+				$batch_limit
 			);
+
+			if ( null === $query ) {
+				break;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$result = $this->connection->query( $query );
 
 			if ( false === $result ) {
 				break;

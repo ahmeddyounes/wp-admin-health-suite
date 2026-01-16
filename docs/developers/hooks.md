@@ -29,15 +29,17 @@ Allows custom cleanup logic to be executed for specific task types.
 **Location:** `includes/class-scheduler.php:481`
 
 **Parameters:**
+
 - `$result` (array) - Cleanup result containing:
-  - `items_cleaned` (int) - Number of items cleaned
-  - `bytes_freed` (int) - Bytes freed during cleanup
+    - `items_cleaned` (int) - Number of items cleaned
+    - `bytes_freed` (int) - Bytes freed during cleanup
 - `$task_type` (string) - Type of cleanup task being executed
 - `$settings` (array) - Task-specific settings
 
 **Returns:** Modified cleanup result array
 
 **Example:**
+
 ```php
 add_filter( 'wpha_execute_cleanup', 'my_custom_cleanup', 10, 3 );
 
@@ -68,11 +70,13 @@ Allows plugins to register their custom database tables to prevent them from bei
 **Location:** `includes/database/class-orphaned-tables.php:192`
 
 **Parameters:**
+
 - `$plugin_tables` (array) - Array of plugin table names (without prefix)
 
 **Returns:** Modified array of plugin table names
 
 **Example:**
+
 ```php
 add_filter( 'wpha_registered_plugin_tables', 'register_my_plugin_tables' );
 
@@ -106,6 +110,7 @@ Fires after the plugin initialization is complete.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_init', 'my_plugin_init' );
 
@@ -127,6 +132,7 @@ Fires after all plugin dependencies are loaded.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_dependencies_loaded', 'my_dependencies_check' );
 
@@ -150,6 +156,7 @@ Fires before plugin activation tasks are run.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_activate', 'my_activation_tasks' );
 
@@ -172,6 +179,7 @@ Fires after plugin activation is complete.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_activated', 'my_post_activation_tasks' );
 
@@ -193,6 +201,7 @@ Fires before plugin deactivation tasks are run.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_deactivate', 'my_deactivation_tasks' );
 
@@ -214,6 +223,7 @@ Fires after plugin deactivation is complete.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_deactivated', 'my_post_deactivation_tasks' );
 
@@ -233,10 +243,12 @@ Fires after plugin upgrade is complete.
 **Location:** `includes/class-installer.php:215`
 
 **Parameters:**
+
 - `$from_version` (string) - The version being upgraded from
 - `$to_version` (string) - The version being upgraded to
 
 **Example:**
+
 ```php
 add_action( 'wpha_upgraded', 'my_upgrade_routine', 10, 2 );
 
@@ -260,6 +272,7 @@ Fires after plugin uninstall is complete.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_uninstalled', 'my_uninstall_cleanup' );
 
@@ -282,6 +295,7 @@ Fires after REST API initialization.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_rest_api_init', 'my_rest_api_setup' );
 
@@ -303,6 +317,7 @@ Fires after core REST routes are registered, allowing other controllers to regis
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_register_rest_routes', 'register_my_custom_routes' );
 
@@ -327,11 +342,13 @@ Fires when the scheduler logs an execution event.
 **Location:** `includes/class-scheduler.php:584`
 
 **Parameters:**
+
 - `$task_id` (int) - Task ID being logged
 - `$action` (string) - Action performed (e.g., 'scheduled', 'completed', 'recovered')
 - `$message` (string) - Log message with execution details
 
 **Example:**
+
 ```php
 add_action( 'wpha_scheduler_log', 'my_scheduler_logger', 10, 3 );
 
@@ -355,6 +372,7 @@ Fires after assets initialization.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_assets_init', 'enqueue_my_custom_assets' );
 
@@ -376,6 +394,7 @@ Fires after database initialization.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_database_init', 'my_database_setup' );
 
@@ -398,6 +417,7 @@ Fires after admin initialization.
 **Parameters:** None
 
 **Example:**
+
 ```php
 add_action( 'wpha_admin_init', 'my_admin_customizations' );
 
@@ -609,20 +629,22 @@ function get_custom_health_status( $request ) {
 2. **Priority Matters**: Use appropriate priority values when adding hooks. Lower numbers run earlier (default is 10).
 
 3. **Check for Existence**: Always verify that classes and functions exist before using them:
-   ```php
-   if ( function_exists( 'wpha_get_scanner' ) ) {
-       // Use WPHA functions
-   }
-   ```
+
+    ```php
+    if ( function_exists( 'wpha_get_scanner' ) ) {
+        // Use WPHA functions
+    }
+    ```
 
 4. **Return Values**: For filters, always return a value, even if unchanged:
-   ```php
-   add_filter( 'wpha_registered_plugin_tables', 'my_function' );
-   function my_function( $tables ) {
-       // Your code here
-       return $tables; // Always return!
-   }
-   ```
+
+    ```php
+    add_filter( 'wpha_registered_plugin_tables', 'my_function' );
+    function my_function( $tables ) {
+        // Your code here
+        return $tables; // Always return!
+    }
+    ```
 
 5. **Error Handling**: Implement proper error handling in your hook callbacks to prevent breaking the plugin.
 

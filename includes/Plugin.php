@@ -22,6 +22,7 @@ use WPAdminHealth\Providers\PerformanceServiceProvider;
 use WPAdminHealth\Providers\RESTServiceProvider;
 use WPAdminHealth\Providers\SchedulerServiceProvider;
 use WPAdminHealth\Providers\AIServiceProvider;
+use WPAdminHealth\Providers\ServicesServiceProvider;
 use WPAdminHealth\Settings\SettingsServiceProvider;
 
 // Exit if accessed directly.
@@ -201,6 +202,7 @@ class Plugin {
 			MultisiteServiceProvider::class,
 			BootstrapServiceProvider::class,
 			DatabaseServiceProvider::class,
+			ServicesServiceProvider::class, // Must come after Database for ConnectionInterface.
 			MediaServiceProvider::class,
 			PerformanceServiceProvider::class,
 			SchedulerServiceProvider::class, // Must come after Database, Media, Performance.

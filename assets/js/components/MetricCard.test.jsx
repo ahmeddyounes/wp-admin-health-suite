@@ -121,9 +121,7 @@ describe('MetricCard', () => {
 
 	it('has onKeyPress handler when clickable', () => {
 		const handleClick = jest.fn();
-		const { container } = render(
-			<MetricCard title="Test" value={100} onClick={handleClick} />
-		);
+		render(<MetricCard title="Test" value={100} onClick={handleClick} />);
 		const button = screen.getByRole('button');
 		// Verify the button has the onKeyPress prop attached (keyboard accessibility)
 		expect(button).toHaveProperty('onkeypress');

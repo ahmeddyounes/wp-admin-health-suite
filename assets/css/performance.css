@@ -294,7 +294,7 @@
 
 .wpha-toggle-slider:before {
 	position: absolute;
-	content: "";
+	content: '';
 	height: 16px;
 	width: 16px;
 	left: 4px;
@@ -323,7 +323,7 @@
 	font-weight: 600;
 }
 
-.wpha-heartbeat-interval input[type="range"] {
+.wpha-heartbeat-interval input[type='range'] {
 	width: 100%;
 	margin: 10px 0;
 }

@@ -10,6 +10,7 @@
 namespace WPAdminHealth\Providers;
 
 use WPAdminHealth\Container\ServiceProvider;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\AnalyzerInterface;
 use WPAdminHealth\Contracts\ScannerInterface;
@@ -32,6 +33,19 @@ use WPAdminHealth\REST\MediaController;
 use WPAdminHealth\REST\DashboardController;
 use WPAdminHealth\REST\PerformanceController;
 use WPAdminHealth\REST\ActivityController;
+use WPAdminHealth\REST\Database\TableAnalysisController;
+use WPAdminHealth\REST\Database\OptimizationController;
+use WPAdminHealth\REST\Database\CleanupController;
+use WPAdminHealth\REST\Performance\PerformanceStatsController;
+use WPAdminHealth\REST\Performance\QueryAnalysisController;
+use WPAdminHealth\REST\Performance\PluginProfilerController;
+use WPAdminHealth\REST\Performance\CacheController;
+use WPAdminHealth\REST\Performance\AutoloadController;
+use WPAdminHealth\REST\Performance\HeartbeatController;
+use WPAdminHealth\REST\Media\MediaScanController;
+use WPAdminHealth\REST\Media\MediaAnalysisController;
+use WPAdminHealth\REST\Media\MediaAltTextController;
+use WPAdminHealth\REST\Media\MediaCleanupController;
 use WPAdminHealth\HealthCalculator;
 
 // Exit if accessed directly.
@@ -66,6 +80,19 @@ class RESTServiceProvider extends ServiceProvider {
 		'rest.dashboard_controller',
 		'rest.performance_controller',
 		'rest.activity_controller',
+		'rest.database.table_analysis_controller',
+		'rest.database.optimization_controller',
+		'rest.database.cleanup_controller',
+		'rest.performance.stats_controller',
+		'rest.performance.query_analysis_controller',
+		'rest.performance.plugin_profiler_controller',
+		'rest.performance.cache_controller',
+		'rest.performance.autoload_controller',
+		'rest.performance.heartbeat_controller',
+		'rest.media.scan_controller',
+		'rest.media.analysis_controller',
+		'rest.media.alt_text_controller',
+		'rest.media.cleanup_controller',
 	);
 
 	/**
@@ -82,6 +109,7 @@ class RESTServiceProvider extends ServiceProvider {
 
 				return new DatabaseController(
 					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
 					$container->get( AnalyzerInterface::class ),
 					$container->get( RevisionsManagerInterface::class ),
 					$container->get( TransientsCleanerInterface::class ),
@@ -102,6 +130,7 @@ class RESTServiceProvider extends ServiceProvider {
 
 				return new MediaController(
 					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
 					$container->get( ScannerInterface::class ),
 					$container->get( DuplicateDetectorInterface::class ),
 					$container->get( LargeFilesInterface::class ),
@@ -123,6 +152,7 @@ class RESTServiceProvider extends ServiceProvider {
 
 				return new DashboardController(
 					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
 					$container->get( HealthCalculator::class )
 				);
 			}
@@ -138,6 +168,7 @@ class RESTServiceProvider extends ServiceProvider {
 
 				return new PerformanceController(
 					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
 					$container->get( AutoloadAnalyzerInterface::class ),
 					$container->get( QueryMonitorInterface::class ),
 					$container->get( PluginProfilerInterface::class )
@@ -153,9 +184,225 @@ class RESTServiceProvider extends ServiceProvider {
 					return null;
 				}
 
-				$settings = $container->get( SettingsInterface::class );
+				return new ActivityController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class )
+				);
+			}
+		);
 
-				return $this->create_controller( ActivityController::class, $settings );
+		// Register Database Table Analysis Controller.
+		$this->container->bind(
+			'rest.database.table_analysis_controller',
+			function ( $container ) {
+				if ( ! class_exists( TableAnalysisController::class ) ) {
+					return null;
+				}
+
+				return new TableAnalysisController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( AnalyzerInterface::class ),
+					$container->get( RevisionsManagerInterface::class ),
+					$container->get( TransientsCleanerInterface::class ),
+					$container->get( OrphanedCleanerInterface::class )
+				);
+			}
+		);
+
+		// Register Database Optimization Controller.
+		$this->container->bind(
+			'rest.database.optimization_controller',
+			function ( $container ) {
+				if ( ! class_exists( OptimizationController::class ) ) {
+					return null;
+				}
+
+				return new OptimizationController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( OptimizerInterface::class )
+				);
+			}
+		);
+
+		// Register Database Cleanup Controller.
+		$this->container->bind(
+			'rest.database.cleanup_controller',
+			function ( $container ) {
+				if ( ! class_exists( CleanupController::class ) ) {
+					return null;
+				}
+
+				return new CleanupController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( AnalyzerInterface::class ),
+					$container->get( RevisionsManagerInterface::class ),
+					$container->get( TransientsCleanerInterface::class ),
+					$container->get( OrphanedCleanerInterface::class ),
+					$container->get( TrashCleanerInterface::class )
+				);
+			}
+		);
+
+		// Register Performance Stats Controller.
+		$this->container->bind(
+			'rest.performance.stats_controller',
+			function ( $container ) {
+				if ( ! class_exists( PerformanceStatsController::class ) ) {
+					return null;
+				}
+
+				return new PerformanceStatsController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class )
+				);
+			}
+		);
+
+		// Register Performance Query Analysis Controller.
+		$this->container->bind(
+			'rest.performance.query_analysis_controller',
+			function ( $container ) {
+				if ( ! class_exists( QueryAnalysisController::class ) ) {
+					return null;
+				}
+
+				return new QueryAnalysisController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( QueryMonitorInterface::class )
+				);
+			}
+		);
+
+		// Register Performance Plugin Profiler Controller.
+		$this->container->bind(
+			'rest.performance.plugin_profiler_controller',
+			function ( $container ) {
+				if ( ! class_exists( PluginProfilerController::class ) ) {
+					return null;
+				}
+
+				return new PluginProfilerController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( PluginProfilerInterface::class )
+				);
+			}
+		);
+
+		// Register Performance Cache Controller.
+		$this->container->bind(
+			'rest.performance.cache_controller',
+			function ( $container ) {
+				if ( ! class_exists( CacheController::class ) ) {
+					return null;
+				}
+
+				return new CacheController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class )
+				);
+			}
+		);
+
+		// Register Performance Autoload Controller.
+		$this->container->bind(
+			'rest.performance.autoload_controller',
+			function ( $container ) {
+				if ( ! class_exists( AutoloadController::class ) ) {
+					return null;
+				}
+
+				return new AutoloadController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( AutoloadAnalyzerInterface::class )
+				);
+			}
+		);
+
+		// Register Performance Heartbeat Controller.
+		$this->container->bind(
+			'rest.performance.heartbeat_controller',
+			function ( $container ) {
+				if ( ! class_exists( HeartbeatController::class ) ) {
+					return null;
+				}
+
+				return new HeartbeatController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class )
+				);
+			}
+		);
+
+		// Register Media Scan Controller.
+		$this->container->bind(
+			'rest.media.scan_controller',
+			function ( $container ) {
+				if ( ! class_exists( MediaScanController::class ) ) {
+					return null;
+				}
+
+				return new MediaScanController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( ScannerInterface::class )
+				);
+			}
+		);
+
+		// Register Media Analysis Controller.
+		$this->container->bind(
+			'rest.media.analysis_controller',
+			function ( $container ) {
+				if ( ! class_exists( MediaAnalysisController::class ) ) {
+					return null;
+				}
+
+				return new MediaAnalysisController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( ScannerInterface::class ),
+					$container->get( DuplicateDetectorInterface::class ),
+					$container->get( LargeFilesInterface::class )
+				);
+			}
+		);
+
+		// Register Media Alt Text Controller.
+		$this->container->bind(
+			'rest.media.alt_text_controller',
+			function ( $container ) {
+				if ( ! class_exists( MediaAltTextController::class ) ) {
+					return null;
+				}
+
+				return new MediaAltTextController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( AltTextCheckerInterface::class )
+				);
+			}
+		);
+
+		// Register Media Cleanup Controller.
+		$this->container->bind(
+			'rest.media.cleanup_controller',
+			function ( $container ) {
+				if ( ! class_exists( MediaCleanupController::class ) ) {
+					return null;
+				}
+
+				return new MediaCleanupController(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( SafeDeleteInterface::class ),
+					$container->get( ExclusionsInterface::class )
+				);
 			}
 		);
 	}
@@ -182,6 +429,19 @@ class RESTServiceProvider extends ServiceProvider {
 			'rest.dashboard_controller',
 			'rest.performance_controller',
 			'rest.activity_controller',
+			'rest.database.table_analysis_controller',
+			'rest.database.optimization_controller',
+			'rest.database.cleanup_controller',
+			'rest.performance.stats_controller',
+			'rest.performance.query_analysis_controller',
+			'rest.performance.plugin_profiler_controller',
+			'rest.performance.cache_controller',
+			'rest.performance.autoload_controller',
+			'rest.performance.heartbeat_controller',
+			'rest.media.scan_controller',
+			'rest.media.analysis_controller',
+			'rest.media.alt_text_controller',
+			'rest.media.cleanup_controller',
 		);
 
 		foreach ( $controllers as $controller_id ) {
@@ -198,40 +458,6 @@ class RESTServiceProvider extends ServiceProvider {
 					error_log( sprintf( 'WP Admin Health Suite: Failed to register %s: %s', $controller_id, $e->getMessage() ) );
 				}
 			}
-		}
-	}
-
-	/**
-	 * Create a controller with dependency injection support.
-	 *
-	 * @since 1.1.0
-	 *
-	 * @param string $class Controller class name.
-	 * @param mixed  ...$dependencies Dependencies to inject.
-	 * @return object|null Controller instance or null.
-	 */
-	private function create_controller( string $class, ...$dependencies ) {
-		if ( ! class_exists( $class ) ) {
-			return null;
-		}
-
-		$reflection  = new \ReflectionClass( $class );
-		$constructor = $reflection->getConstructor();
-
-		// If controller has no constructor or no parameters, create without injection.
-		if ( ! $constructor || 0 === $constructor->getNumberOfParameters() ) {
-			return new $class();
-		}
-
-		// Filter out null dependencies.
-		$dependencies = array_filter( $dependencies, fn( $dep ) => null !== $dep );
-
-		// Try to create with dependencies.
-		try {
-			return $reflection->newInstanceArgs( $dependencies );
-		} catch ( \ReflectionException $e ) {
-			// Fallback to no-arg constructor.
-			return new $class();
 		}
 	}
 }

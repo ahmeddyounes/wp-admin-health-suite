@@ -247,4 +247,53 @@ interface ConnectionInterface {
 	 * @return bool True if table exists, false otherwise.
 	 */
 	public function table_exists( string $table_name ): bool;
+
+	/**
+	 * Get the number of queries executed.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return int Number of queries.
+	 */
+	public function get_num_queries(): int;
+
+	/**
+	 * Get the query log if SAVEQUERIES is enabled.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array<array{0: string, 1: float, 2: string}> Query log.
+	 */
+	public function get_query_log(): array;
+
+	/**
+	 * Suppress errors.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param bool $suppress Whether to suppress errors.
+	 * @return bool Previous value.
+	 */
+	public function suppress_errors( bool $suppress = true ): bool;
+
+	/**
+	 * Show or hide database errors.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param bool $show Whether to show errors.
+	 * @return bool Previous value.
+	 */
+	public function show_errors( bool $show = true ): bool;
+
+	/**
+	 * Get the database character set and collation.
+	 *
+	 * Used for table creation to ensure proper character encoding.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string Character set and collation clause (e.g., "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci").
+	 */
+	public function get_charset_collate(): string;
 }

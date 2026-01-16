@@ -10,6 +10,7 @@
 namespace WPAdminHealth\Media\Tasks;
 
 use WPAdminHealth\Scheduler\AbstractScheduledTask;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\ScannerInterface;
 use WPAdminHealth\Contracts\DuplicateDetectorInterface;
 use WPAdminHealth\Contracts\LargeFilesInterface;
@@ -65,6 +66,13 @@ class MediaScanTask extends AbstractScheduledTask {
 	protected string $enabled_option_key = 'enable_scheduled_media_scan';
 
 	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
+
+	/**
 	 * Media scanner.
 	 *
 	 * @var ScannerInterface
@@ -95,17 +103,20 @@ class MediaScanTask extends AbstractScheduledTask {
 	/**
 	 * Constructor.
 	 *
+	 * @param ConnectionInterface        $connection         Database connection.
 	 * @param ScannerInterface           $scanner            Media scanner.
 	 * @param DuplicateDetectorInterface $duplicate_detector Duplicate detector.
 	 * @param LargeFilesInterface        $large_files        Large files detector.
 	 * @param AltTextCheckerInterface    $alt_text_checker   Alt text checker.
 	 */
 	public function __construct(
+		ConnectionInterface $connection,
 		ScannerInterface $scanner,
 		DuplicateDetectorInterface $duplicate_detector,
 		LargeFilesInterface $large_files,
 		AltTextCheckerInterface $alt_text_checker
 	) {
+		$this->connection         = $connection;
 		$this->scanner            = $scanner;
 		$this->duplicate_detector = $duplicate_detector;
 		$this->large_files        = $large_files;
@@ -181,23 +192,41 @@ class MediaScanTask extends AbstractScheduledTask {
 	 * @return void
 	 */
 	private function store_scan_results( array $results ): void {
-		global $wpdb;
+		$table = $this->connection->get_prefix() . 'wpha_scan_history';
 
-		$table = $wpdb->prefix . 'wpha_scan_history';
+		// If the table doesn't exist yet, don't fail the scan task.
+		$table_check_query = $this->connection->prepare(
+			'SHOW TABLES LIKE %s',
+			$this->connection->esc_like( $table )
+		);
 
-		$wpdb->insert(
+		if ( null === $table_check_query ) {
+			$this->log( 'Failed to prepare table check query; skipping persistence.' );
+			return;
+		}
+
+		$table_exists = $this->connection->get_var( $table_check_query );
+
+		if ( $table_exists !== $table ) {
+			$this->log( 'Scan history table missing; skipping persistence.' );
+			return;
+		}
+
+		$this->connection->insert(
 			$table,
 			array(
 				'scan_type'     => 'media',
 				'items_found'   => $results['total_issues'],
 				'items_cleaned' => 0,
 				'bytes_freed'   => 0,
-				'metadata'      => wp_json_encode( array(
-					'duplicates_count'  => count( $results['duplicates'] ),
-					'large_files_count' => count( $results['large_files'] ),
-					'missing_alt_count' => count( $results['missing_alt'] ),
-					'total_bytes'       => $results['total_bytes'],
-				) ),
+				'metadata'      => wp_json_encode(
+					array(
+						'duplicates_count'  => count( $results['duplicates'] ),
+						'large_files_count' => count( $results['large_files'] ),
+						'missing_alt_count' => count( $results['missing_alt'] ),
+						'total_bytes'       => $results['total_bytes'],
+					)
+				),
 				'created_at'    => current_time( 'mysql' ),
 			),
 			array( '%s', '%d', '%d', '%d', '%s', '%s' )

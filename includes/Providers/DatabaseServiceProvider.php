@@ -79,89 +79,78 @@ class DatabaseServiceProvider extends ServiceProvider {
 
 		$this->container->alias( 'db.connection', ConnectionInterface::class );
 
-		// Register Analyzer.
+		// Register Analyzer with ConnectionInterface injection.
 		$this->container->bind(
 			AnalyzerInterface::class,
 			function ( $container ) {
 				$connection = $container->get( ConnectionInterface::class );
-				$cache      = $container->get( CacheInterface::class );
-
-				// Check if Analyzer supports constructor injection.
-				$reflection = new \ReflectionClass( Analyzer::class );
-				$constructor = $reflection->getConstructor();
-
-				if ( $constructor && $constructor->getNumberOfParameters() > 0 ) {
-					return new Analyzer( $connection, $cache );
-				}
-
-				// Fallback for legacy Analyzer without DI.
-				return new Analyzer();
+				return new Analyzer( $connection );
 			}
 		);
 
 		$this->container->alias( 'db.analyzer', AnalyzerInterface::class );
 
-		// Register Orphaned Tables detector.
+		// Register Orphaned Tables detector with ConnectionInterface and CacheInterface injection.
 		$this->container->bind(
 			'db.orphaned_tables',
 			function ( $container ) {
-				$connection = $container->get( ConnectionInterface::class );
-				$cache      = $container->get( CacheInterface::class );
-
-				// Check if class supports constructor injection.
-				$reflection = new \ReflectionClass( OrphanedTables::class );
-				$constructor = $reflection->getConstructor();
-
-				if ( $constructor && $constructor->getNumberOfParameters() > 0 ) {
-					return new OrphanedTables( $connection, $cache );
-				}
-
-				// Fallback for legacy class without DI.
-				return new OrphanedTables();
+				return new OrphanedTables(
+					$container->get( ConnectionInterface::class ),
+					$container->get( CacheInterface::class )
+				);
 			}
 		);
 
-		// Register Revisions Manager with interface binding.
+		// Register Revisions Manager with ConnectionInterface injection.
 		$this->container->singleton(
 			RevisionsManagerInterface::class,
-			function () {
-				return new RevisionsManager();
+			function ( $container ) {
+				return new RevisionsManager(
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'db.revisions_manager', RevisionsManagerInterface::class );
 
-		// Register Transients Cleaner with interface binding.
+		// Register Transients Cleaner with ConnectionInterface injection.
 		$this->container->singleton(
 			TransientsCleanerInterface::class,
-			function () {
-				return new TransientsCleaner();
+			function ( $container ) {
+				return new TransientsCleaner(
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'db.transients_cleaner', TransientsCleanerInterface::class );
 
-		// Register Orphaned Cleaner with interface binding.
+		// Register Orphaned Cleaner with ConnectionInterface injection.
 		$this->container->singleton(
 			OrphanedCleanerInterface::class,
-			function () {
-				return new OrphanedCleaner();
+			function ( $container ) {
+				return new OrphanedCleaner(
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'db.orphaned_cleaner', OrphanedCleanerInterface::class );
 
-		// Register Trash Cleaner with interface binding.
+		// Register Trash Cleaner with ConnectionInterface injection.
 		$this->container->singleton(
 			TrashCleanerInterface::class,
-			function () {
-				return new TrashCleaner();
+			function ( $container ) {
+				return new TrashCleaner(
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'db.trash_cleaner', TrashCleanerInterface::class );
 
-		// Register Optimizer with interface binding.
+		// Register Optimizer with ConnectionInterface injection.
 		$this->container->singleton(
 			OptimizerInterface::class,
-			function () {
-				return new Optimizer();
+			function ( $container ) {
+				$connection = $container->get( ConnectionInterface::class );
+				return new Optimizer( $connection );
 			}
 		);
 		$this->container->alias( 'db.optimizer', OptimizerInterface::class );

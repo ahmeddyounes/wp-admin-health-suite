@@ -30,7 +30,10 @@ module.exports = (env, argv) => {
 						options: {
 							presets: [
 								'@babel/preset-env',
-								['@babel/preset-react', { runtime: 'automatic' }],
+								[
+									'@babel/preset-react',
+									{ runtime: 'automatic' },
+								],
 							],
 						},
 					},
@@ -38,7 +41,9 @@ module.exports = (env, argv) => {
 				{
 					test: /\.css$/,
 					use: [
-						isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
+						isProduction
+							? MiniCssExtractPlugin.loader
+							: 'style-loader',
 						'css-loader',
 					],
 				},
@@ -59,7 +64,7 @@ module.exports = (env, argv) => {
 						new MiniCssExtractPlugin({
 							filename: '[name].bundle.css',
 						}),
-				  ]
+					]
 				: []),
 		],
 		optimization: {

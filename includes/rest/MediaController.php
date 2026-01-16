@@ -10,6 +10,7 @@ namespace WPAdminHealth\REST;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\ScannerInterface;
 use WPAdminHealth\Contracts\DuplicateDetectorInterface;
@@ -110,8 +111,10 @@ class MediaController extends RestController {
 	 *
 	 * @since 1.1.0
 	 * @since 1.2.0 Added all media service dependencies via constructor injection.
+	 * @since 1.3.0 Added ConnectionInterface dependency.
 	 *
 	 * @param SettingsInterface          $settings           Settings instance.
+	 * @param ConnectionInterface        $connection         Database connection instance.
 	 * @param ScannerInterface           $scanner            Scanner instance.
 	 * @param DuplicateDetectorInterface $duplicate_detector Duplicate detector instance.
 	 * @param LargeFilesInterface        $large_files        Large files detector instance.
@@ -122,6 +125,7 @@ class MediaController extends RestController {
 	 */
 	public function __construct(
 		SettingsInterface $settings,
+		ConnectionInterface $connection,
 		ScannerInterface $scanner,
 		DuplicateDetectorInterface $duplicate_detector,
 		LargeFilesInterface $large_files,
@@ -130,7 +134,7 @@ class MediaController extends RestController {
 		SafeDeleteInterface $safe_delete,
 		ExclusionsInterface $exclusions
 	) {
-		parent::__construct( $settings );
+		parent::__construct( $settings, $connection );
 		$this->scanner            = $scanner;
 		$this->duplicate_detector = $duplicate_detector;
 		$this->large_files        = $large_files;
@@ -389,12 +393,12 @@ class MediaController extends RestController {
 		$scanner = $this->get_scanner();
 
 		// Get basic counts.
-		$total_count = $scanner->get_media_count();
-		$total_size  = $scanner->get_media_total_size();
+		$total_count = $scanner->get_total_media_count();
+		$total_size  = $scanner->get_total_media_size();
 
-		// Get unused media count.
-		$unused       = $scanner->find_unused_media();
-		$unused_count = count( $unused );
+		// Get unused media count via batched scan.
+		$scan_result  = $scanner->scan_unused_media( 1000, 0 );
+		$unused_count = count( $scan_result['unused'] );
 
 		// Get duplicate groups.
 		$duplicate_groups = $this->duplicate_detector->get_duplicate_groups();
@@ -407,26 +411,32 @@ class MediaController extends RestController {
 		$large_files_list  = $this->large_files->find_large_files( 500 );
 		$large_files_count = count( $large_files_list );
 
-		// Get missing alt text count.
-		$missing_alt       = $this->alt_text_checker->find_missing_alt_text();
-		$missing_alt_count = count( $missing_alt );
+		// Get missing alt text count (use COUNT query to avoid 100-item cap).
+		$alt_coverage      = $this->alt_text_checker->get_alt_text_coverage();
+		$missing_alt_count = isset( $alt_coverage['images_without_alt'] ) ? absint( $alt_coverage['images_without_alt'] ) : 0;
 
 		// Calculate potential savings from duplicates.
 		$duplicate_savings = $this->duplicate_detector->get_potential_savings();
 
+		$last_results = get_transient( 'wp_admin_health_media_scan_results' );
+		$last_scan    = is_array( $last_results ) && ! empty( $last_results['scanned_at'] )
+			? $last_results['scanned_at']
+			: null;
+
 		$stats = array(
-			'total_count' => $total_count,
-			'total_size' => $total_size,
+			'total_count'          => $total_count,
+			'total_size'           => $total_size,
 			'total_size_formatted' => size_format( $total_size ),
-			'unused_count' => $unused_count,
-			'duplicate_count' => $duplicate_count,
-			'duplicate_groups' => count( $duplicate_groups ),
-			'large_files_count' => $large_files_count,
-			'missing_alt_count' => $missing_alt_count,
-			'potential_savings' => array(
-				'bytes' => $duplicate_savings['bytes'],
+			'unused_count'         => $unused_count,
+			'duplicate_count'      => $duplicate_count,
+			'duplicate_groups'     => count( $duplicate_groups ),
+			'large_files_count'    => $large_files_count,
+			'missing_alt_count'    => $missing_alt_count,
+			'potential_savings'    => array(
+				'bytes'     => $duplicate_savings['bytes'],
 				'formatted' => $duplicate_savings['formatted'],
 			),
+			'last_scan'            => $last_scan,
 		);
 
 		return $this->format_response(
@@ -449,11 +459,11 @@ class MediaController extends RestController {
 		$per_page = $request->get_param( 'per_page' ) ? absint( $request->get_param( 'per_page' ) ) : $this->per_page;
 
 		$scanner = $this->get_scanner();
-		$all_unused = $scanner->find_unused_media();
 
-		// Apply cursor-based pagination.
+		// Use interface method with pagination.
 		$start_index = $cursor ? absint( $cursor ) : 0;
-		$page_items = array_slice( $all_unused, $start_index, $per_page );
+		$scan_result = $scanner->scan_unused_media( $per_page, $start_index );
+		$page_items  = $scan_result['unused'];
 
 		// Enrich with details and thumbnail URLs.
 		$items = array();
@@ -461,14 +471,14 @@ class MediaController extends RestController {
 			$items[] = $this->get_attachment_details( $attachment_id );
 		}
 
-		$has_more = ( $start_index + $per_page ) < count( $all_unused );
-		$next_cursor = $has_more ? ( $start_index + $per_page ) : null;
+		$has_more    = $scan_result['has_more'];
+		$next_cursor = $has_more ? $scan_result['scanned'] : null;
 
 		return $this->format_response(
 			true,
 			array(
 				'items' => $items,
-				'total' => count( $all_unused ),
+				'total' => $scan_result['total'],
 				'cursor' => $next_cursor,
 				'has_more' => $has_more,
 			),
@@ -543,35 +553,40 @@ class MediaController extends RestController {
 
 		// Apply cursor-based pagination.
 		$start_index = $cursor ? absint( $cursor ) : 0;
-		$page_items = array_slice( $all_large_files, $start_index, $per_page );
+		$page_items  = array_slice( $all_large_files, $start_index, $per_page );
 
-		// Enrich with thumbnail URLs.
 		$items = array();
 		foreach ( $page_items as $file_data ) {
 			$attachment_id = $file_data['id'];
-			$thumbnail_url = wp_get_attachment_image_url( $attachment_id, 'thumbnail' );
-			if ( ! $thumbnail_url ) {
-				$thumbnail_url = wp_get_attachment_url( $attachment_id );
-			}
+			$details       = $this->get_attachment_details( $attachment_id );
+
+			$dimensions = $file_data['dimensions'] ?? null;
+			$width      = is_array( $dimensions ) && isset( $dimensions['width'] ) ? absint( $dimensions['width'] ) : null;
+			$height     = is_array( $dimensions ) && isset( $dimensions['height'] ) ? absint( $dimensions['height'] ) : null;
+
+			$size = $file_data['current_size'] ?? 0;
 
 			$items[] = array_merge(
 				$file_data,
+				$details,
 				array(
-					'thumbnail_url' => $thumbnail_url,
-					'edit_link' => admin_url( 'post.php?post=' . $attachment_id . '&action=edit' ),
+					// UI-friendly keys.
+					'size'   => $size,
+					'width'  => $width,
+					'height' => $height,
 				)
 			);
 		}
 
-		$has_more = ( $start_index + $per_page ) < count( $all_large_files );
+		$has_more    = ( $start_index + $per_page ) < count( $all_large_files );
 		$next_cursor = $has_more ? ( $start_index + $per_page ) : null;
 
 		return $this->format_response(
 			true,
 			array(
-				'items' => $items,
-				'total' => count( $all_large_files ),
-				'cursor' => $next_cursor,
+				'items'    => $items,
+				'total'    => count( $all_large_files ),
+				'cursor'   => $next_cursor,
 				'has_more' => $has_more,
 			),
 			__( 'Large files retrieved successfully.', 'wp-admin-health-suite' )
@@ -590,21 +605,34 @@ class MediaController extends RestController {
 		$cursor   = $request->get_param( 'cursor' );
 		$per_page = $request->get_param( 'per_page' ) ? absint( $request->get_param( 'per_page' ) ) : $this->per_page;
 
-		$all_missing = $this->alt_text_checker->find_missing_alt_text();
-
 		// Apply cursor-based pagination.
 		$start_index = $cursor ? absint( $cursor ) : 0;
-		$page_items = array_slice( $all_missing, $start_index, $per_page );
 
-		$has_more = ( $start_index + $per_page ) < count( $all_missing );
+		// AltTextChecker is limit-based; request enough items to serve this page.
+		$all_missing = $this->alt_text_checker->find_missing_alt_text( $start_index + $per_page );
+		$page_items  = array_slice( $all_missing, $start_index, $per_page );
+
+		$alt_coverage = $this->alt_text_checker->get_alt_text_coverage();
+		$total       = isset( $alt_coverage['images_without_alt'] ) ? absint( $alt_coverage['images_without_alt'] ) : count( $all_missing );
+
+		$items = array();
+		foreach ( $page_items as $item ) {
+			$attachment_id = isset( $item['id'] ) ? absint( $item['id'] ) : 0;
+			if ( ! $attachment_id ) {
+				continue;
+			}
+			$items[] = array_merge( $this->get_attachment_details( $attachment_id ), $item );
+		}
+
+		$has_more    = ( $start_index + $per_page ) < $total;
 		$next_cursor = $has_more ? ( $start_index + $per_page ) : null;
 
 		return $this->format_response(
 			true,
 			array(
-				'items' => $page_items,
-				'total' => count( $all_missing ),
-				'cursor' => $next_cursor,
+				'items'    => $items,
+				'total'    => $total,
+				'cursor'   => $next_cursor,
 				'has_more' => $has_more,
 			),
 			__( 'Images missing alt text retrieved successfully.', 'wp-admin-health-suite' )
@@ -636,7 +664,7 @@ class MediaController extends RestController {
 
 		// Fallback: run scan immediately if Action Scheduler is not available.
 		$scanner = $this->get_scanner();
-		$results = $scanner->scan_all_media();
+		$results = $scanner->get_media_summary();
 
 		return $this->format_response(
 			true,
@@ -732,7 +760,7 @@ class MediaController extends RestController {
 	 */
 	private function get_attachment_details( $attachment_id ) {
 		$file_path = get_attached_file( $attachment_id );
-		$filename = $file_path ? basename( $file_path ) : '';
+		$filename  = $file_path ? basename( $file_path ) : '';
 		$file_size = $file_path && file_exists( $file_path ) ? filesize( $file_path ) : 0;
 
 		$thumbnail_url = wp_get_attachment_image_url( $attachment_id, 'thumbnail' );
@@ -740,19 +768,36 @@ class MediaController extends RestController {
 			$thumbnail_url = wp_get_attachment_url( $attachment_id );
 		}
 
+		$url  = wp_get_attachment_url( $attachment_id );
 		$post = get_post( $attachment_id );
-		$title = $post ? $post->post_title : '';
+
+		$title     = $post ? $post->post_title : '';
+		$date      = $post ? $post->post_date : '';
 		$mime_type = get_post_mime_type( $attachment_id );
 
+		$type = 'document';
+		if ( $mime_type && strpos( $mime_type, 'image/' ) === 0 ) {
+			$type = 'image';
+		} elseif ( $mime_type && strpos( $mime_type, 'video/' ) === 0 ) {
+			$type = 'video';
+		}
+
 		return array(
-			'id' => $attachment_id,
-			'title' => $title,
-			'filename' => $filename,
-			'file_size' => $file_size,
+			'id'                 => $attachment_id,
+			'title'              => $title,
+			'filename'           => $filename,
+			'file_size'          => $file_size,
 			'file_size_formatted' => size_format( $file_size ),
-			'mime_type' => $mime_type,
-			'thumbnail_url' => $thumbnail_url,
-			'edit_link' => admin_url( 'post.php?post=' . $attachment_id . '&action=edit' ),
+			'mime_type'          => $mime_type,
+			'thumbnail_url'      => $thumbnail_url,
+			'edit_link'          => admin_url( 'post.php?post=' . $attachment_id . '&action=edit' ),
+
+			// UI-friendly aliases.
+			'size'               => $file_size,
+			'thumbnail'          => $thumbnail_url,
+			'url'                => $url,
+			'date'               => $date,
+			'type'               => $type,
 		);
 	}
 
@@ -802,24 +847,19 @@ class MediaController extends RestController {
 	/**
 	 * Log activity to scan history.
 	 *
+	 * @since 1.0.0
+	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 *
 	 * @param string $type   The operation type.
 	 * @param array  $result The result data.
 	 * @return void
 	 */
 	private function log_activity( $type, $result ) {
-		global $wpdb;
-
-		$table_name = $wpdb->prefix . 'wpha_scan_history';
+		$connection = $this->get_connection();
+		$table_name = $connection->get_prefix() . 'wpha_scan_history';
 
 		// Check if table exists.
-		$table_exists = $wpdb->get_var(
-			$wpdb->prepare(
-				'SHOW TABLES LIKE %s',
-				$table_name
-			)
-		);
-
-		if ( $table_exists !== $table_name ) {
+		if ( ! $connection->table_exists( $table_name ) ) {
 			return;
 		}
 
@@ -840,7 +880,7 @@ class MediaController extends RestController {
 
 		$scan_type = 'media_' . str_replace( 'media_', '', $type );
 
-		$wpdb->insert(
+		$connection->insert(
 			$table_name,
 			array(
 				'scan_type'     => sanitize_text_field( $scan_type ),

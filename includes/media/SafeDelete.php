@@ -9,6 +9,7 @@
 
 namespace WPAdminHealth\Media;
 
+use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SafeDeleteInterface;
 
 // Exit if accessed directly.
@@ -23,6 +24,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.2.0 Implements SafeDeleteInterface.
  */
 class SafeDelete implements SafeDeleteInterface {
+
+	/**
+	 * Database connection.
+	 *
+	 * @var ConnectionInterface
+	 */
+	private ConnectionInterface $connection;
 
 	/**
 	 * Trash directory name.
@@ -49,10 +57,13 @@ class SafeDelete implements SafeDeleteInterface {
 	 * Constructor.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.0 Added ConnectionInterface dependency injection.
+	 *
+	 * @param ConnectionInterface $connection Database connection.
 	 */
-	public function __construct() {
-		global $wpdb;
-		$this->table_name = $wpdb->prefix . 'wpha_deleted_media';
+	public function __construct( ConnectionInterface $connection ) {
+		$this->connection = $connection;
+		$this->table_name = $this->connection->get_prefix() . 'wpha_deleted_media';
 	}
 
 	/**
@@ -169,7 +180,7 @@ class SafeDelete implements SafeDeleteInterface {
 		$path = str_replace( '\\', '/', $path );
 
 		// Must be absolute path.
-		if ( empty( $path ) || $path[0] !== '/' ) {
+		if ( empty( $path ) || '/' !== $path[0] ) {
 			return false;
 		}
 
@@ -267,8 +278,6 @@ class SafeDelete implements SafeDeleteInterface {
 	 * @return array Result with success status and deletion ID.
 	 */
 	public function prepare_deletion( array $attachment_ids ): array {
-		global $wpdb;
-
 		if ( empty( $attachment_ids ) ) {
 			return array(
 				'success' => false,
@@ -328,20 +337,20 @@ class SafeDelete implements SafeDeleteInterface {
 			$metadata['thumbnails_in_trash'] = $thumbnails;
 
 			// Insert record into database.
-			$inserted = $wpdb->insert(
+			// Let the DB default permanent_at to NULL.
+			$inserted = $this->connection->insert(
 				$this->table_name,
 				array(
 					'attachment_id' => $attachment_id,
-					'file_path' => $trash_file_path,
-					'metadata' => wp_json_encode( $metadata ),
-					'deleted_at' => current_time( 'mysql' ),
-					'permanent_at' => null,
+					'file_path'     => $trash_file_path,
+					'metadata'      => wp_json_encode( $metadata ),
+					'deleted_at'    => current_time( 'mysql' ),
 				),
-				array( '%d', '%s', '%s', '%s', '%s' )
+				array( '%d', '%s', '%s', '%s' )
 			);
 
 			if ( $inserted ) {
-				$deletion_id = $wpdb->insert_id;
+				$deletion_id = $this->connection->get_insert_id();
 
 				// Delete the WordPress attachment post (soft delete).
 				wp_delete_attachment( $attachment_id, false );
@@ -377,18 +386,22 @@ class SafeDelete implements SafeDeleteInterface {
 	 * @return array Result with success status.
 	 */
 	public function execute_deletion( int $deletion_id ): array {
-		global $wpdb;
-
 		$deletion_id = absint( $deletion_id );
 
 		// Get deletion record.
-		$record = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM {$this->table_name} WHERE id = %d",
-				$deletion_id
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT * FROM {$this->table_name} WHERE id = %d",
+			$deletion_id
 		);
+
+		if ( null === $query ) {
+			return array(
+				'success' => false,
+				'message' => 'Failed to prepare deletion query.',
+			);
+		}
+
+		$record = $this->connection->get_row( $query, ARRAY_A );
 
 		if ( ! $record ) {
 			return array(
@@ -428,7 +441,7 @@ class SafeDelete implements SafeDeleteInterface {
 		}
 
 		// Update record to mark as permanently deleted.
-		$updated = $wpdb->update(
+		$updated = $this->connection->update(
 			$this->table_name,
 			array(
 				'permanent_at' => current_time( 'mysql' ),
@@ -439,8 +452,8 @@ class SafeDelete implements SafeDeleteInterface {
 		);
 
 		return array(
-			'success' => $updated !== false,
-			'message' => $updated !== false
+			'success' => false !== $updated,
+			'message' => false !== $updated
 				? 'Item permanently deleted.'
 				: 'Failed to update deletion record.',
 		);
@@ -455,18 +468,22 @@ class SafeDelete implements SafeDeleteInterface {
 	 * @return array Result with success status and restored attachment ID.
 	 */
 	public function restore_deleted( int $deletion_id ): array {
-		global $wpdb;
-
 		$deletion_id = absint( $deletion_id );
 
 		// Get deletion record.
-		$record = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM {$this->table_name} WHERE id = %d AND permanent_at IS NULL",
-				$deletion_id
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT * FROM {$this->table_name} WHERE id = %d AND permanent_at IS NULL",
+			$deletion_id
 		);
+
+		if ( null === $query ) {
+			return array(
+				'success' => false,
+				'message' => 'Failed to prepare restore query.',
+			);
+		}
+
+		$record = $this->connection->get_row( $query, ARRAY_A );
 
 		if ( ! $record ) {
 			return array(
@@ -583,7 +600,7 @@ class SafeDelete implements SafeDeleteInterface {
 		}
 
 		// Remove deletion record.
-		$wpdb->delete(
+		$this->connection->delete(
 			$this->table_name,
 			array( 'id' => $deletion_id ),
 			array( '%d' )
@@ -604,9 +621,7 @@ class SafeDelete implements SafeDeleteInterface {
 	 * @return array List of items in deletion queue.
 	 */
 	public function get_deletion_queue(): array {
-		global $wpdb;
-
-		$results = $wpdb->get_results(
+		$results = $this->connection->get_results(
 			"SELECT * FROM {$this->table_name}
 			WHERE permanent_at IS NULL
 			ORDER BY deleted_at DESC",
@@ -644,23 +659,24 @@ class SafeDelete implements SafeDeleteInterface {
 	 * @return array List of permanently deleted items.
 	 */
 	public function get_deleted_history( int $limit = 50 ): array {
-		global $wpdb;
-
 		$limit = absint( $limit );
 		if ( $limit <= 0 ) {
 			$limit = 100;
 		}
 
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$this->table_name}
-				WHERE permanent_at IS NOT NULL
-				ORDER BY permanent_at DESC
-				LIMIT %d",
-				$limit
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT * FROM {$this->table_name}
+			WHERE permanent_at IS NOT NULL
+			ORDER BY permanent_at DESC
+			LIMIT %d",
+			$limit
 		);
+
+		if ( null === $query ) {
+			return array();
+		}
+
+		$results = $this->connection->get_results( $query, ARRAY_A );
 
 		$history = array();
 		foreach ( $results as $record ) {
@@ -687,20 +703,25 @@ class SafeDelete implements SafeDeleteInterface {
 	 * @return array Result with count of purged items.
 	 */
 	public function auto_purge_expired(): array {
-		global $wpdb;
-
 		$expiry_date = gmdate( 'Y-m-d H:i:s', time() - ( $this->retention_days * DAY_IN_SECONDS ) );
 
 		// Get expired items.
-		$expired_items = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id FROM {$this->table_name}
-				WHERE permanent_at IS NULL
-				AND deleted_at < %s",
-				$expiry_date
-			),
-			ARRAY_A
+		$query = $this->connection->prepare(
+			"SELECT id FROM {$this->table_name}
+			WHERE permanent_at IS NULL
+			AND deleted_at < %s",
+			$expiry_date
 		);
+
+		if ( null === $query ) {
+			return array(
+				'success' => false,
+				'purged_count' => 0,
+				'message' => 'Failed to prepare purge query.',
+			);
+		}
+
+		$expired_items = $this->connection->get_results( $query, ARRAY_A );
 
 		$purged_count = 0;
 		foreach ( $expired_items as $item ) {
