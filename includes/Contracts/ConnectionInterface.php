@@ -239,6 +239,28 @@ interface ConnectionInterface {
 	public function get_termmeta_table(): string;
 
 	/**
+	 * Get the users table name.
+	 *
+	 * Note: In multisite, this is a global table shared across all sites.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return string Users table name.
+	 */
+	public function get_users_table(): string;
+
+	/**
+	 * Get the usermeta table name.
+	 *
+	 * Note: In multisite, this is a global table shared across all sites.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return string Usermeta table name.
+	 */
+	public function get_usermeta_table(): string;
+
+	/**
 	 * Check if a table exists in the database.
 	 *
 	 * @since 1.1.0

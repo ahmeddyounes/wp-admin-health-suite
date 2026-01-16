@@ -3,7 +3,7 @@
  * Orphaned Data Cleaner Class
  *
  * Identifies and removes orphaned metadata and relationships from WordPress database.
- * Handles postmeta, commentmeta, termmeta, and term relationships with no valid parent records.
+ * Handles postmeta, commentmeta, termmeta, usermeta, and term relationships with no valid parent records.
  *
  * @package WPAdminHealth
  */
@@ -24,6 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.0.0
  * @since 1.2.0 Implements OrphanedCleanerInterface.
  * @since 1.3.0 Added constructor dependency injection for ConnectionInterface.
+ * @since 1.4.0 Added usermeta support and fixed find_orphaned_relationships to include missing term_taxonomy.
  */
 class OrphanedCleaner implements OrphanedCleanerInterface {
 
@@ -120,6 +121,31 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 			FROM {$termmeta_table} tm
 			LEFT JOIN {$terms_table} t ON tm.term_id = t.term_id
 			WHERE t.term_id IS NULL"
+		);
+
+		return absint( $count );
+	}
+
+	/**
+	 * Count orphaned usermeta records.
+	 *
+	 * Returns the count of orphaned usermeta without loading all IDs into memory.
+	 * Note: In multisite, usermeta is a global table shared across all sites.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return int Number of orphaned usermeta records.
+	 */
+	public function count_orphaned_usermeta(): int {
+		$usermeta_table = $this->connection->get_usermeta_table();
+		$users_table    = $this->connection->get_users_table();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$count = $this->connection->get_var(
+			"SELECT COUNT(um.umeta_id)
+			FROM {$usermeta_table} um
+			LEFT JOIN {$users_table} u ON um.user_id = u.ID
+			WHERE u.ID IS NULL"
 		);
 
 		return absint( $count );
@@ -228,24 +254,60 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 	}
 
 	/**
+	 * Find orphaned usermeta records.
+	 *
+	 * Identifies usermeta rows where the user_id does not exist in the users table.
+	 * Note: In multisite, usermeta is a global table shared across all sites.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return array Array of orphaned umeta_ids.
+	 */
+	public function find_orphaned_usermeta(): array {
+		$usermeta_table = $this->connection->get_usermeta_table();
+		$users_table    = $this->connection->get_users_table();
+
+		$query = "SELECT um.umeta_id
+			FROM {$usermeta_table} um
+			LEFT JOIN {$users_table} u ON um.user_id = u.ID
+			WHERE u.ID IS NULL
+			ORDER BY um.umeta_id ASC";
+
+		return $this->connection->get_col( $query );
+	}
+
+	/**
 	 * Find orphaned term relationships.
 	 *
-	 * Identifies term_relationships rows where the object_id does not exist in the posts table.
+	 * Identifies term_relationships rows where the object_id does not exist in the posts table
+	 * OR where the term_taxonomy_id does not exist in the term_taxonomy table.
 	 *
 	 * @since 1.0.0
+	 * @since 1.4.0 Also includes relationships with missing term_taxonomy.
 	 *
 	 * @return array Array of orphaned relationship data (object_id and term_taxonomy_id pairs).
 	 */
 	public function find_orphaned_relationships(): array {
 		$prefix                   = $this->connection->get_prefix();
 		$term_relationships_table = $prefix . 'term_relationships';
+		$term_taxonomy_table      = $prefix . 'term_taxonomy';
 		$posts_table              = $this->connection->get_posts_table();
 
-		$query = "SELECT tr.object_id, tr.term_taxonomy_id
+		// Find relationships where the post doesn't exist.
+		$orphaned_posts_query = "SELECT tr.object_id, tr.term_taxonomy_id
 			FROM {$term_relationships_table} tr
 			LEFT JOIN {$posts_table} p ON tr.object_id = p.ID
-			WHERE p.ID IS NULL
-			ORDER BY tr.object_id ASC, tr.term_taxonomy_id ASC";
+			WHERE p.ID IS NULL";
+
+		// Find relationships where the term_taxonomy doesn't exist.
+		$orphaned_taxonomy_query = "SELECT tr.object_id, tr.term_taxonomy_id
+			FROM {$term_relationships_table} tr
+			LEFT JOIN {$term_taxonomy_table} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+			WHERE tt.term_taxonomy_id IS NULL";
+
+		// Combine with UNION to avoid duplicates and order results.
+		$query = "({$orphaned_posts_query}) UNION ({$orphaned_taxonomy_query})
+			ORDER BY object_id ASC, term_taxonomy_id ASC";
 
 		return $this->connection->get_results( $query, 'ARRAY_A' );
 	}
@@ -364,6 +426,51 @@ class OrphanedCleaner implements OrphanedCleanerInterface {
 				"DELETE tm FROM {$termmeta_table} tm
 				LEFT JOIN {$terms_table} t ON tm.term_id = t.term_id
 				WHERE t.term_id IS NULL
+				LIMIT %d",
+				$batch_limit
+			);
+
+			if ( null === $query ) {
+				break;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$result = $this->connection->query( $query );
+
+			if ( false === $result ) {
+				break;
+			}
+
+			$deleted_count += $result;
+		} while ( $result > 0 && $deleted_count < 10000 );
+
+		return $deleted_count;
+	}
+
+	/**
+	 * Delete orphaned usermeta records.
+	 *
+	 * Uses atomic DELETE with JOIN to prevent race conditions where
+	 * a user could be created between finding orphans and deleting them.
+	 * Note: In multisite, usermeta is a global table shared across all sites.
+	 * Use caution as this affects all sites in the network.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return int Number of records deleted.
+	 */
+	public function delete_orphaned_usermeta(): int {
+		$usermeta_table = $this->connection->get_usermeta_table();
+		$users_table    = $this->connection->get_users_table();
+		$deleted_count  = 0;
+		$batch_limit    = self::BATCH_SIZE;
+
+		// Use atomic DELETE with JOIN - finds and deletes in one operation.
+		do {
+			$query = $this->connection->prepare(
+				"DELETE um FROM {$usermeta_table} um
+				LEFT JOIN {$users_table} u ON um.user_id = u.ID
+				WHERE u.ID IS NULL
 				LIMIT %d",
 				$batch_limit
 			);

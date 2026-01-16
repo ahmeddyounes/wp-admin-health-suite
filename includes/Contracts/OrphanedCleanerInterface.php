@@ -58,6 +58,18 @@ interface OrphanedCleanerInterface {
 	public function find_orphaned_termmeta(): array;
 
 	/**
+	 * Find orphaned user meta records.
+	 *
+	 * Returns meta records where the parent user no longer exists.
+	 * Note: In multisite, usermeta is a global table shared across all sites.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return array<int> Array of orphaned user meta IDs.
+	 */
+	public function find_orphaned_usermeta(): array;
+
+	/**
 	 * Find orphaned term relationships.
 	 *
 	 * Returns relationships where either the object or term taxonomy no longer exists.
@@ -102,6 +114,18 @@ interface OrphanedCleanerInterface {
 	public function count_orphaned_termmeta(): int;
 
 	/**
+	 * Count orphaned user meta records.
+	 *
+	 * Returns count without loading all IDs into memory.
+	 * Note: In multisite, usermeta is a global table shared across all sites.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return int Number of orphaned user meta records.
+	 */
+	public function count_orphaned_usermeta(): int;
+
+	/**
 	 * Count orphaned term relationships.
 	 *
 	 * Returns count without loading all data into memory.
@@ -138,6 +162,18 @@ interface OrphanedCleanerInterface {
 	 * @return int Number of records deleted.
 	 */
 	public function delete_orphaned_termmeta(): int;
+
+	/**
+	 * Delete orphaned user meta records.
+	 *
+	 * Note: In multisite, usermeta is a global table shared across all sites.
+	 * Use caution as this affects all sites in the network.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return int Number of records deleted.
+	 */
+	public function delete_orphaned_usermeta(): int;
 
 	/**
 	 * Delete orphaned term relationships.

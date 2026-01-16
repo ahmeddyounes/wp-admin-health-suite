@@ -401,6 +401,20 @@ class MockConnection implements ConnectionInterface {
 	/**
 	 * {@inheritdoc}
 	 */
+	public function get_users_table(): string {
+		return $this->prefix . 'users';
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function get_usermeta_table(): string {
+		return $this->prefix . 'usermeta';
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
 	public function table_exists( string $table_name ): bool {
 		// Check if a result has been set for a SHOW TABLES or table existence query.
 		$query = "SHOW TABLES LIKE '{$table_name}'";
@@ -490,5 +504,49 @@ class MockConnection implements ConnectionInterface {
 		}
 
 		return $this->default_result;
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function get_num_queries(): int {
+		return count( $this->queries );
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function get_query_log(): array {
+		return array_map(
+			function ( $query ) {
+				return array(
+					$query['query'],
+					$query['time'],
+					'MockConnection',
+				);
+			},
+			$this->queries
+		);
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function suppress_errors( bool $suppress = true ): bool {
+		return true;
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function show_errors( bool $show = true ): bool {
+		return true;
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function get_charset_collate(): string {
+		return 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
 	}
 }
