@@ -67,54 +67,14 @@ class MediaServiceProvider extends ServiceProvider {
 	 * {@inheritdoc}
 	 */
 	public function register(): void {
-		// Register Media Scanner with ExclusionsInterface and ConnectionInterface injection.
+		// Register Exclusions first - no dependencies, required by other media services.
 		$this->container->singleton(
-			ScannerInterface::class,
-			function ( $container ) {
-				return new Scanner(
-					$container->get( ExclusionsInterface::class ),
-					$container->get( ConnectionInterface::class )
-				);
+			ExclusionsInterface::class,
+			function () {
+				return new Exclusions();
 			}
 		);
-
-		$this->container->alias( 'media.scanner', ScannerInterface::class );
-
-		// Register Duplicate Detector with ConnectionInterface injection.
-		$this->container->singleton(
-			DuplicateDetectorInterface::class,
-			function ( $container ) {
-				return new DuplicateDetector(
-					$container->get( ConnectionInterface::class ),
-					$container->get( ExclusionsInterface::class )
-				);
-			}
-		);
-		$this->container->alias( 'media.duplicate_detector', DuplicateDetectorInterface::class );
-
-		// Register Large Files with ConnectionInterface injection.
-		$this->container->singleton(
-			LargeFilesInterface::class,
-			function ( $container ) {
-				return new LargeFiles(
-					$container->get( ConnectionInterface::class ),
-					$container->get( ExclusionsInterface::class )
-				);
-			}
-		);
-		$this->container->alias( 'media.large_files', LargeFilesInterface::class );
-
-		// Register Alt Text Checker with ConnectionInterface injection.
-		$this->container->singleton(
-			AltTextCheckerInterface::class,
-			function ( $container ) {
-				return new AltTextChecker(
-					$container->get( ConnectionInterface::class ),
-					$container->get( ExclusionsInterface::class )
-				);
-			}
-		);
-		$this->container->alias( 'media.alt_text_checker', AltTextCheckerInterface::class );
+		$this->container->alias( 'media.exclusions', ExclusionsInterface::class );
 
 		// Register Reference Finder with ConnectionInterface injection.
 		$this->container->singleton(
@@ -138,14 +98,53 @@ class MediaServiceProvider extends ServiceProvider {
 		);
 		$this->container->alias( 'media.safe_delete', SafeDeleteInterface::class );
 
-		// Register Exclusions with interface binding.
+		// Register Media Scanner with ExclusionsInterface and ConnectionInterface injection.
 		$this->container->singleton(
-			ExclusionsInterface::class,
-			function () {
-				return new Exclusions();
+			ScannerInterface::class,
+			function ( $container ) {
+				return new Scanner(
+					$container->get( ExclusionsInterface::class ),
+					$container->get( ConnectionInterface::class )
+				);
 			}
 		);
-		$this->container->alias( 'media.exclusions', ExclusionsInterface::class );
+		$this->container->alias( 'media.scanner', ScannerInterface::class );
+
+		// Register Duplicate Detector with ConnectionInterface and ExclusionsInterface injection.
+		$this->container->singleton(
+			DuplicateDetectorInterface::class,
+			function ( $container ) {
+				return new DuplicateDetector(
+					$container->get( ConnectionInterface::class ),
+					$container->get( ExclusionsInterface::class )
+				);
+			}
+		);
+		$this->container->alias( 'media.duplicate_detector', DuplicateDetectorInterface::class );
+
+		// Register Large Files with ConnectionInterface and ExclusionsInterface injection.
+		$this->container->singleton(
+			LargeFilesInterface::class,
+			function ( $container ) {
+				return new LargeFiles(
+					$container->get( ConnectionInterface::class ),
+					$container->get( ExclusionsInterface::class )
+				);
+			}
+		);
+		$this->container->alias( 'media.large_files', LargeFilesInterface::class );
+
+		// Register Alt Text Checker with ConnectionInterface and ExclusionsInterface injection.
+		$this->container->singleton(
+			AltTextCheckerInterface::class,
+			function ( $container ) {
+				return new AltTextChecker(
+					$container->get( ConnectionInterface::class ),
+					$container->get( ExclusionsInterface::class )
+				);
+			}
+		);
+		$this->container->alias( 'media.alt_text_checker', AltTextCheckerInterface::class );
 	}
 
 	/**

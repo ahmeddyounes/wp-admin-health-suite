@@ -1,0 +1,27 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (e945bb9)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 7 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 5 files
+[SKIPPED] *.{js,jsx} — no files
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 5 files
+[COMPLETED] package.json — 7 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+husky - pre-commit script failed (code 1)
