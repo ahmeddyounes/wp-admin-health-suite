@@ -15,6 +15,7 @@ use WPAdminHealth\Database\RevisionsManager;
 use WPAdminHealth\Database\TransientsCleaner;
 use WPAdminHealth\Database\OrphanedCleaner;
 use WPAdminHealth\Database\Optimizer;
+use WPAdminHealth\Database\WpdbConnection;
 
 /**
  * Test case for Database Analyzer and related database operations
@@ -57,15 +58,23 @@ class DatabaseAnalyzerTest extends TestCase {
 	private $optimizer;
 
 	/**
+	 * Database connection instance
+	 *
+	 * @var WpdbConnection
+	 */
+	private $connection;
+
+	/**
 	 * Set up test environment before each test
 	 */
 	protected function set_up() {
 		parent::set_up();
-		$this->analyzer = new Analyzer();
-		$this->revisions_manager = new RevisionsManager();
-		$this->transients_cleaner = new TransientsCleaner();
-		$this->orphaned_cleaner = new OrphanedCleaner();
-		$this->optimizer = new Optimizer();
+		$this->connection = new WpdbConnection();
+		$this->analyzer = new Analyzer( $this->connection );
+		$this->revisions_manager = new RevisionsManager( $this->connection );
+		$this->transients_cleaner = new TransientsCleaner( $this->connection );
+		$this->orphaned_cleaner = new OrphanedCleaner( $this->connection );
+		$this->optimizer = new Optimizer( $this->connection );
 	}
 
 	/**
