@@ -382,4 +382,87 @@ class WpdbConnection implements ConnectionInterface {
 	public function get_charset_collate(): string {
 		return $this->wpdb->get_charset_collate();
 	}
+
+	/**
+	 * Check if the database connection is ready.
+	 *
+	 * Verifies that the wpdb instance has an active connection
+	 * by checking if the dbh (database handle) property is set.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @return bool True if connected, false otherwise.
+	 */
+	public function is_connected(): bool {
+		// Check if wpdb has an active database handle.
+		if ( ! isset( $this->wpdb->dbh ) || null === $this->wpdb->dbh ) {
+			return false;
+		}
+
+		// For mysqli connections, check if the connection is alive.
+		if ( $this->wpdb->dbh instanceof \mysqli ) {
+			return $this->wpdb->dbh->ping();
+		}
+
+		// For other connection types (e.g., PDO in some setups), assume connected if dbh exists.
+		return true;
+	}
+
+	/**
+	 * Check and attempt to restore the database connection if needed.
+	 *
+	 * Wrapper around wpdb's check_connection() method which handles
+	 * reconnection attempts internally.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @param bool $allow_bail Optional. Whether to bail on connection failure. Default true.
+	 * @return bool True if connection is successful, false if not and $allow_bail is false.
+	 */
+	public function check_connection( bool $allow_bail = true ): bool {
+		return $this->wpdb->check_connection( $allow_bail );
+	}
+
+	/**
+	 * Determine if a database error has occurred.
+	 *
+	 * Checks if the last query resulted in an error by examining
+	 * the last_error property.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @return bool True if an error occurred, false otherwise.
+	 */
+	public function has_error(): bool {
+		return ! empty( $this->wpdb->last_error );
+	}
+
+	/**
+	 * Get the underlying wpdb instance.
+	 *
+	 * Provides direct access to the wpdb object for edge cases
+	 * where the wrapper doesn't expose needed functionality.
+	 * Use sparingly - prefer using wrapper methods when available.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @return \wpdb The wpdb instance.
+	 */
+	public function get_wpdb(): \wpdb {
+		return $this->wpdb;
+	}
+
+	/**
+	 * Flush the wpdb query cache.
+	 *
+	 * Clears the internal result cache in wpdb. Useful after
+	 * operations that modify data and require fresh reads.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @return void
+	 */
+	public function flush(): void {
+		$this->wpdb->flush();
+	}
 }
