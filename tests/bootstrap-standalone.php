@@ -885,6 +885,251 @@ if ( ! class_exists( 'WP_Error' ) ) {
 	}
 }
 
+// Define WordPress constants.
+if ( ! defined( 'ARRAY_A' ) ) {
+	define( 'ARRAY_A', 'ARRAY_A' );
+}
+
+if ( ! defined( 'ARRAY_N' ) ) {
+	define( 'ARRAY_N', 'ARRAY_N' );
+}
+
+if ( ! defined( 'OBJECT' ) ) {
+	define( 'OBJECT', 'OBJECT' );
+}
+
+if ( ! defined( 'OBJECT_K' ) ) {
+	define( 'OBJECT_K', 'OBJECT_K' );
+}
+
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
+}
+
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+	define( 'HOUR_IN_SECONDS', 3600 );
+}
+
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
+}
+
+if ( ! defined( 'WP_CONTENT_DIR' ) ) {
+	define( 'WP_CONTENT_DIR', sys_get_temp_dir() . '/wp-content' );
+}
+
+if ( ! function_exists( 'wp_upload_dir' ) ) {
+	/**
+	 * Get upload directory info stub.
+	 *
+	 * @param string|null $time   Optional. Time formatted in 'yyyy/mm'.
+	 * @param bool        $create Optional. Whether to create directories.
+	 * @param bool        $refresh Optional. Whether to refresh the cache.
+	 * @return array Upload directory information.
+	 */
+	function wp_upload_dir( $time = null, $create = true, $refresh = false ) {
+		$dir = sys_get_temp_dir() . '/wp-uploads';
+		return array(
+			'path'    => $dir . '/2024/01',
+			'url'     => 'http://example.com/wp-content/uploads/2024/01',
+			'subdir'  => '/2024/01',
+			'basedir' => $dir,
+			'baseurl' => 'http://example.com/wp-content/uploads',
+			'error'   => false,
+		);
+	}
+}
+
+if ( ! function_exists( 'get_post' ) ) {
+	/**
+	 * Get post stub.
+	 *
+	 * @param int|null $post_id Post ID.
+	 * @param string   $output  Output type.
+	 * @param string   $filter  Filter type.
+	 * @return object|null Post object or null.
+	 */
+	function get_post( $post_id = null, $output = 'OBJECT', $filter = 'raw' ) {
+		// Return null by default - tests should mock this.
+		return null;
+	}
+}
+
+if ( ! function_exists( 'get_attached_file' ) ) {
+	/**
+	 * Get attached file path stub.
+	 *
+	 * @param int  $attachment_id Attachment ID.
+	 * @param bool $unfiltered    Whether to apply filters.
+	 * @return string|false File path or false.
+	 */
+	function get_attached_file( $attachment_id, $unfiltered = false ) {
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_get_attachment_metadata' ) ) {
+	/**
+	 * Get attachment metadata stub.
+	 *
+	 * @param int  $attachment_id Attachment ID.
+	 * @param bool $unfiltered    Whether to apply filters.
+	 * @return array|false Attachment metadata or false.
+	 */
+	function wp_get_attachment_metadata( $attachment_id, $unfiltered = false ) {
+		return false;
+	}
+}
+
+if ( ! function_exists( 'get_post_meta' ) ) {
+	/**
+	 * Get post meta stub.
+	 *
+	 * @param int    $post_id  Post ID.
+	 * @param string $key      Meta key.
+	 * @param bool   $single   Whether to return single value.
+	 * @return mixed Meta value(s).
+	 */
+	function get_post_meta( $post_id, $key = '', $single = false ) {
+		return $single ? '' : array();
+	}
+}
+
+if ( ! function_exists( 'update_post_meta' ) ) {
+	/**
+	 * Update post meta stub.
+	 *
+	 * @param int    $post_id    Post ID.
+	 * @param string $meta_key   Meta key.
+	 * @param mixed  $meta_value Meta value.
+	 * @param mixed  $prev_value Previous value.
+	 * @return int|bool Meta ID on success, false on failure.
+	 */
+	function update_post_meta( $post_id, $meta_key, $meta_value, $prev_value = '' ) {
+		return 1;
+	}
+}
+
+if ( ! function_exists( 'wp_mkdir_p' ) ) {
+	/**
+	 * Create directory recursively stub.
+	 *
+	 * @param string $target Directory path.
+	 * @return bool True on success, false on failure.
+	 */
+	function wp_mkdir_p( $target ) {
+		if ( is_dir( $target ) ) {
+			return true;
+		}
+		return mkdir( $target, 0755, true );
+	}
+}
+
+if ( ! function_exists( 'wp_delete_attachment' ) ) {
+	/**
+	 * Delete attachment stub.
+	 *
+	 * @param int  $post_id      Attachment ID.
+	 * @param bool $force_delete Whether to bypass trash.
+	 * @return object|false|null Post object on success, false/null on failure.
+	 */
+	function wp_delete_attachment( $post_id, $force_delete = false ) {
+		return (object) array( 'ID' => $post_id );
+	}
+}
+
+if ( ! function_exists( 'wp_insert_post' ) ) {
+	/**
+	 * Insert post stub.
+	 *
+	 * @param array $postarr Post data.
+	 * @param bool  $wp_error Whether to return WP_Error on failure.
+	 * @param bool  $fire_after_hooks Whether to fire after hooks.
+	 * @return int|WP_Error Post ID on success, WP_Error on failure.
+	 */
+	function wp_insert_post( $postarr, $wp_error = false, $fire_after_hooks = true ) {
+		static $next_id = 1000;
+		return $next_id++;
+	}
+}
+
+if ( ! function_exists( 'update_attached_file' ) ) {
+	/**
+	 * Update attached file stub.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $file          File path.
+	 * @return bool True on success, false on failure.
+	 */
+	function update_attached_file( $attachment_id, $file ) {
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_update_attachment_metadata' ) ) {
+	/**
+	 * Update attachment metadata stub.
+	 *
+	 * @param int   $attachment_id Attachment ID.
+	 * @param array $data          Metadata.
+	 * @return int|false Meta ID on success, false on failure.
+	 */
+	function wp_update_attachment_metadata( $attachment_id, $data ) {
+		return 1;
+	}
+}
+
+if ( ! function_exists( 'current_time' ) ) {
+	/**
+	 * Get current time stub.
+	 *
+	 * @param string $type   Type of time to return.
+	 * @param bool   $gmt    Whether to use GMT.
+	 * @return string|int Current time.
+	 */
+	function current_time( $type, $gmt = false ) {
+		if ( 'mysql' === $type ) {
+			return gmdate( 'Y-m-d H:i:s' );
+		}
+		if ( 'timestamp' === $type ) {
+			return time();
+		}
+		return gmdate( $type );
+	}
+}
+
+if ( ! function_exists( 'sanitize_file_name' ) ) {
+	/**
+	 * Sanitize file name stub.
+	 *
+	 * @param string $filename File name.
+	 * @return string Sanitized file name.
+	 */
+	function sanitize_file_name( $filename ) {
+		// Remove special characters.
+		$filename = preg_replace( '/[^a-zA-Z0-9._-]/', '', $filename );
+		// Remove multiple dots.
+		$filename = preg_replace( '/\.+/', '.', $filename );
+		return $filename;
+	}
+}
+
+if ( ! function_exists( 'wp_rand' ) ) {
+	/**
+	 * Generate random number stub.
+	 *
+	 * @param int $min Minimum value.
+	 * @param int $max Maximum value.
+	 * @return int Random number.
+	 */
+	function wp_rand( $min = 0, $max = 0 ) {
+		if ( 0 === $max ) {
+			$max = mt_getrandmax();
+		}
+		return mt_rand( $min, $max );
+	}
+}
+
 // Composer autoloader.
 require_once dirname( __DIR__ ) . '/vendor/autoload.php';
 
