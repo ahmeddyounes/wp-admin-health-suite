@@ -162,6 +162,7 @@ class CleanupController extends RestController {
 							'default'           => 0,
 							'minimum'           => 0,
 							'sanitize_callback' => 'absint',
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
@@ -182,12 +183,15 @@ class CleanupController extends RestController {
 							'description'       => __( 'Only delete expired transients.', 'wp-admin-health-suite' ),
 							'type'              => 'boolean',
 							'default'           => true,
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 						'exclude_patterns' => array(
 							'description'       => __( 'Transient prefixes to exclude from cleanup.', 'wp-admin-health-suite' ),
 							'type'              => 'array',
 							'items'             => array( 'type' => 'string' ),
 							'default'           => array(),
+							'sanitize_callback' => array( $this, 'sanitize_string_array' ),
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
@@ -210,6 +214,7 @@ class CleanupController extends RestController {
 							'default'           => 0,
 							'minimum'           => 0,
 							'sanitize_callback' => 'absint',
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
@@ -232,12 +237,15 @@ class CleanupController extends RestController {
 							'default'           => 0,
 							'minimum'           => 0,
 							'sanitize_callback' => 'absint',
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 						'post_types'      => array(
 							'description'       => __( 'Specific post types to clean.', 'wp-admin-health-suite' ),
 							'type'              => 'array',
 							'items'             => array( 'type' => 'string' ),
 							'default'           => array(),
+							'sanitize_callback' => array( $this, 'sanitize_post_types' ),
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
@@ -262,6 +270,8 @@ class CleanupController extends RestController {
 								'enum' => array( 'postmeta', 'commentmeta', 'termmeta', 'relationships' ),
 							),
 							'default'           => array( 'postmeta', 'commentmeta', 'termmeta', 'relationships' ),
+							'sanitize_callback' => array( $this, 'sanitize_orphaned_types' ),
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
@@ -823,6 +833,78 @@ class CleanupController extends RestController {
 				$sanitized[ $key ] = absint( $val );
 			} else {
 				$sanitized[ $key ] = sanitize_text_field( $val );
+			}
+		}
+
+		return $sanitized;
+	}
+
+	/**
+	 * Sanitize string array parameter.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $value The value to sanitize.
+	 * @return array Sanitized string array.
+	 */
+	public function sanitize_string_array( $value ): array {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		return array_map( 'sanitize_text_field', $value );
+	}
+
+	/**
+	 * Sanitize post types array parameter.
+	 *
+	 * Only allows registered post types to prevent injection.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $value The value to sanitize.
+	 * @return array Sanitized post types array.
+	 */
+	public function sanitize_post_types( $value ): array {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$registered_post_types = get_post_types();
+		$sanitized             = array();
+
+		foreach ( $value as $post_type ) {
+			$post_type = sanitize_key( $post_type );
+			if ( in_array( $post_type, $registered_post_types, true ) ) {
+				$sanitized[] = $post_type;
+			}
+		}
+
+		return $sanitized;
+	}
+
+	/**
+	 * Sanitize orphaned types array parameter.
+	 *
+	 * Only allows valid orphaned data types.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $value The value to sanitize.
+	 * @return array Sanitized orphaned types array.
+	 */
+	public function sanitize_orphaned_types( $value ): array {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$valid_types = array( 'postmeta', 'commentmeta', 'termmeta', 'relationships' );
+		$sanitized   = array();
+
+		foreach ( $value as $type ) {
+			$type = sanitize_key( $type );
+			if ( in_array( $type, $valid_types, true ) ) {
+				$sanitized[] = $type;
 			}
 		}
 

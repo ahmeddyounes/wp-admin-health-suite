@@ -99,12 +99,8 @@ class OptimizationController extends RestController {
 							'type'              => 'array',
 							'items'             => array( 'type' => 'string' ),
 							'default'           => array(),
-							'sanitize_callback' => function ( $value ) {
-								if ( ! is_array( $value ) ) {
-									return array();
-								}
-								return array_map( 'sanitize_text_field', $value );
-							},
+							'sanitize_callback' => array( $this, 'sanitize_table_names' ),
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
@@ -126,12 +122,8 @@ class OptimizationController extends RestController {
 							'type'              => 'array',
 							'items'             => array( 'type' => 'string' ),
 							'required'          => true,
-							'sanitize_callback' => function ( $value ) {
-								if ( ! is_array( $value ) ) {
-									return array();
-								}
-								return array_map( 'sanitize_text_field', $value );
-							},
+							'sanitize_callback' => array( $this, 'sanitize_table_names' ),
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 					),
 				),
@@ -346,5 +338,38 @@ class OptimizationController extends RestController {
 			),
 			array( '%s', '%d', '%d', '%d', '%s' )
 		);
+	}
+
+	/**
+	 * Sanitize table names array.
+	 *
+	 * Only allows tables with the WordPress prefix to prevent accessing
+	 * arbitrary database tables.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $value The value to sanitize.
+	 * @return array Sanitized table names array.
+	 */
+	public function sanitize_table_names( $value ): array {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$connection = $this->get_connection();
+		$prefix     = $connection->get_prefix();
+
+		$sanitized = array();
+
+		foreach ( $value as $table_name ) {
+			$table_name = sanitize_text_field( $table_name );
+
+			// Only allow tables with WordPress prefix.
+			if ( 0 === strpos( $table_name, $prefix ) ) {
+				$sanitized[] = $table_name;
+			}
+		}
+
+		return $sanitized;
 	}
 }
