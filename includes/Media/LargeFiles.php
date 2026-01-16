@@ -186,15 +186,15 @@ class LargeFiles implements LargeFilesInterface {
 					continue;
 				}
 
-				$metadata = wp_get_attachment_metadata( $attachment_id );
+				$metadata  = wp_get_attachment_metadata( $attachment_id );
 				$mime_type = get_post_mime_type( $attachment_id );
-				$filename = basename( $file_path );
+				$filename  = basename( $file_path );
 
 				// Determine dimensions for images.
 				$dimensions = null;
 				if ( ! empty( $metadata['width'] ) && ! empty( $metadata['height'] ) ) {
 					$dimensions = array(
-						'width' => $metadata['width'],
+						'width'  => $metadata['width'],
 						'height' => $metadata['height'],
 					);
 				}
@@ -203,16 +203,16 @@ class LargeFiles implements LargeFilesInterface {
 				$optimization = $this->calculate_optimization( $file_size, $dimensions, $mime_type );
 
 				$large_files[] = array(
-					'id' => $attachment_id,
-					'filename' => $filename,
-					'current_size' => $file_size,
-					'current_size_formatted' => size_format( $file_size ),
-					'suggested_max_size' => $optimization['suggested_max_size'],
+					'id'                           => $attachment_id,
+					'filename'                     => $filename,
+					'current_size'                 => $file_size,
+					'current_size_formatted'       => size_format( $file_size ),
+					'suggested_max_size'           => $optimization['suggested_max_size'],
 					'suggested_max_size_formatted' => size_format( $optimization['suggested_max_size'] ),
-					'potential_savings' => $optimization['potential_savings'],
-					'potential_savings_formatted' => size_format( $optimization['potential_savings'] ),
-					'dimensions' => $dimensions,
-					'mime_type' => $mime_type,
+					'potential_savings'            => $optimization['potential_savings'],
+					'potential_savings_formatted'  => size_format( $optimization['potential_savings'] ),
+					'dimensions'                   => $dimensions,
+					'mime_type'                    => $mime_type,
 				);
 			}
 
@@ -255,6 +255,11 @@ class LargeFiles implements LargeFilesInterface {
 			}
 
 			foreach ( $attachments as $attachment_id ) {
+				// Skip excluded items.
+				if ( $this->exclusions->is_excluded( $attachment_id ) ) {
+					continue;
+				}
+
 				$file_path = get_attached_file( $attachment_id );
 
 				// Security: Validate path is within uploads directory.
@@ -262,10 +267,10 @@ class LargeFiles implements LargeFilesInterface {
 					continue;
 				}
 
-				$metadata = wp_get_attachment_metadata( $attachment_id );
+				$metadata  = wp_get_attachment_metadata( $attachment_id );
 				$mime_type = get_post_mime_type( $attachment_id );
 				$file_size = filesize( $file_path );
-				$filename = basename( $file_path );
+				$filename  = basename( $file_path );
 
 				$file_suggestions = array();
 
@@ -273,14 +278,14 @@ class LargeFiles implements LargeFilesInterface {
 				if ( ! empty( $metadata['width'] ) && ! empty( $metadata['height'] ) ) {
 					if ( $metadata['width'] > 2000 || $metadata['height'] > 2000 ) {
 						$file_suggestions[] = array(
-							'type' => 'oversized_dimensions',
+							'type'     => 'oversized_dimensions',
 							'priority' => 'high',
-							'message' => sprintf(
+							'message'  => sprintf(
 								'Image dimensions (%dx%d) exceed recommended maximum of 2000px. Consider resizing to reduce file size.',
 								$metadata['width'],
 								$metadata['height']
 							),
-							'action' => 'Resize image to maximum 2000px on longest side',
+							'action'   => 'Resize image to maximum 2000px on longest side',
 						);
 					}
 				}
@@ -288,13 +293,13 @@ class LargeFiles implements LargeFilesInterface {
 				// Check for unoptimized formats (BMP, TIFF).
 				if ( in_array( $mime_type, array( 'image/bmp', 'image/x-ms-bmp', 'image/tiff' ), true ) ) {
 					$file_suggestions[] = array(
-						'type' => 'unoptimized_format',
+						'type'     => 'unoptimized_format',
 						'priority' => 'high',
-						'message' => sprintf(
+						'message'  => sprintf(
 							'File is in unoptimized format (%s). Convert to JPG or PNG for better web performance.',
 							$mime_type
 						),
-						'action' => 'Convert to JPG (for photos) or PNG (for graphics with transparency)',
+						'action'   => 'Convert to JPG (for photos) or PNG (for graphics with transparency)',
 					);
 				}
 
@@ -304,16 +309,16 @@ class LargeFiles implements LargeFilesInterface {
 					$has_transparency = $this->check_png_transparency( $file_path );
 					if ( ! $has_transparency ) {
 						$estimated_jpg_size = $file_size * 0.3; // JPGs are typically 30% of PNG size for photos.
-						$potential_savings = $file_size - $estimated_jpg_size;
+						$potential_savings  = $file_size - $estimated_jpg_size;
 
 						$file_suggestions[] = array(
-							'type' => 'png_to_jpg',
+							'type'     => 'png_to_jpg',
 							'priority' => 'medium',
-							'message' => sprintf(
+							'message'  => sprintf(
 								'PNG file without transparency could be converted to JPG. Estimated savings: %s.',
 								size_format( $potential_savings )
 							),
-							'action' => 'Convert to JPG format',
+							'action'   => 'Convert to JPG format',
 						);
 					}
 				}
@@ -321,18 +326,18 @@ class LargeFiles implements LargeFilesInterface {
 				// Only add files with suggestions.
 				if ( ! empty( $file_suggestions ) ) {
 					$suggestions[] = array(
-						'id' => $attachment_id,
-						'filename' => $filename,
-						'current_size' => $file_size,
+						'id'                     => $attachment_id,
+						'filename'               => $filename,
+						'current_size'           => $file_size,
 						'current_size_formatted' => size_format( $file_size ),
-						'mime_type' => $mime_type,
-						'dimensions' => ! empty( $metadata['width'] ) && ! empty( $metadata['height'] )
+						'mime_type'              => $mime_type,
+						'dimensions'             => ! empty( $metadata['width'] ) && ! empty( $metadata['height'] )
 							? array(
-								'width' => $metadata['width'],
+								'width'  => $metadata['width'],
 								'height' => $metadata['height'],
 							)
 							: null,
-						'suggestions' => $file_suggestions,
+						'suggestions'            => $file_suggestions,
 					);
 				}
 			}
@@ -416,19 +421,19 @@ class LargeFiles implements LargeFilesInterface {
 
 				// Categorize into buckets.
 				if ( $file_size < 102400 ) { // <100KB.
-					$distribution['under_100kb']['count']++;
+					++$distribution['under_100kb']['count'];
 					$distribution['under_100kb']['total_size'] += $file_size;
 				} elseif ( $file_size < 512000 ) { // 100-500KB.
-					$distribution['100kb_to_500kb']['count']++;
+					++$distribution['100kb_to_500kb']['count'];
 					$distribution['100kb_to_500kb']['total_size'] += $file_size;
 				} elseif ( $file_size < 1048576 ) { // 500KB-1MB.
-					$distribution['500kb_to_1mb']['count']++;
+					++$distribution['500kb_to_1mb']['count'];
 					$distribution['500kb_to_1mb']['total_size'] += $file_size;
 				} elseif ( $file_size < 5242880 ) { // 1-5MB.
-					$distribution['1mb_to_5mb']['count']++;
+					++$distribution['1mb_to_5mb']['count'];
 					$distribution['1mb_to_5mb']['total_size'] += $file_size;
 				} else { // >5MB.
-					$distribution['over_5mb']['count']++;
+					++$distribution['over_5mb']['count'];
 					$distribution['over_5mb']['total_size'] += $file_size;
 				}
 			}
@@ -454,32 +459,32 @@ class LargeFiles implements LargeFilesInterface {
 	 */
 	private function calculate_optimization( $file_size, $dimensions, $mime_type ) {
 		$suggested_max_size = $file_size;
-		$potential_savings = 0;
+		$potential_savings  = 0;
 
 		// For images with oversized dimensions, estimate size reduction.
 		if ( $dimensions && ( $dimensions['width'] > 2000 || $dimensions['height'] > 2000 ) ) {
 			// Estimate that resizing to 2000px will reduce size by ~60%.
 			$suggested_max_size = $file_size * 0.4;
-			$potential_savings = $file_size - $suggested_max_size;
+			$potential_savings  = $file_size - $suggested_max_size;
 		}
 
 		// For unoptimized formats, estimate conversion savings.
 		if ( in_array( $mime_type, array( 'image/bmp', 'image/x-ms-bmp', 'image/tiff' ), true ) ) {
 			// BMP/TIFF to JPG typically saves ~80%.
 			$suggested_max_size = min( $suggested_max_size, $file_size * 0.2 );
-			$potential_savings = $file_size - $suggested_max_size;
+			$potential_savings  = $file_size - $suggested_max_size;
 		}
 
 		// For large PNGs without transparency, suggest JPG conversion.
 		if ( 'image/png' === $mime_type && $file_size > 102400 ) {
 			// Assume 70% savings by converting to JPG.
 			$suggested_max_size = min( $suggested_max_size, $file_size * 0.3 );
-			$potential_savings = $file_size - $suggested_max_size;
+			$potential_savings  = $file_size - $suggested_max_size;
 		}
 
 		return array(
 			'suggested_max_size' => (int) $suggested_max_size,
-			'potential_savings' => (int) $potential_savings,
+			'potential_savings'  => (int) $potential_savings,
 		);
 	}
 
@@ -503,7 +508,7 @@ class LargeFiles implements LargeFilesInterface {
 			}
 
 			// Check if image has alpha channel.
-			$width = imagesx( $image );
+			$width  = imagesx( $image );
 			$height = imagesy( $image );
 
 			// Sample pixels to check for transparency (check corners and center).
