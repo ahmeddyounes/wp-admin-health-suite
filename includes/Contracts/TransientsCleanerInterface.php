@@ -18,6 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Interface TransientsCleanerInterface
  *
  * Contract for transient cleanup operations.
+ * Manages WordPress transients stored in the options table.
  *
  * @since 1.2.0
  */
@@ -26,6 +27,8 @@ interface TransientsCleanerInterface {
 	/**
 	 * Count all transients.
 	 *
+	 * @since 1.2.0
+	 *
 	 * @return int Total transient count.
 	 */
 	public function count_transients(): int;
@@ -33,13 +36,17 @@ interface TransientsCleanerInterface {
 	/**
 	 * Get all expired transients.
 	 *
-	 * @param array $exclude_patterns Array of prefixes to exclude.
-	 * @return array Array of expired transient data.
+	 * @since 1.2.0
+	 *
+	 * @param array<string> $exclude_patterns Array of prefixes to exclude.
+	 * @return array<array{name: string, size: int, expired_at: string}> Array of expired transient data.
 	 */
 	public function get_expired_transients( array $exclude_patterns = array() ): array;
 
 	/**
 	 * Count expired transients.
+	 *
+	 * @since 1.2.0
 	 *
 	 * @return int Expired transient count.
 	 */
@@ -48,6 +55,8 @@ interface TransientsCleanerInterface {
 	/**
 	 * Get the total size of all transients.
 	 *
+	 * @since 1.2.0
+	 *
 	 * @return int Size in bytes.
 	 */
 	public function get_transients_size(): int;
@@ -55,24 +64,30 @@ interface TransientsCleanerInterface {
 	/**
 	 * Delete all expired transients.
 	 *
-	 * @param array $exclude_patterns Array of prefixes to exclude.
-	 * @return array Array with 'deleted' count and 'bytes_freed'.
+	 * @since 1.2.0
+	 *
+	 * @param array<string> $exclude_patterns Array of prefixes to exclude.
+	 * @return array{deleted: int, bytes_freed: int} Deletion result.
 	 */
 	public function delete_expired_transients( array $exclude_patterns = array() ): array;
 
 	/**
 	 * Delete all transients.
 	 *
-	 * @param array $exclude_patterns Array of prefixes to exclude.
-	 * @return array Array with 'deleted' count and 'bytes_freed'.
+	 * @since 1.2.0
+	 *
+	 * @param array<string> $exclude_patterns Array of prefixes to exclude.
+	 * @return array{deleted: int, bytes_freed: int} Deletion result.
 	 */
 	public function delete_all_transients( array $exclude_patterns = array() ): array;
 
 	/**
 	 * Get transients by prefix.
 	 *
+	 * @since 1.2.0
+	 *
 	 * @param string $prefix Transient prefix to search for.
-	 * @return array Array of matching transients.
+	 * @return array<array{name: string, size: int, expires_at: string|null}> Array of matching transients.
 	 */
 	public function get_transient_by_prefix( string $prefix ): array;
 }

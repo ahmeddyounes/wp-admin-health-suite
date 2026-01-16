@@ -18,6 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Interface TrashCleanerInterface
  *
  * Contract for trash and spam cleanup operations.
+ * Manages posts in trash status and spam/trashed comments.
  *
  * @since 1.2.0
  */
@@ -26,13 +27,17 @@ interface TrashCleanerInterface {
 	/**
 	 * Get all trashed posts.
 	 *
-	 * @param array $post_types Array of post types to query. Empty for all.
-	 * @return array Array of trashed posts.
+	 * @since 1.2.0
+	 *
+	 * @param array<string> $post_types Array of post types to query. Empty for all.
+	 * @return array<array{id: int, title: string, type: string, trashed_at: string}> Array of trashed posts.
 	 */
 	public function get_trashed_posts( array $post_types = array() ): array;
 
 	/**
 	 * Count trashed posts.
+	 *
+	 * @since 1.2.0
 	 *
 	 * @return int Number of trashed posts.
 	 */
@@ -41,12 +46,16 @@ interface TrashCleanerInterface {
 	/**
 	 * Count spam comments.
 	 *
+	 * @since 1.2.0
+	 *
 	 * @return int Number of spam comments.
 	 */
 	public function count_spam_comments(): int;
 
 	/**
 	 * Count trashed comments.
+	 *
+	 * @since 1.2.0
 	 *
 	 * @return int Number of trashed comments.
 	 */
@@ -55,32 +64,40 @@ interface TrashCleanerInterface {
 	/**
 	 * Delete all trashed posts.
 	 *
-	 * @param array $post_types       Array of post types to delete. Empty for all.
-	 * @param int   $older_than_days  Only delete posts trashed more than X days ago. 0 = all.
-	 * @return array Array with 'deleted' count and 'errors' count.
+	 * @since 1.2.0
+	 *
+	 * @param array<string> $post_types      Array of post types to delete. Empty for all.
+	 * @param int           $older_than_days Only delete posts trashed more than X days ago. 0 = all.
+	 * @return array{deleted: int, errors: int} Deletion result.
 	 */
 	public function delete_trashed_posts( array $post_types = array(), int $older_than_days = 0 ): array;
 
 	/**
 	 * Delete all spam comments.
 	 *
+	 * @since 1.2.0
+	 *
 	 * @param int $older_than_days Only delete comments marked as spam more than X days ago. 0 = all.
-	 * @return array Array with 'deleted' count and 'errors' count.
+	 * @return array{deleted: int, errors: int} Deletion result.
 	 */
 	public function delete_spam_comments( int $older_than_days = 0 ): array;
 
 	/**
 	 * Delete all trashed comments.
 	 *
+	 * @since 1.2.0
+	 *
 	 * @param int $older_than_days Only delete comments in trash more than X days ago. 0 = all.
-	 * @return array Array with 'deleted' count and 'errors' count.
+	 * @return array{deleted: int, errors: int} Deletion result.
 	 */
 	public function delete_trashed_comments( int $older_than_days = 0 ): array;
 
 	/**
 	 * Empty all trash (posts and comments).
 	 *
-	 * @return array Array with counts of deleted items.
+	 * @since 1.2.0
+	 *
+	 * @return array{posts_deleted: int, comments_deleted: int, spam_deleted: int} Deletion counts.
 	 */
 	public function empty_all_trash(): array;
 }

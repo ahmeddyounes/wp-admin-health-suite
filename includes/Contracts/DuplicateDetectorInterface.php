@@ -18,6 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Interface DuplicateDetectorInterface
  *
  * Contract for duplicate media detection operations.
+ * Detects duplicate media files by hash or filename comparison.
  *
  * @since 1.2.0
  */
@@ -26,22 +27,32 @@ interface DuplicateDetectorInterface {
 	/**
 	 * Find duplicate media files.
 	 *
-	 * @param array $options Detection options (method, threshold, etc.).
-	 * @return array Array of duplicate groups.
+	 * @since 1.2.0
+	 *
+	 * @param array{method?: string, threshold?: int} $options Detection options (method: 'hash'|'filename'|'both', threshold: similarity threshold).
+	 * @return array<string, array<int>> Array of duplicate groups keyed by hash/filename.
 	 */
 	public function find_duplicates( array $options = array() ): array;
 
 	/**
 	 * Get duplicate groups with details.
 	 *
-	 * @return array Array of duplicate groups with file details.
+	 * Returns full attachment details for each duplicate group.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return array<array{hash: string, files: array<array{id: int, filename: string, size: int, url: string}>}> Duplicate groups with file details.
 	 */
 	public function get_duplicate_groups(): array;
 
 	/**
 	 * Get potential storage savings from removing duplicates.
 	 *
-	 * @return array Array with 'bytes', 'formatted', and 'groups_count'.
+	 * Calculates how much space could be saved by keeping only one copy per group.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return array{bytes: int, formatted: string, groups_count: int} Potential savings information.
 	 */
 	public function get_potential_savings(): array;
 }

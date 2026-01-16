@@ -1,0 +1,97 @@
+[main 3b62d32] Q01-04: implement
+ 64 files changed, 318 insertions(+), 8 deletions(-)
+ create mode 100644 .logs/Q01-03.gitcommit.txt
+ create mode 100644 .logs/Q01-04.claude.impl.last.md
+ create mode 100644 .logs/Q01-04.claude.impl.raw.txt
+ create mode 100644 .plans/Q01-04.md
+ create mode 100644 .t2/handoff/Q01-04.md
+ rename includes/{ai => AI}/OneClickFix.php (100%)
+ rename includes/{ai => AI}/Recommendations.php (100%)
+ rename includes/{ai => AI}/index.php (100%)
+ rename includes/{database => Database}/Analyzer.php (100%)
+ rename includes/{database => Database}/Optimizer.php (100%)
+ rename includes/{database => Database}/OrphanedCleaner.php (100%)
+ rename includes/{database => Database}/OrphanedTables.php (100%)
+ rename includes/{database => Database}/RevisionsManager.php (100%)
+ rename includes/{database => Database}/Tasks/DatabaseCleanupTask.php (100%)
+ rename includes/{database => Database}/TransientsCleaner.php (100%)
+ rename includes/{database => Database}/TrashCleaner.php (100%)
+ rename includes/{database => Database}/WpdbConnection.php (100%)
+ rename includes/{integrations => Integrations}/AbstractIntegration.php (100%)
+ rename includes/{integrations => Integrations}/Acf.php (100%)
+ rename includes/{integrations => Integrations}/Elementor.php (100%)
+ rename includes/{integrations => Integrations}/IntegrationManager.php (100%)
+ rename includes/{integrations => Integrations}/Multilingual.php (100%)
+ rename includes/{integrations => Integrations}/WooCommerce.php (100%)
+ rename includes/{integrations => Integrations}/index.php (100%)
+ rename includes/{media => Media}/AltTextChecker.php (100%)
+ rename includes/{media => Media}/DuplicateDetector.php (100%)
+ rename includes/{media => Media}/Exclusions.php (100%)
+ rename includes/{media => Media}/LargeFiles.php (100%)
+ rename includes/{media => Media}/ReferenceFinder.php (100%)
+ rename includes/{media => Media}/SafeDelete.php (100%)
+ rename includes/{media => Media}/Scanner.php (100%)
+ rename includes/{media => Media}/Tasks/MediaScanTask.php (100%)
+ rename includes/{media => Media}/index.php (100%)
+ rename includes/{performance => Performance}/AjaxMonitor.php (100%)
+ rename includes/{performance => Performance}/AutoloadAnalyzer.php (100%)
+ rename includes/{performance => Performance}/CacheChecker.php (100%)
+ rename includes/{performance => Performance}/HeartbeatController.php (100%)
+ rename includes/{performance => Performance}/PluginProfiler.php (100%)
+ rename includes/{performance => Performance}/QueryMonitor.php (100%)
+ rename includes/{performance => Performance}/Tasks/PerformanceCheckTask.php (100%)
+ rename includes/{performance => Performance}/index.php (100%)
+ rename includes/{rest => REST}/ActivityController.php (100%)
+ rename includes/{rest => REST}/DashboardController.php (100%)
+ rename includes/{rest/database => REST/Database}/CleanupController.php (100%)
+ rename includes/{rest/database => REST/Database}/OptimizationController.php (100%)
+ rename includes/{rest/database => REST/Database}/TableAnalysisController.php (100%)
+ rename includes/{rest => REST}/DatabaseController.php (100%)
+ rename includes/{rest/media => REST/Media}/MediaAltTextController.php (100%)
+ rename includes/{rest/media => REST/Media}/MediaAnalysisController.php (100%)
+ rename includes/{rest/media => REST/Media}/MediaCleanupController.php (100%)
+ rename includes/{rest/media => REST/Media}/MediaHelper.php (100%)
+ rename includes/{rest/media => REST/Media}/MediaScanController.php (100%)
+ rename includes/{rest => REST}/MediaController.php (100%)
+ rename includes/{rest/performance => REST/Performance}/AutoloadController.php (100%)
+ rename includes/{rest/performance => REST/Performance}/CacheController.php (100%)
+ rename includes/{rest/performance => REST/Performance}/HeartbeatController.php (100%)
+ rename includes/{rest/performance => REST/Performance}/PerformanceStatsController.php (100%)
+ rename includes/{rest/performance => REST/Performance}/PluginProfilerController.php (100%)
+ rename includes/{rest/performance => REST/Performance}/QueryAnalysisController.php (100%)
+ rename includes/{rest => REST}/PerformanceController.php (100%)
+ rename includes/{rest => REST}/RestController.php (100%)
+ rename includes/{rest => REST}/index.php (100%)
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (b8e1d41)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 64 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 4 files
+[SKIPPED] *.{js,jsx} — no files
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 4 files
+[COMPLETED] package.json — 64 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+. 1 / 1 (100%)
+
+
+Time: 147ms; Memory: 16MB
+
+Pre-commit checks passed!
