@@ -139,12 +139,20 @@ class OrphanedTables {
 	/**
 	 * Get tables registered by active plugins.
 	 *
-	 * Scans active plugins for $wpdb->table patterns and custom table registrations.
+	 * Identifies tables that belong to currently ACTIVE plugins only.
+	 * Tables from deactivated plugins will NOT be included here, allowing
+	 * them to be correctly identified as orphaned.
+	 *
+	 * Detection methods:
+	 * 1. Check active plugin files for table name declarations
+	 * 2. Match tables against patterns for known active plugins
+	 * 3. Allow plugins to register their tables via filter
 	 *
 	 * @since 1.0.0
 	 * @since 1.3.0 Uses ConnectionInterface instead of global $wpdb.
+	 * @since 1.5.0 Only returns tables for ACTIVE plugins; deactivated plugin tables are now orphaned.
 	 *
-	 * @return array Array of plugin table names.
+	 * @return array Array of plugin table names owned by active plugins.
 	 */
 	public function get_registered_plugin_tables() {
 		$prefix = $this->connection->get_prefix();
@@ -162,58 +170,105 @@ class OrphanedTables {
 			}
 		}
 
-		// Common plugin table patterns.
-		$plugin_table_patterns = array(
+		// Map of plugin slugs to their table patterns.
+		// Only tables matching patterns for ACTIVE plugins will be protected.
+		$plugin_table_mapping = array(
 			// WooCommerce tables.
-			$prefix . 'wc_',
-			$prefix . 'woocommerce_',
+			'woocommerce/woocommerce.php'              => array( $prefix . 'wc_', $prefix . 'woocommerce_' ),
 			// Contact Form 7.
-			$prefix . 'cf7_',
-			$prefix . 'contact_form_7_',
+			'contact-form-7/wp-contact-form-7.php'     => array( $prefix . 'cf7_', $prefix . 'contact_form_7_' ),
 			// Yoast SEO.
-			$prefix . 'yoast_',
+			'wordpress-seo/wp-seo.php'                 => array( $prefix . 'yoast_' ),
+			'wordpress-seo-premium/wp-seo-premium.php' => array( $prefix . 'yoast_' ),
 			// WP Mail SMTP.
-			$prefix . 'wpmailsmtp_',
+			'wp-mail-smtp/wp_mail_smtp.php'            => array( $prefix . 'wpmailsmtp_' ),
+			'wp-mail-smtp-pro/wp_mail_smtp.php'        => array( $prefix . 'wpmailsmtp_' ),
 			// Wordfence.
-			$prefix . 'wfconfig',
-			$prefix . 'wfblocks',
-			$prefix . 'wflogins',
-			$prefix . 'wffilechanges',
-			$prefix . 'wfissues',
-			$prefix . 'wfpendingissues',
-			$prefix . 'wfknownfilelist',
-			$prefix . 'wfsnipcache',
-			$prefix . 'wfstatus',
-			$prefix . 'wftrafficrates',
-			$prefix . 'wfblocksadv',
-			$prefix . 'wflivingtraffic',
-			$prefix . 'wflocs',
-			$prefix . 'wfls_',
+			'wordfence/wordfence.php'                  => array(
+				$prefix . 'wfconfig',
+				$prefix . 'wfblocks',
+				$prefix . 'wflogins',
+				$prefix . 'wffilechanges',
+				$prefix . 'wfissues',
+				$prefix . 'wfpendingissues',
+				$prefix . 'wfknownfilelist',
+				$prefix . 'wfsnipcache',
+				$prefix . 'wfstatus',
+				$prefix . 'wftrafficrates',
+				$prefix . 'wfblocksadv',
+				$prefix . 'wflivingtraffic',
+				$prefix . 'wflocs',
+				$prefix . 'wfls_',
+			),
 			// Akismet.
-			$prefix . 'akismet_',
+			'akismet/akismet.php'                      => array( $prefix . 'akismet_' ),
 			// bbPress.
-			$prefix . 'bbpress_',
-			$prefix . 'bb_',
+			'bbpress/bbpress.php'                      => array( $prefix . 'bbpress_', $prefix . 'bb_' ),
 			// BuddyPress.
-			$prefix . 'bp_',
+			'buddypress/bp-loader.php'                 => array( $prefix . 'bp_' ),
 			// Easy Digital Downloads.
-			$prefix . 'edd_',
-			// WP Admin Health Suite (our own plugin).
-			$prefix . 'wpha_',
+			'easy-digital-downloads/easy-digital-downloads.php' => array( $prefix . 'edd_' ),
 			// Elementor.
-			$prefix . 'e_',
+			'elementor/elementor.php'                  => array( $prefix . 'e_' ),
+			'elementor-pro/elementor-pro.php'          => array( $prefix . 'e_' ),
 			// WP Rocket.
-			$prefix . 'wpr_',
+			'wp-rocket/wp-rocket.php'                  => array( $prefix . 'wpr_' ),
+			// Gravity Forms.
+			'gravityforms/gravityforms.php'            => array( $prefix . 'gf_', $prefix . 'rg_' ),
+			// WPForms.
+			'wpforms-lite/wpforms.php'                 => array( $prefix . 'wpforms_' ),
+			'wpforms/wpforms.php'                      => array( $prefix . 'wpforms_' ),
+			// Jetpack.
+			'jetpack/jetpack.php'                      => array( $prefix . 'jetpack_' ),
+			// TablePress.
+			'tablepress/tablepress.php'                => array( $prefix . 'tablepress_' ),
+			// UpdraftPlus.
+			'updraftplus/updraftplus.php'              => array( $prefix . 'updraft_' ),
+			// All-in-One WP Migration.
+			'all-in-one-wp-migration/all-in-one-wp-migration.php' => array( $prefix . 'aiowpm_' ),
+			// Ninja Forms.
+			'ninja-forms/ninja-forms.php'              => array( $prefix . 'nf_', $prefix . 'nf3_' ),
+			// Redirection.
+			'redirection/redirection.php'              => array( $prefix . 'redirection_' ),
+			// WP Statistics.
+			'wp-statistics/wp-statistics.php'          => array( $prefix . 'statistics_' ),
+			// Action Scheduler (used by WooCommerce and others).
+			'action-scheduler/action-scheduler.php'    => array( $prefix . 'actionscheduler_' ),
 		);
+
+		// WP Admin Health Suite (our own plugin) - always protected.
+		$plugin_tables[] = $prefix . 'wpha_scan_history';
 
 		// Get all tables in database.
 		$all_tables = $this->get_all_wp_tables();
 
-		// Check each table against plugin patterns.
+		// Collect patterns from ACTIVE plugins only.
+		$active_patterns = array();
+		foreach ( $active_plugins as $plugin_file ) {
+			if ( isset( $plugin_table_mapping[ $plugin_file ] ) ) {
+				$active_patterns = array_merge( $active_patterns, $plugin_table_mapping[ $plugin_file ] );
+			}
+		}
+
+		// Check Action Scheduler tables if any WooCommerce-dependent plugin is active.
+		// Action Scheduler is often bundled, not standalone.
+		$action_scheduler_users = array(
+			'woocommerce/woocommerce.php',
+			'woocommerce-subscriptions/woocommerce-subscriptions.php',
+			'automatewoo/automatewoo.php',
+		);
+		foreach ( $action_scheduler_users as $as_user ) {
+			if ( in_array( $as_user, $active_plugins, true ) ) {
+				$active_patterns[] = $prefix . 'actionscheduler_';
+				break;
+			}
+		}
+
+		// Check each table against ACTIVE plugin patterns only.
 		foreach ( $all_tables as $table ) {
-			foreach ( $plugin_table_patterns as $pattern ) {
-				// Check if pattern is a prefix or exact match.
-				if ( strpos( $table, $pattern ) === 0 || $table === $pattern ) {
+			foreach ( $active_patterns as $pattern ) {
+				// Check if pattern is a prefix match.
+				if ( strpos( $table, $pattern ) === 0 ) {
 					$plugin_tables[] = $table;
 					break;
 				}
@@ -223,14 +278,25 @@ class OrphanedTables {
 		/**
 		 * Filters the list of known plugin tables.
 		 *
-		 * Allows plugins to register their custom tables to prevent them from being
-		 * detected as orphaned.
+		 * IMPORTANT: This filter should only be used to register tables
+		 * that belong to ACTIVE plugins. Do not add tables from deactivated
+		 * plugins - those should be flagged as orphaned for cleanup.
+		 *
+		 * Plugins can use this to register their custom tables:
+		 * ```php
+		 * add_filter( 'wpha_registered_plugin_tables', function( $tables ) {
+		 *     global $wpdb;
+		 *     $tables[] = $wpdb->prefix . 'my_plugin_table';
+		 *     return $tables;
+		 * } );
+		 * ```
 		 *
 		 * @since 1.0.0
+		 * @since 1.5.0 Now only intended for active plugin tables.
 		 *
 		 * @hook wpha_registered_plugin_tables
 		 *
-		 * @param {array} $plugin_tables Array of plugin table names.
+		 * @param {array} $plugin_tables Array of active plugin table names.
 		 *
 		 * @return array Modified array of plugin table names.
 		 */
@@ -243,14 +309,80 @@ class OrphanedTables {
 	}
 
 	/**
+	 * Get tables that may be shared between multiple plugins.
+	 *
+	 * Some tables are used by multiple plugins (e.g., Action Scheduler).
+	 * These require extra caution before deletion.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @return array Array of shared table patterns.
+	 */
+	public function get_shared_table_patterns() {
+		$prefix = $this->connection->get_prefix();
+
+		$shared_patterns = array(
+			// Action Scheduler is used by WooCommerce, WooCommerce Subscriptions, etc.
+			$prefix . 'actionscheduler_',
+			// WP-Cron alternatives.
+			$prefix . 'wpcron_',
+		);
+
+		/**
+		 * Filters the list of shared table patterns.
+		 *
+		 * Shared tables are those that may be used by multiple plugins.
+		 * These tables are flagged with a warning during orphan detection.
+		 *
+		 * @since 1.5.0
+		 *
+		 * @hook wpha_shared_table_patterns
+		 *
+		 * @param {array} $shared_patterns Array of shared table prefix patterns.
+		 *
+		 * @return array Modified array of shared table patterns.
+		 */
+		return apply_filters( 'wpha_shared_table_patterns', $shared_patterns );
+	}
+
+	/**
+	 * Check if a table matches shared table patterns.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @param string $table_name Table name to check.
+	 * @return bool True if table may be shared between plugins.
+	 */
+	private function is_potentially_shared_table( $table_name ) {
+		$shared_patterns = $this->get_shared_table_patterns();
+
+		foreach ( $shared_patterns as $pattern ) {
+			if ( strpos( $table_name, $pattern ) === 0 ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Find orphaned tables.
 	 *
 	 * Identifies tables that have the WordPress prefix but are not in the known
-	 * core or plugin tables list.
+	 * core or active plugin tables list.
 	 *
- * @since 1.0.0
- *
-	 * @return array Array of orphaned table information including name, size, and row count.
+	 * A table is considered orphaned if:
+	 * - It has the WordPress prefix
+	 * - It is NOT a WordPress core table
+	 * - It is NOT registered by an ACTIVE plugin
+	 *
+	 * This means tables from deactivated plugins WILL be flagged as orphaned.
+	 *
+	 * @since 1.0.0
+	 * @since 1.5.0 Now correctly identifies tables from deactivated plugins as orphaned.
+	 *
+	 * @return array Array of orphaned table information including name, size, row count,
+	 *               and metadata about potential owners and shared table warnings.
 	 */
 	public function find_orphaned_tables() {
 		$all_tables    = $this->get_all_wp_tables();
@@ -273,11 +405,118 @@ class OrphanedTables {
 		foreach ( $orphaned_tables as $table ) {
 			$info = $this->get_table_info( $table );
 			if ( $info ) {
+				// Add shared table warning if applicable.
+				$info['is_shared_table'] = $this->is_potentially_shared_table( $table );
+				if ( $info['is_shared_table'] ) {
+					$info['warning'] = __( 'This table may be shared by multiple plugins. Verify no active plugins depend on it before deletion.', 'wp-admin-health-suite' );
+				}
+
+				// Try to identify potential owner plugin based on table prefix patterns.
+				$info['potential_owner'] = $this->identify_potential_owner( $table );
+
 				$orphaned_info[] = $info;
 			}
 		}
 
-		return $orphaned_info;
+		/**
+		 * Filters the list of detected orphaned tables.
+		 *
+		 * Allows modification of the orphaned tables list before it's returned.
+		 * Use this to add custom logic for identifying false positives.
+		 *
+		 * @since 1.5.0
+		 *
+		 * @hook wpha_orphaned_tables
+		 *
+		 * @param {array} $orphaned_info Array of orphaned table information.
+		 *
+		 * @return array Modified array of orphaned tables.
+		 */
+		return apply_filters( 'wpha_orphaned_tables', $orphaned_info );
+	}
+
+	/**
+	 * Identify the potential owner plugin of an orphaned table.
+	 *
+	 * Uses table name patterns to guess which plugin created the table.
+	 * This helps users understand where orphaned tables came from.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @param string $table_name The table name.
+	 * @return string|null Plugin name or null if unknown.
+	 */
+	private function identify_potential_owner( $table_name ) {
+		$prefix = $this->connection->get_prefix();
+
+		// Map of table patterns to human-readable plugin names.
+		$pattern_to_plugin = array(
+			$prefix . 'wc_'              => 'WooCommerce',
+			$prefix . 'woocommerce_'     => 'WooCommerce',
+			$prefix . 'cf7_'             => 'Contact Form 7',
+			$prefix . 'contact_form_7_'  => 'Contact Form 7',
+			$prefix . 'yoast_'           => 'Yoast SEO',
+			$prefix . 'wpmailsmtp_'      => 'WP Mail SMTP',
+			$prefix . 'wfconfig'         => 'Wordfence',
+			$prefix . 'wfblocks'         => 'Wordfence',
+			$prefix . 'wflogins'         => 'Wordfence',
+			$prefix . 'wffilechanges'    => 'Wordfence',
+			$prefix . 'wfissues'         => 'Wordfence',
+			$prefix . 'wfpendingissues'  => 'Wordfence',
+			$prefix . 'wfknownfilelist'  => 'Wordfence',
+			$prefix . 'wfsnipcache'      => 'Wordfence',
+			$prefix . 'wfstatus'         => 'Wordfence',
+			$prefix . 'wftrafficrates'   => 'Wordfence',
+			$prefix . 'wfblocksadv'      => 'Wordfence',
+			$prefix . 'wflivingtraffic'  => 'Wordfence',
+			$prefix . 'wflocs'           => 'Wordfence',
+			$prefix . 'wfls_'            => 'Wordfence',
+			$prefix . 'akismet_'         => 'Akismet',
+			$prefix . 'bbpress_'         => 'bbPress',
+			$prefix . 'bb_'              => 'bbPress',
+			$prefix . 'bp_'              => 'BuddyPress',
+			$prefix . 'edd_'             => 'Easy Digital Downloads',
+			$prefix . 'e_'               => 'Elementor',
+			$prefix . 'wpr_'             => 'WP Rocket',
+			$prefix . 'gf_'              => 'Gravity Forms',
+			$prefix . 'rg_'              => 'Gravity Forms',
+			$prefix . 'wpforms_'         => 'WPForms',
+			$prefix . 'jetpack_'         => 'Jetpack',
+			$prefix . 'tablepress_'      => 'TablePress',
+			$prefix . 'updraft_'         => 'UpdraftPlus',
+			$prefix . 'aiowpm_'          => 'All-in-One WP Migration',
+			$prefix . 'nf_'              => 'Ninja Forms',
+			$prefix . 'nf3_'             => 'Ninja Forms',
+			$prefix . 'redirection_'     => 'Redirection',
+			$prefix . 'statistics_'      => 'WP Statistics',
+			$prefix . 'actionscheduler_' => 'Action Scheduler (WooCommerce or related)',
+			$prefix . 'mailpoet_'        => 'MailPoet',
+			$prefix . 'mailpoet3_'       => 'MailPoet',
+			$prefix . 'icl_'             => 'WPML',
+			$prefix . 'litespeed_'       => 'LiteSpeed Cache',
+		);
+
+		foreach ( $pattern_to_plugin as $pattern => $plugin_name ) {
+			if ( strpos( $table_name, $pattern ) === 0 ) {
+				return $plugin_name;
+			}
+		}
+
+		/**
+		 * Filters the identified potential owner of an orphaned table.
+		 *
+		 * Plugins can use this to identify tables they created.
+		 *
+		 * @since 1.5.0
+		 *
+		 * @hook wpha_table_potential_owner
+		 *
+		 * @param {string|null} $owner      Identified owner or null.
+		 * @param {string}      $table_name The table name.
+		 *
+		 * @return string|null Plugin name or null if unknown.
+		 */
+		return apply_filters( 'wpha_table_potential_owner', null, $table_name );
 	}
 
 	/**
@@ -558,8 +797,8 @@ class OrphanedTables {
 			$this->log_table_deletion( $table_name, $table_info );
 
 			return array(
-				'success' => true,
-				'message' => sprintf(
+				'success'    => true,
+				'message'    => sprintf(
 					/* translators: %s: table name */
 					__( 'Table %s has been successfully deleted.', 'wp-admin-health-suite' ),
 					$table_name
