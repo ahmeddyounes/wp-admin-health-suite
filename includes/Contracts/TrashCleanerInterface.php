@@ -97,7 +97,7 @@ interface TrashCleanerInterface {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @return array{posts_deleted: int, comments_deleted: int, spam_deleted: int} Deletion counts.
+	 * @return array{posts_deleted: int, posts_errors: int, comments_deleted: int, comments_errors: int} Deletion counts.
 	 */
 	public function empty_all_trash(): array;
 }
