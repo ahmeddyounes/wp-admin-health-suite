@@ -1,0 +1,44 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (91f133d)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 7 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 4 files
+[SKIPPED] *.{js,jsx} — no files
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 4 files
+[COMPLETED] package.json — 7 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+[31mE[0m 1 / 1 (100%)
+
+
+
+[1mFILE: includes/Media/ReferenceFinder.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 2 ERRORS AFFECTING 2 LINES[0m
+--------------------------------------------------------------------------------
+ 534 | [31mERROR[0m | [1mInline comments must end in full-stops, exclamation marks, or[0m
+     |       | [1mquestion marks[0m (Squiz.Commenting.InlineComment.InvalidEndChar)
+ 536 | [31mERROR[0m | [1mInline comments must end in full-stops, exclamation marks, or[0m
+     |       | [1mquestion marks[0m (Squiz.Commenting.InlineComment.InvalidEndChar)
+--------------------------------------------------------------------------------
+
+Time: 266ms; Memory: 16MB
+
+husky - pre-commit script failed (code 1)

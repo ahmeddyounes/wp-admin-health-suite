@@ -63,6 +63,13 @@ class QueryMonitor implements QueryMonitorInterface {
 	const MAX_LOG_ROWS = 10000;
 
 	/**
+	 * Maximum EXPLAIN queries to run per request (performance safeguard).
+	 *
+	 * @var int
+	 */
+	const MAX_EXPLAIN_PER_REQUEST = 10;
+
+	/**
 	 * Transient key for tracking last prune time.
 	 *
 	 * @var string
@@ -153,31 +160,45 @@ class QueryMonitor implements QueryMonitorInterface {
 		}
 
 		$db_collector = $collectors['db_queries'];
-		$data = $db_collector->get_data();
+		$data         = $db_collector->get_data();
 
-		if ( empty( $data->dbs ) ) {
+		// Query Monitor stores queries in $data->rows (array of query data).
+		if ( empty( $data->rows ) ) {
 			return $slow_queries;
 		}
 
-		foreach ( $data->dbs as $db_name => $db_queries ) {
-			if ( empty( $db_queries ) ) {
-				continue;
-			}
+		// Track query hashes for duplicate detection.
+		$query_hashes   = array();
+		$explain_count  = 0;
 
-			foreach ( $db_queries as $query ) {
-				$query_time_ms = $query['ltime'] * 1000;
+		foreach ( $data->rows as $query ) {
+			// Query Monitor stores time in seconds as 'ltime'.
+			$query_time_ms = ( isset( $query['ltime'] ) ? $query['ltime'] : 0 ) * 1000;
 
-				if ( $query_time_ms >= $threshold_ms ) {
-					$slow_queries[] = array(
-						'sql'           => $query['sql'],
-						'time'          => $query_time_ms,
-						'caller'        => isset( $query['trace'] ) ? $this->extract_caller( $query['trace'] ) : 'unknown',
-						'component'     => isset( $query['component'] ) ? $query['component']->name : 'unknown',
-						'is_duplicate'  => false, // Query Monitor tracks this separately.
-						'needs_index'   => false, // Will be checked separately.
-						'timestamp'     => current_time( 'mysql' ),
-					);
+			if ( $query_time_ms >= $threshold_ms ) {
+				$sql = isset( $query['sql'] ) ? $query['sql'] : '';
+
+				// Check for duplicates.
+				$query_hash   = md5( $sql );
+				$is_duplicate = isset( $query_hashes[ $query_hash ] );
+				$query_hashes[ $query_hash ] = true;
+
+				// Check index needs (with performance limit).
+				$needs_index = false;
+				if ( $explain_count < self::MAX_EXPLAIN_PER_REQUEST ) {
+					$needs_index = $this->check_needs_index( $sql );
+					++$explain_count;
 				}
+
+				$slow_queries[] = array(
+					'sql'          => $sql,
+					'time'         => $query_time_ms,
+					'caller'       => isset( $query['trace'] ) ? $this->extract_caller( $query['trace'] ) : 'unknown',
+					'component'    => isset( $query['component'] ) && is_object( $query['component'] ) ? $query['component']->name : 'unknown',
+					'is_duplicate' => $is_duplicate,
+					'needs_index'  => $needs_index,
+					'timestamp'    => current_time( 'mysql' ),
+				);
 			}
 		}
 
@@ -191,9 +212,10 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return array Array of slow queries.
 	 */
 	private function capture_from_savequeries( $threshold_ms ) {
-		$slow_queries = array();
-		$query_hashes = array();
-		$query_log    = $this->connection->get_query_log();
+		$slow_queries  = array();
+		$query_hashes  = array();
+		$explain_count = 0;
+		$query_log     = $this->connection->get_query_log();
 
 		if ( empty( $query_log ) ) {
 			return $slow_queries;
@@ -211,12 +233,16 @@ class QueryMonitor implements QueryMonitorInterface {
 
 			if ( $time_ms >= $threshold_ms ) {
 				// Check for duplicates.
-				$query_hash = md5( $sql );
+				$query_hash   = md5( $sql );
 				$is_duplicate = isset( $query_hashes[ $query_hash ] );
 				$query_hashes[ $query_hash ] = true;
 
-				// Check if query might need an index.
-				$needs_index = $this->check_needs_index( $sql );
+				// Check if query might need an index (with performance limit).
+				$needs_index = false;
+				if ( $explain_count < self::MAX_EXPLAIN_PER_REQUEST ) {
+					$needs_index = $this->check_needs_index( $sql );
+					++$explain_count;
+				}
 
 				$slow_queries[] = array(
 					'sql'          => $sql,
@@ -289,15 +315,16 @@ class QueryMonitor implements QueryMonitorInterface {
 			return false;
 		}
 
-		// Suppress errors for EXPLAIN queries.
-		$this->connection->suppress_errors( true );
+		// Suppress errors for EXPLAIN queries and save previous state.
+		$previous_suppress = $this->connection->suppress_errors( true );
 
 		// Run EXPLAIN on the query.
 		// Note: $sql comes from query log which is WordPress internal logging.
 		// Additional validation is performed by is_safe_for_explain() above.
 		$explain = $this->connection->get_results( 'EXPLAIN ' . $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 
-		$this->connection->show_errors( true );
+		// Restore previous error suppression state.
+		$this->connection->suppress_errors( $previous_suppress );
 
 		if ( empty( $explain ) ) {
 			return false;
@@ -601,13 +628,13 @@ class QueryMonitor implements QueryMonitorInterface {
 	/**
 	 * Export query log to CSV format.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @param int    $days Number of days to export (default: 7).
 	 * @param string $format Export format: 'csv' or 'json' (default: 'csv').
 	 * @return string|array Exported data.
 	 */
-	public function export_query_log( $days = 7, $format = 'csv' ) {
+	public function export_query_log( int $days = 7, string $format = 'csv' ) {
 		$since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
 
 		$query = $this->connection->prepare(

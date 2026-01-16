@@ -79,12 +79,6 @@ parameters:
 			path: includes/Settings/SettingsRegistry.php
 
 		-
-			message: '#^Call to an undefined method WPAdminHealth\\Contracts\\ScannerInterface\:\:scan_all_media\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: includes/ai/Recommendations.php
-
-		-
 			message: '#^Constant DB_NAME not found\.$#'
 			identifier: constant.notFound
 			count: 3
@@ -133,34 +127,10 @@ parameters:
 			path: includes/media/LargeFiles.php
 
 		-
-			message: '#^Action callback returns int but should not return anything\.$#'
-			identifier: return.void
-			count: 1
-			path: includes/performance/AjaxMonitor.php
-
-		-
 			message: '#^Strict comparison using \!\=\= between null and mixed will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: includes/performance/CacheChecker.php
-
-		-
-			message: '#^Method WPAdminHealth\\Performance\\HeartbeatController\:\:estimate_requests_saved\(\) should return int but returns float\.$#'
-			identifier: return.type
-			count: 1
-			path: includes/performance/HeartbeatController.php
-
-		-
-			message: '#^Method WPAdminHealth\\Performance\\HeartbeatController\:\:get_active_preset\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: includes/performance/HeartbeatController.php
-
-		-
-			message: '#^Method WPAdminHealth\\Performance\\HeartbeatController\:\:get_current_location\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: includes/performance/HeartbeatController.php
 
 		-
 			message: '#^Property WPAdminHealth\\Performance\\PluginProfiler\:\:\$baseline \(array\|null\) is never assigned array so it can be removed from the property type\.$#'
@@ -179,12 +149,6 @@ parameters:
 			identifier: class.notFound
 			count: 1
 			path: includes/performance/QueryMonitor.php
-
-		-
-			message: '#^Constant DB_NAME not found\.$#'
-			identifier: constant.notFound
-			count: 2
-			path: includes/rest/DashboardController.php
 
 		-
 			message: '#^Method WPAdminHealth\\REST\\DatabaseController\:\:clean_orphaned\(\) never returns WP_Error so it can be removed from the return type\.$#'

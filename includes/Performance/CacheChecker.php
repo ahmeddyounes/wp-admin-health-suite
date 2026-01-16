@@ -40,8 +40,8 @@ class CacheChecker {
 	/**
 	 * Check if persistent cache is available.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return bool True if persistent cache is available.
 	 */
 	public function is_persistent_cache_available() {
@@ -63,8 +63,8 @@ class CacheChecker {
 	/**
 	 * Get comprehensive cache status information.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Cache status details.
 	 */
 	public function get_cache_status() {
@@ -76,6 +76,10 @@ class CacheChecker {
 			'extensions_available'        => $this->get_available_extensions(),
 			'hit_rate'                    => $this->get_cache_hit_rate(),
 			'cache_info'                  => $this->get_cache_info(),
+			'object_cache'                => $this->is_persistent_cache_available(),
+			'page_cache'                  => $this->detect_page_cache(),
+			'browser_cache'               => $this->detect_browser_cache_config(),
+			'caching_plugins'             => $this->detect_caching_plugins(),
 		);
 
 		return $status;
@@ -84,8 +88,8 @@ class CacheChecker {
 	/**
 	 * Test cache performance with benchmark.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Performance test results.
 	 */
 	public function test_cache_performance() {
@@ -152,8 +156,8 @@ class CacheChecker {
 	/**
 	 * Get cache recommendations based on hosting environment.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Recommendations array.
 	 */
 	public function get_cache_recommendations() {
@@ -174,7 +178,7 @@ class CacheChecker {
 			);
 
 			// Add hit rate recommendation if available.
-			if ( isset( $cache_status['hit_rate'] ) && null !== $cache_status['hit_rate'] ) {
+			if ( ! empty( $cache_status['hit_rate'] ) ) {
 				if ( $cache_status['hit_rate'] < 70 ) {
 					$recommendations[] = array(
 						'type'     => 'warning',
@@ -262,37 +266,56 @@ class CacheChecker {
 	private function detect_cache_backend() {
 		global $wp_object_cache;
 
-		// Check for Redis.
-		if ( class_exists( 'Redis' ) || class_exists( 'Predis\Client' ) ) {
-			if ( is_object( $wp_object_cache ) ) {
-				$class_name = get_class( $wp_object_cache );
-				if ( stripos( $class_name, 'redis' ) !== false ) {
-					return 'redis';
-				}
-			}
+		if ( ! is_object( $wp_object_cache ) ) {
+			return $this->is_persistent_cache_available() ? 'file' : 'none';
 		}
 
-		// Check for Memcached.
-		if ( class_exists( 'Memcached' ) || class_exists( 'Memcache' ) ) {
-			if ( is_object( $wp_object_cache ) ) {
-				$class_name = get_class( $wp_object_cache );
-				if ( stripos( $class_name, 'memcache' ) !== false ) {
-					return 'memcached';
-				}
-			}
+		$class_name = get_class( $wp_object_cache );
+
+		// Check for Redis by class name.
+		if ( stripos( $class_name, 'redis' ) !== false ) {
+			return 'redis';
 		}
 
-		// Check for APCu.
-		if ( function_exists( 'apcu_fetch' ) ) {
-			if ( is_object( $wp_object_cache ) ) {
-				$class_name = get_class( $wp_object_cache );
-				if ( stripos( $class_name, 'apcu' ) !== false || stripos( $class_name, 'apc' ) !== false ) {
+		// Check for Redis by object properties (common in Redis Object Cache plugin).
+		if ( property_exists( $wp_object_cache, 'redis' ) || property_exists( $wp_object_cache, 'redis_client' ) ) {
+			return 'redis';
+		}
+
+		// Check for WP Redis plugin constants.
+		if ( defined( 'WP_REDIS_VERSION' ) || defined( 'WP_REDIS_CLIENT' ) ) {
+			return 'redis';
+		}
+
+		// Check for Memcached by class name.
+		if ( stripos( $class_name, 'memcache' ) !== false ) {
+			return 'memcached';
+		}
+
+		// Check for Memcached by object properties.
+		if ( property_exists( $wp_object_cache, 'mc' ) || property_exists( $wp_object_cache, 'memcache' ) ) {
+			return 'memcached';
+		}
+
+		// Check for APCu by class name.
+		if ( stripos( $class_name, 'apcu' ) !== false || stripos( $class_name, 'apc' ) !== false ) {
+			return 'apcu';
+		}
+
+		// Check for APCu by testing if it's using apcu functions.
+		if ( function_exists( 'apcu_fetch' ) && method_exists( $wp_object_cache, '_exists' ) ) {
+			// Some APCu implementations don't have clear class naming.
+			// Check the object-cache.php drop-in file content if available.
+			$dropin_path = WP_CONTENT_DIR . '/object-cache.php';
+			if ( file_exists( $dropin_path ) && is_readable( $dropin_path ) ) {
+				$content = file_get_contents( $dropin_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+				if ( false !== $content && preg_match( '/apcu_/i', $content ) && ! preg_match( '/redis|memcache/i', $content ) ) {
 					return 'apcu';
 				}
 			}
 		}
 
-		// Check for file-based cache.
+		// If persistent cache is available but we couldn't detect the type, it's likely file-based.
 		if ( $this->is_persistent_cache_available() ) {
 			return 'file';
 		}
@@ -585,5 +608,302 @@ class CacheChecker {
 		}
 
 		return $recommendations;
+	}
+
+	/**
+	 * Detect if page caching is enabled.
+	 *
+	 * Checks for common page caching configurations and plugins.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array Page cache detection results.
+	 */
+	private function detect_page_cache() {
+		$result = array(
+			'enabled' => false,
+			'type'    => 'none',
+			'plugin'  => null,
+		);
+
+		// Check for WP_CACHE constant (used by most page cache plugins).
+		if ( defined( 'WP_CACHE' ) && WP_CACHE ) {
+			$result['enabled'] = true;
+		}
+
+		// Check for advanced-cache.php drop-in.
+		if ( file_exists( WP_CONTENT_DIR . '/advanced-cache.php' ) ) {
+			$result['enabled'] = true;
+			$result['type']    = 'drop-in';
+		}
+
+		// Detect specific page cache plugins.
+		$page_cache_plugins = $this->detect_page_cache_plugins();
+		if ( ! empty( $page_cache_plugins ) ) {
+			$result['enabled'] = true;
+			$result['plugin']  = $page_cache_plugins[0]; // Primary detected plugin.
+			$result['type']    = 'plugin';
+		}
+
+		// Check for server-level caching indicators.
+		$server_cache = $this->detect_server_level_cache();
+		if ( $server_cache ) {
+			$result['enabled']      = true;
+			$result['type']         = 'server';
+			$result['server_cache'] = $server_cache;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Detect page cache plugins.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array List of detected page cache plugins.
+	 */
+	private function detect_page_cache_plugins() {
+		$plugins = array();
+
+		// WP Super Cache.
+		if ( defined( 'WPCACHEHOME' ) || function_exists( 'wp_cache_serve_cache_file' ) ) {
+			$plugins[] = 'WP Super Cache';
+		}
+
+		// W3 Total Cache.
+		if ( defined( 'W3TC' ) || class_exists( 'W3_Plugin_TotalCache' ) || class_exists( 'W3TC\Util_Environment' ) ) {
+			$plugins[] = 'W3 Total Cache';
+		}
+
+		// WP Rocket.
+		if ( defined( 'WP_ROCKET_VERSION' ) || function_exists( 'rocket_init' ) ) {
+			$plugins[] = 'WP Rocket';
+		}
+
+		// LiteSpeed Cache.
+		if ( defined( 'LSCWP_V' ) || class_exists( 'LiteSpeed_Cache' ) || class_exists( 'LiteSpeed\Core' ) ) {
+			$plugins[] = 'LiteSpeed Cache';
+		}
+
+		// WP Fastest Cache.
+		if ( class_exists( 'WpFastestCache' ) || defined( 'WPFC_MAIN_PATH' ) ) {
+			$plugins[] = 'WP Fastest Cache';
+		}
+
+		// Cache Enabler.
+		if ( class_exists( 'Cache_Enabler' ) || defined( 'CACHE_ENABLER_VERSION' ) ) {
+			$plugins[] = 'Cache Enabler';
+		}
+
+		// Autoptimize (has page cache feature).
+		if ( class_exists( 'autoptimizeCache' ) && defined( 'AUTOPTIMIZE_CACHE_DIR' ) ) {
+			$plugins[] = 'Autoptimize';
+		}
+
+		// Breeze (Cloudways).
+		if ( defined( 'BREEZE_VERSION' ) || class_exists( 'Breeze_Configuration' ) ) {
+			$plugins[] = 'Breeze';
+		}
+
+		// Hummingbird.
+		if ( class_exists( 'WP_Hummingbird' ) || defined( 'WPHB_VERSION' ) ) {
+			$plugins[] = 'Hummingbird';
+		}
+
+		// Swift Performance.
+		if ( class_exists( 'Swift_Performance' ) || defined( 'STARTER_VERSION' ) ) {
+			$plugins[] = 'Swift Performance';
+		}
+
+		// Comet Cache.
+		if ( class_exists( 'WebSharks\\CometCache\\Classes\\Plugin' ) || defined( 'COMET_CACHE_VERSION' ) ) {
+			$plugins[] = 'Comet Cache';
+		}
+
+		// SG Optimizer.
+		if ( class_exists( 'SiteGround_Optimizer\\Loader\\Loader' ) || defined( 'SiteGround_Optimizer\\VERSION' ) ) {
+			$plugins[] = 'SG Optimizer';
+		}
+
+		// Powered Cache.
+		if ( defined( 'POWERED_CACHE_VERSION' ) || class_exists( 'PoweredCache\\Core' ) ) {
+			$plugins[] = 'Powered Cache';
+		}
+
+		// NitroPack.
+		if ( defined( 'NITROPACK_VERSION' ) || class_exists( 'NitroPack\\SDK\\NitroPack' ) ) {
+			$plugins[] = 'NitroPack';
+		}
+
+		return $plugins;
+	}
+
+	/**
+	 * Detect server-level caching.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string|null Server cache type or null if not detected.
+	 */
+	private function detect_server_level_cache() {
+		// Check for Varnish.
+		if ( isset( $_SERVER['HTTP_X_VARNISH'] ) ) {
+			return 'Varnish';
+		}
+
+		// Check for Varnish via HTTP_VIA header.
+		if ( isset( $_SERVER['HTTP_VIA'] ) ) {
+			$http_via = sanitize_text_field( wp_unslash( $_SERVER['HTTP_VIA'] ) );
+			if ( false !== strpos( $http_via, 'varnish' ) ) {
+				return 'Varnish';
+			}
+		}
+
+		// Check for nginx FastCGI cache.
+		if ( isset( $_SERVER['SERVER_SOFTWARE'] ) ) {
+			$server_software = sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) );
+			if ( false !== strpos( $server_software, 'nginx' ) ) {
+				// Check for common nginx cache headers in response.
+				if ( isset( $_SERVER['HTTP_X_FASTCGI_CACHE'] ) || isset( $_SERVER['HTTP_X_CACHE_STATUS'] ) ) {
+					return 'nginx FastCGI';
+				}
+			}
+
+			// Check for LiteSpeed server.
+			if ( false !== strpos( $server_software, 'LiteSpeed' ) ) {
+				return 'LiteSpeed';
+			}
+		}
+
+		// Check for Cloudflare.
+		if ( isset( $_SERVER['HTTP_CF_RAY'] ) || isset( $_SERVER['HTTP_CF_CONNECTING_IP'] ) ) {
+			return 'Cloudflare';
+		}
+
+		// Check for Sucuri.
+		if ( isset( $_SERVER['HTTP_X_SUCURI_ID'] ) || isset( $_SERVER['HTTP_X_SUCURI_CACHE'] ) ) {
+			return 'Sucuri';
+		}
+
+		return null;
+	}
+
+	/**
+	 * Detect browser cache configuration.
+	 *
+	 * Checks for common browser caching configurations.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array Browser cache configuration status.
+	 */
+	private function detect_browser_cache_config() {
+		$result = array(
+			'configured'           => false,
+			'htaccess_rules'       => false,
+			'web_config_rules'     => false,
+			'plugin_managed'       => false,
+			'cache_control_header' => null,
+			'expires_header'       => null,
+		);
+
+		// Check .htaccess for browser caching rules (Apache).
+		$htaccess_path = ABSPATH . '.htaccess';
+		if ( file_exists( $htaccess_path ) && is_readable( $htaccess_path ) ) {
+			$htaccess_content = file_get_contents( $htaccess_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			if ( false !== $htaccess_content ) {
+				// Check for mod_expires rules.
+				if ( preg_match( '/ExpiresActive\s+On/i', $htaccess_content ) ) {
+					$result['htaccess_rules'] = true;
+					$result['configured']     = true;
+				}
+
+				// Check for Cache-Control headers.
+				if ( preg_match( '/Header\s+set\s+Cache-Control/i', $htaccess_content ) ) {
+					$result['htaccess_rules'] = true;
+					$result['configured']     = true;
+				}
+
+				// Check for mod_headers Expires.
+				if ( preg_match( '/Header\s+set\s+Expires/i', $htaccess_content ) ) {
+					$result['htaccess_rules'] = true;
+					$result['configured']     = true;
+				}
+			}
+		}
+
+		// Check web.config for IIS browser caching rules.
+		$web_config_path = ABSPATH . 'web.config';
+		if ( file_exists( $web_config_path ) && is_readable( $web_config_path ) ) {
+			$web_config_content = file_get_contents( $web_config_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			if ( false !== $web_config_content ) {
+				// Check for clientCache element.
+				if ( preg_match( '/<clientCache/i', $web_config_content ) ) {
+					$result['web_config_rules'] = true;
+					$result['configured']       = true;
+				}
+
+				// Check for custom headers.
+				if ( preg_match( '/<customHeaders/i', $web_config_content ) && preg_match( '/Cache-Control|Expires/i', $web_config_content ) ) {
+					$result['web_config_rules'] = true;
+					$result['configured']       = true;
+				}
+			}
+		}
+
+		// Check if a caching plugin is likely managing browser cache.
+		$caching_plugins = $this->detect_caching_plugins();
+		if ( ! empty( $caching_plugins ) ) {
+			// Most caching plugins handle browser caching.
+			$plugins_with_browser_cache = array(
+				'WP Rocket',
+				'W3 Total Cache',
+				'LiteSpeed Cache',
+				'WP Super Cache',
+				'WP Fastest Cache',
+				'Autoptimize',
+				'Breeze',
+				'Hummingbird',
+				'SG Optimizer',
+			);
+
+			foreach ( $caching_plugins as $plugin ) {
+				if ( in_array( $plugin, $plugins_with_browser_cache, true ) ) {
+					$result['plugin_managed'] = true;
+					$result['configured']     = true;
+					break;
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Detect installed and active caching plugins.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array List of detected caching plugins with their capabilities.
+	 */
+	private function detect_caching_plugins() {
+		$plugins = array();
+
+		// Redis Object Cache.
+		if ( class_exists( 'Rhubarb\\RedisCache\\Plugin' ) || defined( 'WP_REDIS_VERSION' ) ) {
+			$plugins[] = 'Redis Object Cache';
+		}
+
+		// Object Cache Pro.
+		if ( class_exists( 'ObjectCachePro\\Plugin' ) || defined( 'RedisCachePro\\Version' ) ) {
+			$plugins[] = 'Object Cache Pro';
+		}
+
+		// Include page cache plugins.
+		$page_cache_plugins = $this->detect_page_cache_plugins();
+		$plugins            = array_merge( $plugins, $page_cache_plugins );
+
+		return array_unique( $plugins );
 	}
 }

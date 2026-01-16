@@ -318,4 +318,13 @@ interface ConnectionInterface {
 	 * @return string Character set and collation clause (e.g., "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci").
 	 */
 	public function get_charset_collate(): string;
+
+	/**
+	 * Get the database name.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return string Database name.
+	 */
+	public function get_database_name(): string;
 }

@@ -24,11 +24,57 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Class MediaScanTask
  *
- * Performs scheduled media library scans.
+ * Performs scheduled media library scans with locking, incremental processing,
+ * and resource-efficient batch operations.
  *
  * @since 1.2.0
+ * @since 1.6.0 Added locking, incremental scanning, and timeout handling.
  */
 class MediaScanTask extends AbstractScheduledTask {
+
+	/**
+	 * Default time limit in seconds for the scan task.
+	 *
+	 * Leaves buffer for WordPress to complete the cron request gracefully.
+	 *
+	 * @var int
+	 */
+	const DEFAULT_TIME_LIMIT = 25;
+
+	/**
+	 * Safety buffer in seconds to stop before hitting the time limit.
+	 *
+	 * @var int
+	 */
+	const TIME_BUFFER = 3;
+
+	/**
+	 * Default batch size for incremental scanning.
+	 *
+	 * @var int
+	 */
+	const DEFAULT_BATCH_SIZE = 100;
+
+	/**
+	 * Lock transient name.
+	 *
+	 * @var string
+	 */
+	const LOCK_TRANSIENT = 'wpha_media_scan_lock';
+
+	/**
+	 * Lock duration in seconds (10 minutes).
+	 *
+	 * @var int
+	 */
+	const LOCK_DURATION = 600;
+
+	/**
+	 * Option key for storing task progress.
+	 *
+	 * @var string
+	 */
+	const PROGRESS_OPTION_KEY = 'wpha_media_scan_progress';
 
 	/**
 	 * Task identifier.
@@ -101,6 +147,20 @@ class MediaScanTask extends AbstractScheduledTask {
 	private AltTextCheckerInterface $alt_text_checker;
 
 	/**
+	 * Start time of the current execution.
+	 *
+	 * @var float
+	 */
+	private float $start_time = 0.0;
+
+	/**
+	 * Time limit for the current execution in seconds.
+	 *
+	 * @var int
+	 */
+	private int $time_limit;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ConnectionInterface        $connection         Database connection.
@@ -121,72 +181,517 @@ class MediaScanTask extends AbstractScheduledTask {
 		$this->duplicate_detector = $duplicate_detector;
 		$this->large_files        = $large_files;
 		$this->alt_text_checker   = $alt_text_checker;
+		$this->time_limit         = self::DEFAULT_TIME_LIMIT;
 	}
 
 	/**
 	 * {@inheritdoc}
+	 *
+	 * @since 1.2.0
+	 * @since 1.6.0 Added locking, incremental scanning, and timeout handling.
 	 */
 	public function execute( array $options = array() ): array {
+		$this->start_time = microtime( true );
+		$this->configure_time_limit( $options );
+
 		$this->log( 'Starting media scan task' );
 
-		$settings     = get_option( 'wpha_settings', array() );
+		// Attempt to acquire lock to prevent concurrent scans.
+		if ( ! $this->acquire_lock() ) {
+			$this->log( 'Media scan already in progress, skipping', 'warning' );
+			return $this->create_result( 0, 0, false );
+		}
+
+		// Load any existing progress from a previous interrupted run.
+		$progress = $this->load_progress();
+
 		$scan_results = array(
-			'duplicates'     => array(),
-			'large_files'    => array(),
-			'missing_alt'    => array(),
-			'total_issues'   => 0,
-			'total_bytes'    => 0,
+			'duplicates'     => $progress['duplicates'] ?? array(),
+			'large_files'    => $progress['large_files'] ?? array(),
+			'missing_alt'    => $progress['missing_alt'] ?? array(),
+			'total_issues'   => $progress['total_issues'] ?? 0,
+			'total_bytes'    => $progress['total_bytes'] ?? 0,
 		);
 
-		// Run full media scan.
-		$full_scan = $this->scanner->get_media_summary();
-		$this->log( sprintf( 'Full scan completed. Total items: %d', $full_scan['total_count'] ?? 0 ) );
+		$completed_tasks = $progress['completed_tasks'] ?? array();
+		$subtask_errors  = $progress['errors'] ?? array();
+		$was_interrupted = false;
+		$settings        = get_option( 'wpha_settings', array() );
+		$scan_tasks      = $this->determine_scan_tasks( $settings, $options );
 
-		// Detect duplicates if enabled.
-		if ( ! empty( $settings['detect_duplicates'] ) || ! empty( $options['detect_duplicates'] ) ) {
-			$duplicates = $this->duplicate_detector->find_duplicates();
-			$scan_results['duplicates'] = $duplicates;
-			$scan_results['total_issues'] += count( $duplicates );
-			$this->log( sprintf( 'Found %d duplicate files', count( $duplicates ) ) );
-		}
+		/**
+		 * Fires before media scan begins.
+		 *
+		 * @since 1.6.0
+		 *
+		 * @hook wpha_media_scan_before_execute
+		 *
+		 * @param array $scan_tasks      The list of scan tasks to run.
+		 * @param array $completed_tasks Tasks already completed (from resumed progress).
+		 * @param array $options         Task options.
+		 */
+		do_action( 'wpha_media_scan_before_execute', $scan_tasks, $completed_tasks, $options );
 
-		// Find large files if enabled.
-		if ( ! empty( $settings['detect_large_files'] ) || ! empty( $options['detect_large_files'] ) ) {
-			// Get threshold in KB, default 1000KB = ~1MB.
-			$threshold_kb = $options['large_file_threshold_kb'] ?? ( $settings['large_file_threshold_kb'] ?? 1000 );
-			$large        = $this->large_files->find_large_files( $threshold_kb );
-			$scan_results['large_files'] = $large;
-			$scan_results['total_issues'] += count( $large );
-
-			// Calculate total bytes.
-			foreach ( $large as $file ) {
-				$scan_results['total_bytes'] += $file['current_size'] ?? 0;
+		// Execute each scan task that hasn't been completed yet.
+		foreach ( $scan_tasks as $task ) {
+			// Skip tasks already completed in a previous run.
+			if ( in_array( $task, $completed_tasks, true ) ) {
+				$this->log( sprintf( 'Skipping already completed task: %s', $task ) );
+				continue;
 			}
-			$this->log( sprintf( 'Found %d large files', count( $large ) ) );
+
+			// Check if we're running low on time.
+			if ( $this->is_time_limit_approaching() ) {
+				$this->log( 'Time limit approaching, saving progress for continuation' );
+				$was_interrupted = true;
+				$this->save_progress(
+					array(
+						'duplicates'      => $scan_results['duplicates'],
+						'large_files'     => $scan_results['large_files'],
+						'missing_alt'     => $scan_results['missing_alt'],
+						'total_issues'    => $scan_results['total_issues'],
+						'total_bytes'     => $scan_results['total_bytes'],
+						'completed_tasks' => $completed_tasks,
+						'errors'          => $subtask_errors,
+						'interrupted_at'  => current_time( 'mysql' ),
+					)
+				);
+				break;
+			}
+
+			/**
+			 * Fires before a scan subtask is executed.
+			 *
+			 * @since 1.6.0
+			 *
+			 * @hook wpha_media_scan_before_subtask
+			 *
+			 * @param string $task    The subtask identifier.
+			 * @param array  $options Task options.
+			 */
+			do_action( 'wpha_media_scan_before_subtask', $task, $options );
+
+			$result = $this->execute_subtask_with_recovery( $task, $options, $settings );
+
+			if ( isset( $result['error'] ) ) {
+				$subtask_errors[ $task ] = $result['error'];
+				$this->log( sprintf( 'Subtask %s failed: %s', $task, $result['error'] ), 'error' );
+			} else {
+				// Merge results based on task type.
+				$this->merge_subtask_results( $scan_results, $task, $result );
+				$completed_tasks[] = $task;
+			}
+
+			/**
+			 * Fires after a scan subtask is executed.
+			 *
+			 * @since 1.6.0
+			 *
+			 * @hook wpha_media_scan_after_subtask
+			 *
+			 * @param string $task    The subtask identifier.
+			 * @param array  $result  The subtask result.
+			 * @param array  $options Task options.
+			 */
+			do_action( 'wpha_media_scan_after_subtask', $task, $result, $options );
+
+			// Refresh the lock to prevent expiry during long scans.
+			$this->refresh_lock();
 		}
 
-		// Check for missing alt text if enabled.
-		if ( ! empty( $settings['check_alt_text'] ) || ! empty( $options['check_alt_text'] ) ) {
-			$missing_alt = $this->alt_text_checker->find_missing_alt_text();
-			$scan_results['missing_alt'] = $missing_alt;
-			$scan_results['total_issues'] += count( $missing_alt );
-			$this->log( sprintf( 'Found %d images missing alt text', count( $missing_alt ) ) );
+		// Clear progress if task completed fully.
+		if ( ! $was_interrupted ) {
+			$this->clear_progress();
 		}
 
-		// Store scan results.
-		$this->store_scan_results( $scan_results );
+		// Release lock.
+		$this->release_lock();
 
-		$this->log( sprintf( 'Media scan completed. Total issues: %d', $scan_results['total_issues'] ) );
+		// Store scan results if we completed at least some work.
+		if ( ! empty( $completed_tasks ) || ! $was_interrupted ) {
+			$this->store_scan_results( $scan_results );
+		}
 
-		return $this->create_result(
-			$scan_results['total_issues'],
-			$scan_results['total_bytes'],
-			true
+		$elapsed_time = microtime( true ) - $this->start_time;
+
+		/**
+		 * Fires after media scan completes.
+		 *
+		 * @since 1.6.0
+		 *
+		 * @hook wpha_media_scan_after_execute
+		 *
+		 * @param array $scan_results    The scan results.
+		 * @param array $subtask_errors  Any errors that occurred.
+		 * @param bool  $was_interrupted Whether the task was interrupted due to time limit.
+		 * @param float $elapsed_time    Total execution time in seconds.
+		 */
+		do_action( 'wpha_media_scan_after_execute', $scan_results, $subtask_errors, $was_interrupted, $elapsed_time );
+
+		$this->log(
+			sprintf(
+				'Media scan %s. Issues: %d, Bytes: %d, Time: %.2fs, Errors: %d',
+				$was_interrupted ? 'interrupted (will resume)' : 'completed',
+				$scan_results['total_issues'],
+				$scan_results['total_bytes'],
+				$elapsed_time,
+				count( $subtask_errors )
+			)
 		);
+
+		$result                    = $this->create_result( $scan_results['total_issues'], $scan_results['total_bytes'], empty( $subtask_errors ) );
+		$result['was_interrupted'] = $was_interrupted;
+		$result['errors']          = $subtask_errors;
+		$result['elapsed_time']    = $elapsed_time;
+
+		return $result;
+	}
+
+	/**
+	 * Determine which scan tasks to run based on settings and options.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param array $settings Plugin settings.
+	 * @param array $options  Task options.
+	 * @return array List of task identifiers.
+	 */
+	private function determine_scan_tasks( array $settings, array $options ): array {
+		$scan_tasks = array();
+
+		// Full summary scan is always run first.
+		$scan_tasks[] = 'summary';
+
+		if ( ! empty( $settings['detect_duplicates'] ) || ! empty( $options['detect_duplicates'] ) ) {
+			$scan_tasks[] = 'duplicates';
+		}
+		if ( ! empty( $settings['detect_large_files'] ) || ! empty( $options['detect_large_files'] ) ) {
+			$scan_tasks[] = 'large_files';
+		}
+		if ( ! empty( $settings['check_alt_text'] ) || ! empty( $options['check_alt_text'] ) ) {
+			$scan_tasks[] = 'alt_text';
+		}
+
+		return $scan_tasks;
+	}
+
+	/**
+	 * Configure the time limit based on PHP settings and options.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param array $options Task options.
+	 * @return void
+	 */
+	private function configure_time_limit( array $options ): void {
+		// Allow overriding via options (useful for manual runs or testing).
+		if ( isset( $options['time_limit'] ) && is_int( $options['time_limit'] ) ) {
+			$this->time_limit = $options['time_limit'];
+			return;
+		}
+
+		// Try to determine the PHP max_execution_time.
+		$max_execution_time = (int) ini_get( 'max_execution_time' );
+
+		// If max_execution_time is 0 (unlimited) or not set, use our default.
+		if ( $max_execution_time <= 0 ) {
+			$this->time_limit = self::DEFAULT_TIME_LIMIT;
+			return;
+		}
+
+		// Use the smaller of PHP's limit (minus buffer) or our default.
+		$this->time_limit = min(
+			$max_execution_time - self::TIME_BUFFER,
+			self::DEFAULT_TIME_LIMIT
+		);
+
+		// Ensure we have at least some time to work.
+		$this->time_limit = max( $this->time_limit, 5 );
+	}
+
+	/**
+	 * Check if the time limit is approaching.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True if we should stop processing.
+	 */
+	private function is_time_limit_approaching(): bool {
+		$elapsed = microtime( true ) - $this->start_time;
+		return $elapsed >= ( $this->time_limit - self::TIME_BUFFER );
+	}
+
+	/**
+	 * Acquire a lock to prevent concurrent scans.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True if lock acquired, false if already locked.
+	 */
+	private function acquire_lock(): bool {
+		$existing_lock = get_transient( self::LOCK_TRANSIENT );
+
+		if ( false !== $existing_lock ) {
+			// Check if the lock is stale (older than lock duration).
+			$lock_time = (int) $existing_lock;
+			if ( time() - $lock_time < self::LOCK_DURATION ) {
+				return false;
+			}
+			// Lock is stale, we can take it.
+			$this->log( 'Stale lock detected, acquiring new lock' );
+		}
+
+		// Set lock with current timestamp.
+		return set_transient( self::LOCK_TRANSIENT, time(), self::LOCK_DURATION );
+	}
+
+	/**
+	 * Refresh the lock to extend its duration.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True on success.
+	 */
+	private function refresh_lock(): bool {
+		return set_transient( self::LOCK_TRANSIENT, time(), self::LOCK_DURATION );
+	}
+
+	/**
+	 * Release the lock.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True on success.
+	 */
+	private function release_lock(): bool {
+		return delete_transient( self::LOCK_TRANSIENT );
+	}
+
+	/**
+	 * Check if a scan is currently locked/running.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True if a scan is running.
+	 */
+	public function is_scan_running(): bool {
+		$lock = get_transient( self::LOCK_TRANSIENT );
+
+		if ( false === $lock ) {
+			return false;
+		}
+
+		// Check if lock is not stale.
+		return ( time() - (int) $lock ) < self::LOCK_DURATION;
+	}
+
+	/**
+	 * Force release the lock (for admin use).
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True on success.
+	 */
+	public function force_release_lock(): bool {
+		$this->log( 'Lock forcefully released' );
+		return $this->release_lock();
+	}
+
+	/**
+	 * Execute a subtask with error recovery.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param string $task     Task name.
+	 * @param array  $options  Task options.
+	 * @param array  $settings Plugin settings.
+	 * @return array Result with task-specific data and optionally 'error' key.
+	 */
+	private function execute_subtask_with_recovery( string $task, array $options, array $settings ): array {
+		try {
+			return $this->execute_subtask( $task, $options, $settings );
+		} catch ( \Throwable $e ) {
+			$this->log(
+				sprintf(
+					'Exception in subtask %s: %s in %s:%d',
+					$task,
+					$e->getMessage(),
+					$e->getFile(),
+					$e->getLine()
+				),
+				'error'
+			);
+
+			return array(
+				'error' => $e->getMessage(),
+			);
+		}
+	}
+
+	/**
+	 * Execute a specific scan subtask.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param string $task     Task name.
+	 * @param array  $options  Task options.
+	 * @param array  $settings Plugin settings.
+	 * @return array Result with task-specific data.
+	 */
+	private function execute_subtask( string $task, array $options, array $settings ): array {
+		$result = array();
+
+		switch ( $task ) {
+			case 'summary':
+				$full_scan = $this->scanner->get_media_summary();
+				$result['summary'] = $full_scan;
+				$this->log( sprintf( 'Full scan completed. Total items: %d', $full_scan['total_count'] ?? 0 ) );
+				break;
+
+			case 'duplicates':
+				$batch_size  = $options['batch_size'] ?? self::DEFAULT_BATCH_SIZE;
+				$duplicates  = $this->duplicate_detector->find_duplicates();
+				$result['duplicates'] = $duplicates;
+				$result['count']      = count( $duplicates );
+				$this->log( sprintf( 'Found %d duplicate files', $result['count'] ) );
+				break;
+
+			case 'large_files':
+				$threshold_kb = $options['large_file_threshold_kb'] ?? ( $settings['large_file_threshold_kb'] ?? 1000 );
+				$large        = $this->large_files->find_large_files( $threshold_kb );
+				$total_bytes  = 0;
+
+				foreach ( $large as $file ) {
+					$total_bytes += $file['size'] ?? ( $file['current_size'] ?? 0 );
+				}
+
+				$result['large_files'] = $large;
+				$result['count']       = count( $large );
+				$result['total_bytes'] = $total_bytes;
+				$this->log( sprintf( 'Found %d large files', $result['count'] ) );
+				break;
+
+			case 'alt_text':
+				$limit       = $options['alt_text_limit'] ?? 100;
+				$missing_alt = $this->alt_text_checker->find_missing_alt_text( $limit );
+				$result['missing_alt'] = $missing_alt;
+				$result['count']       = count( $missing_alt );
+				$this->log( sprintf( 'Found %d images missing alt text', $result['count'] ) );
+				break;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Merge subtask results into the main scan results.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param array  $scan_results Main scan results (modified by reference).
+	 * @param string $task         Task name.
+	 * @param array  $result       Subtask result.
+	 * @return void
+	 */
+	private function merge_subtask_results( array &$scan_results, string $task, array $result ): void {
+		switch ( $task ) {
+			case 'duplicates':
+				$scan_results['duplicates']     = $result['duplicates'] ?? array();
+				$scan_results['total_issues']  += $result['count'] ?? 0;
+				break;
+
+			case 'large_files':
+				$scan_results['large_files']    = $result['large_files'] ?? array();
+				$scan_results['total_issues']  += $result['count'] ?? 0;
+				$scan_results['total_bytes']   += $result['total_bytes'] ?? 0;
+				break;
+
+			case 'alt_text':
+				$scan_results['missing_alt']    = $result['missing_alt'] ?? array();
+				$scan_results['total_issues']  += $result['count'] ?? 0;
+				break;
+		}
+	}
+
+	/**
+	 * Load saved progress from a previous interrupted run.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return array Progress data or empty array.
+	 */
+	private function load_progress(): array {
+		$progress = get_option( self::PROGRESS_OPTION_KEY, array() );
+
+		if ( ! empty( $progress ) && is_array( $progress ) ) {
+			$this->log( 'Resuming from saved progress' );
+		}
+
+		return is_array( $progress ) ? $progress : array();
+	}
+
+	/**
+	 * Save progress for later continuation.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param array $progress Progress data to save.
+	 * @return bool True on success, false on failure.
+	 */
+	private function save_progress( array $progress ): bool {
+		return update_option( self::PROGRESS_OPTION_KEY, $progress, false );
+	}
+
+	/**
+	 * Clear saved progress.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True on success, false on failure.
+	 */
+	private function clear_progress(): bool {
+		return delete_option( self::PROGRESS_OPTION_KEY );
+	}
+
+	/**
+	 * Get the current progress for external monitoring.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return array Current progress data.
+	 */
+	public function get_progress(): array {
+		return $this->load_progress();
+	}
+
+	/**
+	 * Check if a previous run was interrupted and needs resuming.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True if there's saved progress to resume.
+	 */
+	public function has_pending_progress(): bool {
+		$progress = get_option( self::PROGRESS_OPTION_KEY, array() );
+		return ! empty( $progress );
+	}
+
+	/**
+	 * Force clear any saved progress (useful for admin reset).
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return bool True on success.
+	 */
+	public function reset_progress(): bool {
+		$this->log( 'Progress manually reset' );
+		return $this->clear_progress();
 	}
 
 	/**
 	 * Store scan results for later review.
+	 *
+	 * @since 1.2.0
 	 *
 	 * @param array $results Scan results.
 	 * @return void

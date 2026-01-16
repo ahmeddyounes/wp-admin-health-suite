@@ -566,7 +566,7 @@ class DashboardController extends RestController {
 					FROM information_schema.TABLES
 					WHERE table_schema = %s
 					AND table_name LIKE %s',
-					DB_NAME,
+					$connection->get_database_name(),
 					$connection->esc_like( $connection->get_prefix() ) . '%'
 				);
 				$tables = $query ? $connection->get_col( $query ) : array();
@@ -613,13 +613,11 @@ class DashboardController extends RestController {
 	private function calculate_database_size() {
 		$connection = $this->get_connection();
 
-		$database = DB_NAME;
-
 		$query = $connection->prepare(
 			'SELECT SUM(data_length + index_length) AS size
 			FROM information_schema.TABLES
 			WHERE table_schema = %s',
-			$database
+			$connection->get_database_name()
 		);
 
 		$result = $query ? $connection->get_row( $query, 'OBJECT' ) : null;

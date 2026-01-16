@@ -107,8 +107,8 @@ class OneClickFix {
 	/**
 	 * Get all safe fixes that can be auto-executed.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array of safe fix definitions.
 	 */
 	public function get_safe_fixes() {
@@ -153,7 +153,6 @@ class OneClickFix {
 		}
 
 		// Fix: Clean post revisions keeping 3 most recent.
-		$revisions_count = $this->revisions_manager->get_all_revisions_count();
 		$excess_revisions = $this->get_excess_revisions_count( 3 );
 		if ( $excess_revisions > 0 ) {
 			$fixes[] = array(
@@ -199,12 +198,27 @@ class OneClickFix {
 	/**
 	 * Get a preview of what will be affected by a specific fix.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @param string $recommendation_id The fix ID.
 	 * @return array|null Preview data with affected items and impact estimate.
 	 */
 	public function get_fix_preview( $recommendation_id ) {
+		// Validate fix ID exists in available fixes.
+		$safe_fixes = $this->get_safe_fixes();
+		$valid_fix  = false;
+
+		foreach ( $safe_fixes as $fix ) {
+			if ( $recommendation_id === $fix['id'] ) {
+				$valid_fix = true;
+				break;
+			}
+		}
+
+		if ( ! $valid_fix ) {
+			return null;
+		}
+
 		switch ( $recommendation_id ) {
 			case 'clear_expired_transients':
 				return $this->preview_expired_transients();
@@ -226,12 +240,23 @@ class OneClickFix {
 	/**
 	 * Execute a specific safe fix.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.4.0 Added confirm parameter requirement.
+	 *
 	 * @param string $recommendation_id The fix ID.
-	 * @return array|null Execution result with success status, items affected, and messages.
+	 * @param bool   $confirm           Whether the user has confirmed execution (required).
+	 * @return array Execution result with success status, items affected, and messages.
 	 */
-	public function execute_fix( $recommendation_id ) {
+	public function execute_fix( $recommendation_id, $confirm = false ) {
+		// Require explicit confirmation for destructive operations.
+		if ( ! $confirm ) {
+			return array(
+				'success'          => false,
+				'requires_confirm' => true,
+				'message'          => 'Confirmation required. Please preview the fix and confirm execution.',
+			);
+		}
+
 		// Validate that this is a safe fix.
 		$safe_fixes = $this->get_safe_fixes();
 		$is_safe    = false;
@@ -275,18 +300,29 @@ class OneClickFix {
 	/**
 	 * Execute all safe fixes in batch with progress tracking.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 * @since 1.4.0 Added confirm parameter requirement.
+	 *
+	 * @param bool $confirm Whether the user has confirmed execution (required).
 	 * @return array Batch execution results with progress for each fix.
 	 */
-	public function execute_all_safe() {
+	public function execute_all_safe( $confirm = false ) {
+		// Require explicit confirmation for batch destructive operations.
+		if ( ! $confirm ) {
+			return array(
+				'success'          => false,
+				'requires_confirm' => true,
+				'message'          => 'Confirmation required. Please review all fixes and confirm batch execution.',
+			);
+		}
+
 		$safe_fixes = $this->get_safe_fixes();
 		$results    = array(
-			'total_fixes'      => count( $safe_fixes ),
-			'successful'       => 0,
-			'failed'           => 0,
-			'fixes_executed'   => array(),
-			'total_items'      => 0,
+			'total_fixes'       => count( $safe_fixes ),
+			'successful'        => 0,
+			'failed'            => 0,
+			'fixes_executed'    => array(),
+			'total_items'       => 0,
 			'total_bytes_freed' => 0,
 		);
 
@@ -297,7 +333,8 @@ class OneClickFix {
 				'percent' => round( ( ( $index + 1 ) / count( $safe_fixes ) ) * 100 ),
 			);
 
-			$result = $this->execute_fix( $fix['id'] );
+			// Pass confirm=true since we already validated at the batch level.
+			$result = $this->execute_fix( $fix['id'], true );
 
 			$fix_result = array(
 				'id'       => $fix['id'],
@@ -306,7 +343,7 @@ class OneClickFix {
 				'result'   => $result,
 			);
 
-			if ( $result && $result['success'] ) {
+			if ( is_array( $result ) && isset( $result['success'] ) && $result['success'] ) {
 				$results['successful']++;
 				if ( isset( $result['items_affected'] ) ) {
 					$results['total_items'] += $result['items_affected'];
@@ -346,19 +383,20 @@ class OneClickFix {
 		$count              = count( $expired_transients );
 
 		return array(
-			'fix_id'       => 'clear_expired_transients',
+			'fix_id'         => 'clear_expired_transients',
 			'affected_items' => $count,
-			'description'  => sprintf(
+			'description'    => sprintf(
 				'Will remove %d expired transient(s) that are no longer needed.',
 				$count
 			),
-			'impact'       => array(
+			'impact'         => array(
 				'type'    => 'Database cleanup',
 				'details' => 'Removes outdated cache entries from the options table.',
 				'risk'    => 'None - expired transients are safe to delete.',
 			),
+			'reversible'     => false,
 			'estimated_time' => '< 1 minute',
-			'sample_items' => array_slice( $expired_transients, 0, 10 ),
+			'sample_items'   => array_slice( $expired_transients, 0, 10 ),
 		);
 	}
 
@@ -371,19 +409,20 @@ class OneClickFix {
 		$count = $this->get_old_spam_comments_count( 30 );
 
 		return array(
-			'fix_id'       => 'delete_old_spam_comments',
+			'fix_id'         => 'delete_old_spam_comments',
 			'affected_items' => $count,
-			'description'  => sprintf(
+			'description'    => sprintf(
 				'Will permanently delete %d spam comment(s) older than 30 days.',
 				$count
 			),
-			'impact'       => array(
+			'impact'         => array(
 				'type'    => 'Database cleanup',
 				'details' => 'Permanently removes old spam comments from the database.',
 				'risk'    => 'Low - only affects spam comments older than 30 days.',
 			),
+			'reversible'     => false,
 			'estimated_time' => '< 1 minute',
-			'note'         => 'This action cannot be undone. Spam comments will be permanently deleted.',
+			'note'           => 'This action cannot be undone. Spam comments will be permanently deleted.',
 		);
 	}
 
@@ -398,13 +437,13 @@ class OneClickFix {
 		$estimated_bytes  = $this->revisions_manager->get_revisions_size_estimate();
 
 		return array(
-			'fix_id'       => 'clean_post_revisions',
+			'fix_id'         => 'clean_post_revisions',
 			'affected_items' => $excess_count,
-			'description'  => sprintf(
+			'description'    => sprintf(
 				'Will remove %d old revision(s), keeping the 3 most recent per post.',
 				$excess_count
 			),
-			'impact'       => array(
+			'impact'         => array(
 				'type'    => 'Database cleanup',
 				'details' => sprintf(
 					'Out of %d total revisions, %d will be removed. Each post will keep its 3 most recent revisions.',
@@ -414,8 +453,9 @@ class OneClickFix {
 				'risk'    => 'Low - keeps recent revisions for rollback capability.',
 				'estimated_space_freed' => size_format( $estimated_bytes * ( $excess_count / max( $total_count, 1 ) ) ),
 			),
+			'reversible'     => false,
 			'estimated_time' => '< 2 minutes',
-			'note'         => 'The 3 most recent revisions per post will be preserved.',
+			'note'           => 'The 3 most recent revisions per post will be preserved.',
 		);
 	}
 
@@ -429,13 +469,13 @@ class OneClickFix {
 		$total_overhead = array_sum( array_column( $tables, 'overhead' ) );
 
 		return array(
-			'fix_id'       => 'optimize_tables',
+			'fix_id'         => 'optimize_tables',
 			'affected_items' => count( $tables ),
-			'description'  => sprintf(
+			'description'    => sprintf(
 				'Will optimize %d database table(s) to reclaim wasted space.',
 				count( $tables )
 			),
-			'impact'       => array(
+			'impact'         => array(
 				'type'    => 'Database optimization',
 				'details' => sprintf(
 					'Reclaims approximately %s of fragmented/wasted space.',
@@ -443,8 +483,9 @@ class OneClickFix {
 				),
 				'risk'    => 'None - optimization is a safe maintenance operation.',
 			),
+			'reversible'     => true,
 			'estimated_time' => '< 3 minutes',
-			'tables'       => array_slice(
+			'tables'         => array_slice(
 				array_map(
 					function ( $table ) {
 						return array(
@@ -674,20 +715,100 @@ class OneClickFix {
 	/**
 	 * Store rollback information for a fix.
 	 *
-	 * @param string $fix_id   The fix ID.
-	 * @param array  $rollback_data Data needed for potential rollback.
+	 * Note: Most database cleanup operations (deleting spam, revisions) are
+	 * permanent and cannot be rolled back. This method stores metadata about
+	 * what was done for audit purposes and potential future restore from backup.
+	 *
+	 * @param string $fix_id       The fix ID.
+	 * @param array  $rollback_data Data about the operation for audit trail.
 	 * @return bool True on success.
 	 */
 	private function store_rollback_info( $fix_id, $rollback_data ) {
 		$key = $this->rollback_key . $fix_id;
 
 		$data = array(
-			'fix_id'     => $fix_id,
-			'timestamp'  => current_time( 'mysql' ),
-			'data'       => $rollback_data,
+			'fix_id'       => $fix_id,
+			'timestamp'    => current_time( 'mysql' ),
+			'user_id'      => get_current_user_id(),
+			'data'         => $rollback_data,
+			'reversible'   => $this->is_fix_reversible( $fix_id ),
 		);
 
 		return set_transient( $key, $data, $this->rollback_expiration );
+	}
+
+	/**
+	 * Get rollback information for a fix.
+	 *
+	 * Returns information about a previously executed fix including
+	 * whether it can be reversed and what actions were taken.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param string $fix_id The fix ID.
+	 * @return array|null Rollback data or null if not found.
+	 */
+	public function get_rollback_info( $fix_id ) {
+		$key  = $this->rollback_key . sanitize_key( $fix_id );
+		$data = get_transient( $key );
+
+		if ( false === $data || ! is_array( $data ) ) {
+			return null;
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Check if a fix type is reversible.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param string $fix_id The fix ID.
+	 * @return bool True if the fix can be reversed.
+	 */
+	private function is_fix_reversible( $fix_id ) {
+		// Define which fixes are reversible.
+		// Note: Most cleanup operations permanently delete data.
+		$reversible_fixes = array(
+			'optimize_tables', // Table optimization is safe and non-destructive.
+		);
+
+		return in_array( $fix_id, $reversible_fixes, true );
+	}
+
+	/**
+	 * Get all recent fix executions for audit purposes.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return array Array of recent fix execution records.
+	 */
+	public function get_recent_fix_history() {
+		$history    = array();
+		$fix_ids    = array(
+			'clear_expired_transients',
+			'delete_old_spam_comments',
+			'clean_post_revisions',
+			'optimize_tables',
+		);
+
+		foreach ( $fix_ids as $fix_id ) {
+			$rollback_info = $this->get_rollback_info( $fix_id );
+			if ( null !== $rollback_info ) {
+				$history[] = $rollback_info;
+			}
+		}
+
+		// Sort by timestamp descending.
+		usort(
+			$history,
+			function ( $a, $b ) {
+				return strtotime( $b['timestamp'] ) - strtotime( $a['timestamp'] );
+			}
+		);
+
+		return $history;
 	}
 
 	/**

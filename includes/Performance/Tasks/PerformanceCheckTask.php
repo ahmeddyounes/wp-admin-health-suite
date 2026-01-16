@@ -185,12 +185,17 @@ class PerformanceCheckTask extends AbstractScheduledTask {
 			$plugin_analysis = $this->plugin_profiler->measure_plugin_impact();
 			$check_results['plugins'] = $plugin_analysis;
 
-			// Count slow plugins as issues (impact score > 0.1 or load_time > 100ms).
+			// Count slow plugins as issues (load_time > 100ms).
 			$slow_plugins = array_filter(
 				$plugin_analysis,
-				function ( $plugin ) {
-					$load_time = $plugin['load_time'] ?? ( $plugin['impact_score'] ?? 0 );
-					return $load_time > 0.1; // > 100ms or 0.1 impact.
+				/**
+				 * Filter callback for slow plugins.
+				 *
+				 * @param array{load_time: float, memory: int, queries: int, impact_score: float} $plugin Plugin data.
+				 * @return bool True if plugin is slow.
+				 */
+				static function ( array $plugin ): bool {
+					return $plugin['load_time'] > 0.1;
 				}
 			);
 			$slow_plugin_count = count( $slow_plugins );
@@ -251,9 +256,14 @@ class PerformanceCheckTask extends AbstractScheduledTask {
 						'slow_plugins_count' => count(
 							array_filter(
 								$results['plugins'],
-								function ( $p ) {
-									$load_time = $p['load_time'] ?? ( $p['impact_score'] ?? 0 );
-									return $load_time > 0.1;
+								/**
+								 * Filter callback for slow plugins.
+								 *
+								 * @param array{load_time: float, memory: int, queries: int, impact_score: float} $p Plugin data.
+								 * @return bool True if plugin is slow.
+								 */
+								static function ( array $p ): bool {
+									return $p['load_time'] > 0.1;
 								}
 							)
 						),

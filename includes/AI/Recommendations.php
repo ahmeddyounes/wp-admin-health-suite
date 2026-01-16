@@ -197,8 +197,8 @@ class Recommendations {
 	/**
 	 * Prioritize issues based on impact, ease of fix, and risk level.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @param array $recommendations Array of recommendations to prioritize.
 	 * @return array Sorted array of recommendations with priority scores.
 	 */
@@ -271,8 +271,8 @@ class Recommendations {
 	/**
 	 * Get actionable steps for a specific recommendation.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @param string $recommendation_id Recommendation ID.
 	 * @return array|null Actionable steps or null if not found.
 	 */
@@ -294,8 +294,8 @@ class Recommendations {
 	/**
 	 * Dismiss a recommendation.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @param string $recommendation_id Recommendation ID to dismiss.
 	 * @return bool True on success, false on failure.
 	 */
@@ -372,7 +372,7 @@ class Recommendations {
 			// Get orphaned tables.
 			if ( null !== $this->connection && null !== $this->cache ) {
 				$orphaned_tables          = new OrphanedTables( $this->connection, $this->cache );
-				$stats['orphaned_tables'] = $orphaned_tables->get_all_wp_tables();
+				$stats['orphaned_tables'] = $orphaned_tables->find_orphaned_tables();
 			}
 
 			// Get trash stats if available.
@@ -391,26 +391,59 @@ class Recommendations {
 	/**
 	 * Get media statistics from scanner.
 	 *
-	 * @return array Media statistics.
+	 * Returns normalized media statistics with consistent keys for recommendation analysis.
+	 * Checks cached results first, then falls back to interface methods.
+	 *
+	 * @return array Media statistics with keys: unused_count, duplicate_count,
+	 *               large_files_count, missing_alt_count, total_count, total_size.
 	 */
 	private function get_media_stats() {
 		try {
-			// Check for cached results first.
+			// Check for cached full scan results first (from MediaScanTask).
 			$scan_results = get_transient( 'wp_admin_health_media_scan_results' );
 
-			if ( false !== $scan_results ) {
-				return $scan_results;
+			if ( false !== $scan_results && is_array( $scan_results ) ) {
+				// Normalize key names for compatibility.
+				return $this->normalize_media_stats( $scan_results );
 			}
 
-			// Use injected scanner if available.
+			// Use injected scanner if available via interface methods.
 			if ( null !== $this->scanner ) {
-				return $this->scanner->scan_all_media();
+				$summary = $this->scanner->get_media_summary();
+
+				// Normalize the summary keys to match what analyze_media() expects.
+				return $this->normalize_media_stats( $summary );
 			}
 
 			return array();
 		} catch ( \Exception $e ) {
 			return array();
 		}
+	}
+
+	/**
+	 * Normalize media statistics keys for consistent recommendation analysis.
+	 *
+	 * Handles different key names from various sources (cached results, interface methods).
+	 *
+	 * @since 1.5.0
+	 *
+	 * @param array $stats Raw media statistics.
+	 * @return array Normalized statistics with consistent keys.
+	 */
+	private function normalize_media_stats( array $stats ): array {
+		$normalized = array(
+			'total_count'       => $stats['total_count'] ?? 0,
+			'total_size'        => $stats['total_size'] ?? 0,
+			'unused_count'      => $stats['unused_count'] ?? 0,
+			'duplicate_count'   => $stats['duplicate_count'] ?? 0,
+			// Handle both key variations: large_files_count (from scan_all_media) and large_count (from get_media_summary).
+			'large_files_count' => $stats['large_files_count'] ?? $stats['large_count'] ?? 0,
+			// missing_alt_count may not be available from get_media_summary().
+			'missing_alt_count' => $stats['missing_alt_count'] ?? 0,
+		);
+
+		return $normalized;
 	}
 
 	/**

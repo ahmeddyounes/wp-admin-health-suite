@@ -96,8 +96,8 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
 	/**
 	 * Get the total size of all autoloaded options.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array with total size and count of autoloaded options.
 	 */
 	public function get_autoload_size(): array {
@@ -127,8 +127,8 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
 	/**
 	 * Find large autoloaded options exceeding a threshold.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @param int $threshold Size threshold in bytes (default: 10KB).
 	 * @return array Array of large autoloaded options.
 	 */
@@ -157,8 +157,8 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
 	/**
 	 * Recommend autoload changes based on analysis.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array of recommendations with option details and suggested actions.
 	 */
 	public function recommend_autoload_changes(): array {
@@ -251,9 +251,9 @@ class AutoloadAnalyzer implements AutoloadAnalyzerInterface {
 	/**
 	 * Change the autoload status of an option.
 	 *
- * @since 1.0.0
- *
-	 * @param string $option_name The name of the option to change.
+	 * @since 1.0.0
+	 *
+	 * @param string $option_name  The name of the option to change.
 	 * @param string $new_autoload New autoload value ('yes' or 'no').
 	 * @return array Result array with success status and message.
 	 */

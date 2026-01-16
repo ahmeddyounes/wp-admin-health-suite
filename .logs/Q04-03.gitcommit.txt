@@ -1,0 +1,66 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (2ce24ba)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 39 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 19 files
+[SKIPPED] *.{js,jsx} — no files
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 19 files
+[COMPLETED] package.json — 39 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+.[31mE[0m...[31mE[0m[31mE[0m 7 / 7 (100%)
+
+
+
+[1mFILE: includes/REST/Media/MediaCleanupController.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 1 ERROR AFFECTING 1 LINE[0m
+--------------------------------------------------------------------------------
+ 256 | [31mERROR[0m | [1mA function call to _n() with texts containing placeholders was[0m
+     |       | [1mfound, but was not accompanied by a "translators:" comment on[0m
+     |       | [1mthe line above to clarify the meaning of the placeholders.[0m
+     |       | (WordPress.WP.I18n.MissingTranslatorsComment)
+--------------------------------------------------------------------------------
+
+
+[1mFILE: includes/Media/ReferenceFinder.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 2 ERRORS AFFECTING 2 LINES[0m
+--------------------------------------------------------------------------------
+ 534 | [31mERROR[0m | [1mInline comments must end in full-stops, exclamation marks, or[0m
+     |       | [1mquestion marks[0m (Squiz.Commenting.InlineComment.InvalidEndChar)
+ 536 | [31mERROR[0m | [1mInline comments must end in full-stops, exclamation marks, or[0m
+     |       | [1mquestion marks[0m (Squiz.Commenting.InlineComment.InvalidEndChar)
+--------------------------------------------------------------------------------
+
+
+[1mFILE: includes/REST/MediaController.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 1 ERROR AFFECTING 1 LINE[0m
+--------------------------------------------------------------------------------
+ 725 | [31mERROR[0m | [1mA function call to _n() with texts containing placeholders was[0m
+     |       | [1mfound, but was not accompanied by a "translators:" comment on[0m
+     |       | [1mthe line above to clarify the meaning of the placeholders.[0m
+     |       | (WordPress.WP.I18n.MissingTranslatorsComment)
+--------------------------------------------------------------------------------
+
+Time: 232ms; Memory: 16MB
+
+husky - pre-commit script failed (code 1)

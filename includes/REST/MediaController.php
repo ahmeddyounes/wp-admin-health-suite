@@ -697,7 +697,40 @@ class MediaController extends RestController {
 			);
 		}
 
-		$result = $this->safe_delete->prepare_deletion( $ids );
+		// Filter out excluded attachments - they should not be deleted.
+		$excluded_ids  = array_filter(
+			$ids,
+			function ( $id ) {
+				return $this->exclusions->is_excluded( (int) $id );
+			}
+		);
+		$ids_to_delete = $this->exclusions->filter_excluded( $ids );
+
+		if ( empty( $ids_to_delete ) ) {
+			return $this->format_error_response(
+				new WP_Error(
+					'all_excluded',
+					__( 'All selected attachments are excluded from deletion.', 'wp-admin-health-suite' )
+				),
+				400
+			);
+		}
+
+		$result = $this->safe_delete->prepare_deletion( $ids_to_delete );
+
+		// Include info about skipped excluded items in the result.
+		if ( ! empty( $excluded_ids ) ) {
+			$result['excluded_ids'] = array_values( $excluded_ids );
+			$result['message']     .= sprintf(
+				' ' . _n(
+					'%d item was skipped because it is excluded.',
+					'%d items were skipped because they are excluded.',
+					count( $excluded_ids ),
+					'wp-admin-health-suite'
+				),
+				count( $excluded_ids )
+			);
+		}
 
 		if ( ! $result['success'] ) {
 			return $this->format_error_response(

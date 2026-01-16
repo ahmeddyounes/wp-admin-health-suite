@@ -176,11 +176,6 @@ class PluginProfiler implements PluginProfilerInterface {
 		// Get baseline query count.
 		$queries_before = $this->connection->get_num_queries();
 		$memory_before  = memory_get_usage();
-		$time_before    = microtime( true );
-
-		// Simulate plugin-specific hook execution if possible.
-		// Note: This is approximate - we can't truly isolate plugins at runtime.
-		// We're using a heuristic approach by checking what hooks fire.
 
 		// Get current enqueued assets that might be from this plugin.
 		$assets = $this->get_plugin_assets( $plugin_file );
@@ -188,22 +183,24 @@ class PluginProfiler implements PluginProfilerInterface {
 		// Approximate query impact by checking for plugin-specific tables or options.
 		$queries_after = $this->connection->get_num_queries();
 		$memory_after  = memory_get_usage();
-		$time_after    = microtime( true );
 
 		// Calculate differences (these are rough estimates).
 		$query_delta  = max( 0, $queries_after - $queries_before );
 		$memory_delta = max( 0, $memory_after - $memory_before );
-		$time_delta   = max( 0, $time_after - $time_before );
 
 		// For more accurate measurements, we'd look at plugin-specific data.
 		// This is a simplified version that provides estimates.
 		$estimated_queries = $this->estimate_plugin_queries( $plugin_file );
 		$estimated_memory  = $this->estimate_plugin_memory( $plugin_file );
 
+		// Estimate load time based on file size and hook count.
+		// This is approximate since we can't isolate actual runtime.
+		$estimated_time = $this->estimate_plugin_load_time( $plugin_file );
+
 		return array(
 			'queries' => max( $query_delta, $estimated_queries ),
 			'memory'  => max( $memory_delta, $estimated_memory ),
-			'time'    => $time_delta,
+			'time'    => $estimated_time,
 			'assets'  => $assets,
 		);
 	}
@@ -262,26 +259,139 @@ class PluginProfiler implements PluginProfilerInterface {
 		}
 
 		// For directory-based plugins, estimate based on PHP file sizes.
+		// Use RecursiveDirectoryIterator to include subdirectories.
 		// Limited to prevent resource exhaustion from plugins with many files.
-		$total_size  = 0;
-		$file_count  = 0;
-		$files       = glob( $plugin_dir . '/*.php' );
+		$total_size = 0;
+		$file_count = 0;
 
-		if ( is_array( $files ) ) {
-			foreach ( $files as $file ) {
+		try {
+			$iterator = new \RecursiveIteratorIterator(
+				new \RecursiveDirectoryIterator( $plugin_dir, \RecursiveDirectoryIterator::SKIP_DOTS ),
+				\RecursiveIteratorIterator::LEAVES_ONLY
+			);
+
+			foreach ( $iterator as $file ) {
 				// Resource limit: Stop after MAX_FILES_PER_PLUGIN files.
 				if ( ++$file_count > self::MAX_FILES_PER_PLUGIN ) {
 					break;
 				}
 
-				if ( file_exists( $file ) ) {
-					$total_size += filesize( $file );
+				// Only count PHP files.
+				if ( $file->isFile() && 'php' === strtolower( $file->getExtension() ) ) {
+					$total_size += $file->getSize();
+				}
+			}
+		} catch ( \Exception $e ) {
+			// Fall back to root directory only if recursion fails.
+			$files = glob( $plugin_dir . '/*.php' );
+			if ( is_array( $files ) ) {
+				foreach ( $files as $file ) {
+					if ( file_exists( $file ) ) {
+						$total_size += filesize( $file );
+					}
 				}
 			}
 		}
 
 		// Memory usage is roughly 2-3x file size when loaded.
 		return $total_size * 2;
+	}
+
+	/**
+	 * Estimate plugin's load time.
+	 *
+	 * This is a heuristic estimate based on file size and complexity.
+	 * Actual load time varies with server resources and caching.
+	 *
+	 * @param string $plugin_file Plugin file path.
+	 * @return float Estimated load time in seconds.
+	 */
+	private function estimate_plugin_load_time( $plugin_file ) {
+		$estimated_memory = $this->estimate_plugin_memory( $plugin_file );
+
+		// Base estimate: approximately 0.001 seconds per KB of PHP code.
+		// This is a rough heuristic based on typical PHP parsing and execution overhead.
+		$kb_size       = $estimated_memory / 1024;
+		$base_time     = $kb_size * 0.001;
+
+		// Add time for estimated queries (approximately 0.002 seconds per query).
+		$estimated_queries = $this->estimate_plugin_queries( $plugin_file );
+		$query_time        = $estimated_queries * 0.002;
+
+		// Add time for registered hooks (check plugin slug in global $wp_filter).
+		$hook_time = $this->estimate_hook_overhead( $plugin_file );
+
+		return round( $base_time + $query_time + $hook_time, 4 );
+	}
+
+	/**
+	 * Estimate overhead from hook registrations.
+	 *
+	 * @param string $plugin_file Plugin file path.
+	 * @return float Estimated time overhead in seconds.
+	 */
+	private function estimate_hook_overhead( $plugin_file ) {
+		global $wp_filter;
+
+		$plugin_slug = dirname( $plugin_file );
+		if ( '.' === $plugin_slug ) {
+			$plugin_slug = basename( $plugin_file, '.php' );
+		}
+
+		$plugin_dir = WP_PLUGIN_DIR . '/' . dirname( $plugin_file );
+		$hook_count = 0;
+
+		if ( ! is_array( $wp_filter ) ) {
+			return 0.0;
+		}
+
+		// Count hooks that reference this plugin's directory.
+		foreach ( $wp_filter as $hook_name => $hook_obj ) {
+			if ( ! is_object( $hook_obj ) || ! isset( $hook_obj->callbacks ) ) {
+				continue;
+			}
+
+			foreach ( $hook_obj->callbacks as $priority => $callbacks ) {
+				foreach ( $callbacks as $callback ) {
+					if ( ! isset( $callback['function'] ) ) {
+						continue;
+					}
+
+					$func = $callback['function'];
+
+					// Check if callback is from this plugin.
+					if ( is_string( $func ) ) {
+						// Function name - can't easily determine source.
+						continue;
+					}
+
+					if ( is_array( $func ) && isset( $func[0] ) && is_object( $func[0] ) ) {
+						$class_file = $this->get_class_file( get_class( $func[0] ) );
+						if ( $class_file && false !== strpos( $class_file, $plugin_dir ) ) {
+							++$hook_count;
+						}
+					}
+				}
+			}
+		}
+
+		// Approximate 0.0001 seconds per hook callback.
+		return $hook_count * 0.0001;
+	}
+
+	/**
+	 * Get the file where a class is defined.
+	 *
+	 * @param string $class_name Class name.
+	 * @return string|false File path or false on failure.
+	 */
+	private function get_class_file( $class_name ) {
+		try {
+			$reflection = new \ReflectionClass( $class_name );
+			return $reflection->getFileName();
+		} catch ( \ReflectionException $e ) {
+			return false;
+		}
 	}
 
 	/**
@@ -376,8 +486,8 @@ class PluginProfiler implements PluginProfilerInterface {
 	/**
 	 * Get memory usage by plugin.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array of plugins with their memory usage.
 	 */
 	public function get_plugin_memory_usage(): array {
@@ -390,8 +500,9 @@ class PluginProfiler implements PluginProfilerInterface {
 		$memory_usage = array();
 		foreach ( $results['measurements'] as $slug => $data ) {
 			$memory_usage[ $slug ] = array(
-				'name'   => $data['name'],
-				'memory' => $data['memory'],
+				'name'      => $data['name'],
+				'memory'    => $data['memory'],
+				'formatted' => size_format( $data['memory'], 2 ),
 			);
 		}
 
@@ -409,8 +520,8 @@ class PluginProfiler implements PluginProfilerInterface {
 	/**
 	 * Get database query counts by plugin.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return array Array of plugins with their query counts.
 	 */
 	public function get_plugin_query_counts(): array {
@@ -423,8 +534,9 @@ class PluginProfiler implements PluginProfilerInterface {
 		$query_counts = array();
 		foreach ( $results['measurements'] as $slug => $data ) {
 			$query_counts[ $slug ] = array(
-				'name'    => $data['name'],
-				'queries' => $data['queries'],
+				'name'       => $data['name'],
+				'count'      => $data['queries'],
+				'total_time' => $data['time'],
 			);
 		}
 
@@ -432,7 +544,7 @@ class PluginProfiler implements PluginProfilerInterface {
 		uasort(
 			$query_counts,
 			function ( $a, $b ) {
-				return $b['queries'] <=> $a['queries'];
+				return $b['count'] <=> $a['count'];
 			}
 		);
 
