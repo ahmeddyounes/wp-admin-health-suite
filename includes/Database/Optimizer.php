@@ -23,8 +23,18 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.0.0
  * @since 1.2.0 Implements OptimizerInterface.
  * @since 1.3.0 Added constructor dependency injection for ConnectionInterface.
+ * @since 1.4.0 Added progress callback support and large table handling.
  */
 class Optimizer implements OptimizerInterface {
+
+	/**
+	 * Size threshold (in bytes) above which a table is considered large.
+	 * Large tables (>100MB) may take longer to optimize and cause locking.
+	 *
+	 * @since 1.4.0
+	 * @var int
+	 */
+	public const LARGE_TABLE_THRESHOLD = 104857600; // 100MB
 
 	/**
 	 * Database connection.
@@ -32,6 +42,14 @@ class Optimizer implements OptimizerInterface {
 	 * @var ConnectionInterface
 	 */
 	private ConnectionInterface $connection;
+
+	/**
+	 * Progress callback for reporting optimization progress.
+	 *
+	 * @since 1.4.0
+	 * @var callable|null
+	 */
+	private $progress_callback = null;
 
 	/**
 	 * Constructor.
@@ -45,9 +63,31 @@ class Optimizer implements OptimizerInterface {
 	}
 
 	/**
+	 * Set a callback function to report progress during optimization.
+	 *
+	 * The callback receives three parameters:
+	 * - int    $current   Current table index (1-based).
+	 * - int    $total     Total number of tables.
+	 * - string $table     Current table name being processed.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param callable|null $callback Progress callback function.
+	 * @return void
+	 */
+	public function set_progress_callback( ?callable $callback ): void {
+		$this->progress_callback = $callback;
+	}
+
+	/**
 	 * Get tables that need optimization based on overhead.
 	 *
+	 * Returns tables with overhead (fragmented space) that can be reclaimed.
+	 * Each table includes a 'is_large' flag indicating if optimization may
+	 * take longer due to table size exceeding LARGE_TABLE_THRESHOLD.
+	 *
 	 * @since 1.0.0
+	 * @since 1.4.0 Added data_size and is_large fields.
 	 *
 	 * @return array Array of table names with overhead.
 	 */
@@ -56,6 +96,7 @@ class Optimizer implements OptimizerInterface {
 		$query  = $this->connection->prepare(
 			"SELECT table_name as 'table',
 			data_free as overhead,
+			(data_length + index_length) as data_size,
 			engine
 			FROM information_schema.TABLES
 			WHERE table_schema = %s
@@ -75,10 +116,13 @@ class Optimizer implements OptimizerInterface {
 		$tables = array();
 		if ( $results ) {
 			foreach ( $results as $row ) {
-				$tables[] = array(
-					'name'     => $row->table,
-					'overhead' => absint( $row->overhead ),
-					'engine'   => $row->engine,
+				$data_size = absint( $row->data_size );
+				$tables[]  = array(
+					'name'      => $row->table,
+					'overhead'  => absint( $row->overhead ),
+					'data_size' => $data_size,
+					'engine'    => $row->engine,
+					'is_large'  => $data_size > self::LARGE_TABLE_THRESHOLD,
 				);
 			}
 		}
@@ -121,7 +165,13 @@ class Optimizer implements OptimizerInterface {
 	/**
 	 * Optimize a specific table.
 	 *
+	 * Note: OPTIMIZE TABLE acquires a table lock during execution.
+	 * For MyISAM tables, this is a full lock (reads and writes blocked).
+	 * For InnoDB tables, this performs an online rebuild with minimal blocking,
+	 * but may still impact performance on very large tables.
+	 *
 	 * @since 1.0.0
+	 * @since 1.4.0 Added is_large flag and locking documentation.
 	 *
 	 * @param string $table_name The name of the table to optimize.
 	 * @return array|false Array with optimization results, or false on failure.
@@ -141,13 +191,14 @@ class Optimizer implements OptimizerInterface {
 		// Get size before optimization.
 		$size_before = $table_info['size'];
 		$engine      = $table_info['engine'];
+		$is_large    = $size_before > self::LARGE_TABLE_THRESHOLD;
 
-		// Determine optimization command based on engine.
-		$command = $this->get_optimization_command( $engine );
-
-		// Execute optimization.
+		// Execute optimization using OPTIMIZE TABLE for all engines.
+		// OPTIMIZE TABLE works for both InnoDB and MyISAM:
+		// - InnoDB: Performs an online table rebuild to reclaim fragmented space.
+		// - MyISAM/Aria: Defragments data file and sorts indexes.
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names cannot use placeholders, esc_sql used.
-		$query  = "$command TABLE `" . esc_sql( $table_name ) . '`';
+		$query  = 'OPTIMIZE TABLE `' . esc_sql( $table_name ) . '`';
 		$result = $this->connection->query( $query );
 
 		if ( false === $result ) {
@@ -164,17 +215,24 @@ class Optimizer implements OptimizerInterface {
 			'size_before'  => $size_before,
 			'size_after'   => $size_after,
 			'size_reduced' => $size_before - $size_after,
-			'command'      => $command,
+			'is_large'     => $is_large,
 		);
 	}
 
 	/**
 	 * Optimize all WordPress tables.
 	 *
-	 * Uses batch queries to avoid N+1 query pattern.
+	 * Uses batch queries to avoid N+1 query pattern. If a progress callback
+	 * has been set via set_progress_callback(), it will be called before
+	 * each table is optimized.
+	 *
+	 * Note: This operation may take significant time for large databases.
+	 * Consider running during low-traffic periods as OPTIMIZE TABLE
+	 * acquires locks during execution.
 	 *
 	 * @since 1.0.0
 	 * @since 1.3.0 Optimized to use batch loading instead of per-table queries.
+	 * @since 1.4.0 Added progress callback support and is_large flag.
 	 *
 	 * @return array Array of optimization results for each table.
 	 */
@@ -187,24 +245,31 @@ class Optimizer implements OptimizerInterface {
 		// Batch load all table info before optimization to avoid N+1 queries.
 		$tables_info_before = $this->get_tables_info( $tables );
 
-		$results = array();
+		$results     = array();
+		$total       = count( $tables );
+		$current     = 0;
 
 		// Execute optimization for each table.
 		foreach ( $tables as $table ) {
+			++$current;
+
 			if ( ! isset( $tables_info_before[ $table ] ) ) {
 				continue;
 			}
 
-			$table_info = $tables_info_before[ $table ];
+			// Report progress if callback is set.
+			if ( null !== $this->progress_callback ) {
+				call_user_func( $this->progress_callback, $current, $total, $table );
+			}
+
+			$table_info  = $tables_info_before[ $table ];
 			$size_before = $table_info['size'];
 			$engine      = $table_info['engine'];
+			$is_large    = $size_before > self::LARGE_TABLE_THRESHOLD;
 
-			// Determine optimization command based on engine.
-			$command = $this->get_optimization_command( $engine );
-
-			// Execute optimization.
+			// Execute optimization using OPTIMIZE TABLE for all engines.
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names cannot use placeholders, esc_sql used.
-			$query  = "$command TABLE `" . esc_sql( $table ) . '`';
+			$query  = 'OPTIMIZE TABLE `' . esc_sql( $table ) . '`';
 			$result = $this->connection->query( $query );
 
 			// Track that optimization was attempted.
@@ -212,7 +277,7 @@ class Optimizer implements OptimizerInterface {
 				'table'       => $table,
 				'engine'      => $engine,
 				'size_before' => $size_before,
-				'command'     => $command,
+				'is_large'    => $is_large,
 				'optimized'   => false !== $result,
 			);
 		}
@@ -238,7 +303,12 @@ class Optimizer implements OptimizerInterface {
 	/**
 	 * Repair a specific table.
 	 *
+	 * Note: REPAIR TABLE is only supported for MyISAM, Aria, ARCHIVE, and CSV
+	 * storage engines. InnoDB tables do not support REPAIR TABLE. For InnoDB
+	 * tables, use optimize_table() instead, which performs a table rebuild.
+	 *
 	 * @since 1.0.0
+	 * @since 1.4.0 Added engine compatibility check for InnoDB.
 	 *
 	 * @param string $table_name The name of the table to repair.
 	 * @return array Array with success status and message.
@@ -249,6 +319,31 @@ class Optimizer implements OptimizerInterface {
 			return array(
 				'success' => false,
 				'message' => 'Table does not belong to WordPress installation.',
+			);
+		}
+
+		// Get table info to check engine type.
+		$table_info = $this->get_table_info( $table_name );
+		if ( ! $table_info ) {
+			return array(
+				'success' => false,
+				'message' => 'Could not retrieve table information.',
+			);
+		}
+
+		// Check if engine supports REPAIR TABLE.
+		// InnoDB does not support REPAIR TABLE - it has built-in crash recovery.
+		$engine            = strtoupper( $table_info['engine'] );
+		$supported_engines = array( 'MYISAM', 'ARIA', 'ARCHIVE', 'CSV' );
+
+		if ( ! in_array( $engine, $supported_engines, true ) ) {
+			return array(
+				'success' => false,
+				'message' => sprintf(
+					'REPAIR TABLE is not supported for %s engine. Use optimize_table() for InnoDB tables.',
+					$engine
+				),
+				'engine'  => $engine,
 			);
 		}
 
@@ -267,6 +362,7 @@ class Optimizer implements OptimizerInterface {
 		return array(
 			'success' => true,
 			'table'   => $table_name,
+			'engine'  => $engine,
 			'message' => 'Table repaired successfully.',
 		);
 	}
@@ -365,24 +461,6 @@ class Optimizer implements OptimizerInterface {
 			'size'     => absint( $result['size'] ),
 			'overhead' => absint( $result['overhead'] ),
 		);
-	}
-
-	/**
-	 * Get the appropriate optimization command for the table engine.
-	 *
-	 * @param string $engine The database engine (e.g., InnoDB, MyISAM, Aria).
-	 * @return string The optimization command to use.
-	 */
-	private function get_optimization_command( $engine ) {
-		$engine = strtoupper( $engine );
-
-		// InnoDB uses ANALYZE TABLE for optimization.
-		if ( 'INNODB' === $engine ) {
-			return 'ANALYZE';
-		}
-
-		// MyISAM and Aria use OPTIMIZE TABLE.
-		return 'OPTIMIZE';
 	}
 
 	/**
