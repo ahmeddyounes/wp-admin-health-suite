@@ -36,6 +36,17 @@ interface ConfigurationInterface {
 	public function get( string $key, $default = null );
 
 	/**
+	 * Set a configuration value at runtime.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $key   Configuration key using dot notation.
+	 * @param mixed  $value Value to set.
+	 * @return void
+	 */
+	public function set( string $key, $value ): void;
+
+	/**
 	 * Check if a configuration key exists.
 	 *
 	 * @since 1.3.0
@@ -89,4 +100,23 @@ interface ConfigurationInterface {
 	 * @return array Cache configuration values.
 	 */
 	public function cache(): array;
+
+	/**
+	 * Get the current environment.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string Environment name (production, staging, development, local).
+	 */
+	public function get_environment(): string;
+
+	/**
+	 * Check if running in a specific environment.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $environment Environment to check against.
+	 * @return bool True if running in the specified environment.
+	 */
+	public function is_environment( string $environment ): bool;
 }

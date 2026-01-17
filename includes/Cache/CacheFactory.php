@@ -105,6 +105,21 @@ class CacheFactory {
 	}
 
 	/**
+	 * Reset all static state to defaults.
+	 *
+	 * Useful for testing to ensure clean state between tests.
+	 * Resets both the singleton instance and the default prefix.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public static function reset_all(): void {
+		self::$instance       = null;
+		self::$default_prefix = 'wpha_';
+	}
+
+	/**
 	 * Create an object cache instance.
 	 *
 	 * @since 1.1.0
@@ -112,7 +127,7 @@ class CacheFactory {
 	 * @param string $group Cache group name.
 	 * @return ObjectCache Object cache instance.
 	 */
-	public static function create_object_cache( string $group = 'wpha' ): ObjectCache {
+	public static function create_object_cache( string $group = 'wpha_' ): ObjectCache {
 		return new ObjectCache( $group );
 	}
 
@@ -178,28 +193,35 @@ class CacheFactory {
 	}
 
 	/**
-	 * Check which cache backend is being used.
+	 * Check which cache backend is being used by the singleton.
+	 *
+	 * Note: This method returns 'none' if no singleton has been created yet,
+	 * avoiding the side effect of creating one. Use get_instance() first if
+	 * you need to ensure a cache exists.
 	 *
 	 * @since 1.1.0
 	 *
-	 * @return string Cache backend name: 'object', 'transient', 'memory', or 'null'.
+	 * @return string Cache backend name: 'object', 'transient', 'memory', 'null', or 'none'.
 	 */
 	public static function get_backend_type(): string {
-		$cache = self::get_instance();
+		// Return 'none' if no instance exists to avoid side effects.
+		if ( null === self::$instance ) {
+			return 'none';
+		}
 
-		if ( $cache instanceof ObjectCache ) {
+		if ( self::$instance instanceof ObjectCache ) {
 			return 'object';
 		}
 
-		if ( $cache instanceof TransientCache ) {
+		if ( self::$instance instanceof TransientCache ) {
 			return 'transient';
 		}
 
-		if ( $cache instanceof MemoryCache ) {
+		if ( self::$instance instanceof MemoryCache ) {
 			return 'memory';
 		}
 
-		if ( $cache instanceof NullCache ) {
+		if ( self::$instance instanceof NullCache ) {
 			return 'null';
 		}
 

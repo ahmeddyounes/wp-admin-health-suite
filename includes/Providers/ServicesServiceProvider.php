@@ -14,6 +14,7 @@ use WPAdminHealth\Contracts\ConfigurationInterface;
 use WPAdminHealth\Contracts\ActivityLoggerInterface;
 use WPAdminHealth\Contracts\TableCheckerInterface;
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Services\ConfigurationService;
 use WPAdminHealth\Services\ActivityLogger;
 use WPAdminHealth\Services\TableChecker;
@@ -65,7 +66,10 @@ class ServicesServiceProvider extends ServiceProvider {
 			ActivityLoggerInterface::class,
 			function ( $container ) {
 				$connection = $container->get( ConnectionInterface::class );
-				return new ActivityLogger( $connection );
+				$settings   = $container->has( SettingsInterface::class )
+					? $container->get( SettingsInterface::class )
+					: null;
+				return new ActivityLogger( $connection, $settings );
 			}
 		);
 		$this->container->alias( 'activity_logger', ActivityLoggerInterface::class );

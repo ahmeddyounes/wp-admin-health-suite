@@ -231,7 +231,7 @@ const Recommendations = ({
 
 	const filteredRecommendations = getFilteredAndSortedRecommendations();
 
-	// Get unique categories from recommendations
+	// Get unique categories from recommendations for filter dropdown
 	const categories = [
 		'all',
 		...new Set(recommendations.map((rec) => rec.category)),

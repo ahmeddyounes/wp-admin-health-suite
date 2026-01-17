@@ -226,10 +226,11 @@ const QuickActions = () => {
 
 	/**
 	 * Handle keyboard navigation for action buttons
-	 * @param e
-	 * @param action
+	 *
+	 * @param {KeyboardEvent} e      - The keyboard event
+	 * @param {Object}        action - The action object from ACTIONS array
 	 */
-	const handleKeyPress = (e, action) => {
+	const handleKeyDown = (e, action) => {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
 			handleActionClick(action);
@@ -238,7 +239,8 @@ const QuickActions = () => {
 
 	/**
 	 * Dismiss a toast notification
-	 * @param toastId
+	 *
+	 * @param {number} toastId - The ID of the toast to dismiss
 	 */
 	const dismissToast = (toastId) => {
 		setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
@@ -458,8 +460,8 @@ const QuickActions = () => {
 							onClick={() =>
 								!isExecuting && handleActionClick(action)
 							}
-							onKeyPress={(e) =>
-								!isExecuting && handleKeyPress(e, action)
+							onKeyDown={(e) =>
+								!isExecuting && handleKeyDown(e, action)
 							}
 							style={{
 								...buttonStyles,
@@ -497,19 +499,18 @@ const QuickActions = () => {
 
 			{/* Confirmation Modal */}
 			{showConfirmModal && activeAction && (
+				// eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
 				<div
 					className="quick-action-modal-overlay"
 					style={modalOverlayStyles}
 					onClick={handleCloseModal}
-					onKeyDown={(e) => e.key === 'Escape' && handleCloseModal()}
-					role="presentation"
 				>
+					{/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events */}
 					<div
 						ref={modalRef}
 						className="quick-action-modal"
 						style={modalStyles}
 						onClick={(e) => e.stopPropagation()}
-						onKeyDown={(e) => e.stopPropagation()}
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="modal-title"

@@ -51,6 +51,29 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 	private string $active_plugin = '';
 
 	/**
+	 * Cache for translation lookups.
+	 *
+	 * @var array<int, array<int>>
+	 */
+	private array $translations_cache = array();
+
+	/**
+	 * Cache for attachment language lookups (attachment_id => language_code).
+	 *
+	 * Empty string means no language assignment or unknown.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $attachment_language_cache = array();
+
+	/**
+	 * Cached WPML translations table existence.
+	 *
+	 * @var bool|null
+	 */
+	private ?bool $wpml_translations_table_exists = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.1.0
@@ -167,6 +190,26 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 	}
 
 	/**
+	 * Check if the WPML translations table exists.
+	 *
+	 * WPML constants/classes may be present even when database tables are missing
+	 * (e.g., incomplete install or failed migration). Guard all direct queries.
+	 *
+	 * @since 1.7.0
+	 *
+	 * @return bool True if the icl_translations table exists for this site.
+	 */
+	private function wpml_translations_table_exists(): bool {
+		if ( null !== $this->wpml_translations_table_exists ) {
+			return $this->wpml_translations_table_exists;
+		}
+
+		$this->wpml_translations_table_exists = $this->table_exists( 'icl_translations' );
+
+		return $this->wpml_translations_table_exists;
+	}
+
+	/**
 	 * Check if Polylang is active.
 	 *
 	 * @since 1.0.0
@@ -262,13 +305,42 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 	 * @return array<int> Array of translated post IDs (including original).
 	 */
 	public function get_translations( int $post_id ): array {
-		if ( 'wpml' === $this->active_plugin ) {
-			return $this->get_wpml_translations( $post_id );
-		} elseif ( 'polylang' === $this->active_plugin ) {
-			return $this->get_polylang_translations( $post_id );
+		$post_id = absint( $post_id );
+		if ( $post_id <= 0 ) {
+			return array();
 		}
 
-		return array( $post_id );
+		if ( isset( $this->translations_cache[ $post_id ] ) ) {
+			return $this->translations_cache[ $post_id ];
+		}
+
+		$translations = array( $post_id );
+
+		if ( 'wpml' === $this->active_plugin ) {
+			$translations = $this->get_wpml_translations( $post_id );
+		} elseif ( 'polylang' === $this->active_plugin ) {
+			$translations = $this->get_polylang_translations( $post_id );
+		}
+
+		$translations = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'absint', $translations )
+				)
+			)
+		);
+
+		// Ensure the requested ID is always included.
+		if ( ! in_array( $post_id, $translations, true ) ) {
+			array_unshift( $translations, $post_id );
+		}
+
+		// Cache the whole translation group for each member to reduce repeated queries.
+		foreach ( $translations as $translation_id ) {
+			$this->translations_cache[ $translation_id ] = $translations;
+		}
+
+		return $translations;
 	}
 
 	/**
@@ -287,27 +359,36 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 			return array( $post_id );
 		}
 
+		// WPML may be active but the translations table may be missing.
+		if ( ! $this->wpml_translations_table_exists() ) {
+			return array( $post_id );
+		}
+
 		// Get element type for WPML (e.g., 'post_page', 'post_post', 'post_attachment').
 		$element_type = 'post_' . $post_type;
 		$prefix       = $this->connection->get_prefix();
 
 		// Query WPML translations table.
-		$translations = $this->connection->get_col(
-			$this->connection->prepare(
-				"SELECT element_id
+		$query = $this->connection->prepare(
+			"SELECT element_id
+			FROM {$prefix}icl_translations
+			WHERE trid = (
+				SELECT trid
 				FROM {$prefix}icl_translations
-				WHERE trid = (
-					SELECT trid
-					FROM {$prefix}icl_translations
-					WHERE element_id = %d
-					AND element_type = %s
-				)
-				AND element_type = %s",
-				$post_id,
-				$element_type,
-				$element_type
+				WHERE element_id = %d
+				AND element_type = %s
 			)
+			AND element_type = %s",
+			$post_id,
+			$element_type,
+			$element_type
 		);
+
+		if ( null === $query ) {
+			return array( $post_id );
+		}
+
+		$translations = $this->connection->get_col( $query );
 
 		if ( empty( $translations ) ) {
 			return array( $post_id );
@@ -549,20 +630,22 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 		$counts    = array();
 
 		if ( 'wpml' === $this->active_plugin ) {
+			if ( ! $this->wpml_translations_table_exists() ) {
+				return $counts;
+			}
+
 			$prefix = $this->connection->get_prefix();
 
 			foreach ( $languages as $lang ) {
-				$count = $this->connection->get_var(
-					$this->connection->prepare(
-						"SELECT COUNT(DISTINCT element_id)
-						FROM {$prefix}icl_translations
-						WHERE language_code = %s
-						AND element_type LIKE 'post_%'",
-						$lang
-					)
+				$query = $this->connection->prepare(
+					"SELECT COUNT(DISTINCT element_id)
+					FROM {$prefix}icl_translations
+					WHERE language_code = %s
+					AND element_type LIKE 'post_%'",
+					$lang
 				);
 
-				$counts[ $lang ] = absint( $count );
+				$counts[ $lang ] = null === $query ? 0 : absint( $this->connection->get_var( $query ) );
 			}
 		} elseif ( 'polylang' === $this->active_plugin && function_exists( 'pll_count_posts' ) ) {
 			foreach ( $languages as $lang ) {
@@ -681,10 +764,23 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 	 * @return string Language code or empty string.
 	 */
 	private function get_attachment_language( int $attachment_id ): string {
+		// Check cache first.
+		if ( isset( $this->attachment_language_cache[ $attachment_id ] ) ) {
+			return $this->attachment_language_cache[ $attachment_id ];
+		}
+
+		$lang = '';
+
 		if ( 'wpml' === $this->active_plugin ) {
+			// Guard: WPML table may be missing.
+			if ( ! $this->wpml_translations_table_exists() ) {
+				$this->attachment_language_cache[ $attachment_id ] = $lang;
+				return $lang;
+			}
+
 			$prefix = $this->connection->get_prefix();
 
-			$lang = $this->connection->get_var(
+			$result = $this->connection->get_var(
 				$this->connection->prepare(
 					"SELECT language_code
 					FROM {$prefix}icl_translations
@@ -695,14 +791,15 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 			);
 
 			// Explicit type cast to ensure string return type.
-			return $lang ? (string) $lang : '';
+			$lang = $result ? (string) $result : '';
 		} elseif ( 'polylang' === $this->active_plugin && function_exists( 'pll_get_post_language' ) ) {
-			$lang = pll_get_post_language( $attachment_id );
+			$result = pll_get_post_language( $attachment_id );
 			// Explicit type cast to ensure string return type.
-			return $lang ? (string) $lang : '';
+			$lang = $result ? (string) $result : '';
 		}
 
-		return '';
+		$this->attachment_language_cache[ $attachment_id ] = $lang;
+		return $lang;
 	}
 
 	/**
@@ -794,6 +891,10 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 		$prefix = $this->connection->get_prefix();
 
 		if ( 'wpml' === $this->active_plugin ) {
+			if ( ! $this->wpml_translations_table_exists() ) {
+				return array();
+			}
+
 			// Get all attachments that are part of translation groups.
 			$results = $this->connection->get_col(
 				"SELECT DISTINCT element_id
@@ -810,6 +911,13 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 
 			return array_map( 'absint', $results );
 		} elseif ( 'polylang' === $this->active_plugin ) {
+			// Ensure core taxonomy tables exist (defensive for non-standard setups).
+			if ( ! $this->connection->table_exists( $prefix . 'term_relationships' )
+				|| ! $this->connection->table_exists( $prefix . 'term_taxonomy' )
+				|| ! $this->connection->table_exists( $prefix . 'posts' ) ) {
+				return array();
+			}
+
 			// Get all attachments that have translations in Polylang.
 			// Polylang uses term relationships for language associations.
 			$results = $this->connection->get_col(
@@ -912,6 +1020,11 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 		}
 
 		if ( 'wpml' === $this->active_plugin ) {
+			// Guard: WPML table may be missing.
+			if ( ! $this->wpml_translations_table_exists() ) {
+				return '';
+			}
+
 			$prefix       = $this->connection->get_prefix();
 			$element_type = 'post_' . $post_type;
 
@@ -926,10 +1039,12 @@ class Multilingual extends AbstractIntegration implements MediaAwareIntegrationI
 				)
 			);
 
-			return $lang ? $lang : '';
+			// Explicit type cast to ensure string return type.
+			return $lang ? (string) $lang : '';
 		} elseif ( 'polylang' === $this->active_plugin && function_exists( 'pll_get_post_language' ) ) {
 			$lang = pll_get_post_language( $post_id );
-			return $lang ? $lang : '';
+			// Explicit type cast to ensure string return type.
+			return $lang ? (string) $lang : '';
 		}
 
 		return '';

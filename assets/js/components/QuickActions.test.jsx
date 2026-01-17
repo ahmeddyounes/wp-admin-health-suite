@@ -250,8 +250,44 @@ describe('QuickActions', () => {
 			.closest('[role="button"]');
 
 		// Verify the button has keyboard handlers attached (keyboard accessibility)
-		expect(emptyTrashButton).toHaveProperty('onkeypress');
+		expect(emptyTrashButton).toHaveProperty('onkeydown');
 		expect(emptyTrashButton).toHaveAttribute('tabindex', '0');
+	});
+
+	it('opens confirmation modal when Enter key is pressed on action button', () => {
+		render(<QuickActions />);
+		const emptyTrashButton = screen
+			.getByText('Empty Trash')
+			.closest('[role="button"]');
+
+		fireEvent.keyDown(emptyTrashButton, { key: 'Enter' });
+
+		expect(screen.getByText('Confirm Empty Trash')).toBeInTheDocument();
+	});
+
+	it('opens confirmation modal when Space key is pressed on action button', () => {
+		render(<QuickActions />);
+		const emptyTrashButton = screen
+			.getByText('Empty Trash')
+			.closest('[role="button"]');
+
+		fireEvent.keyDown(emptyTrashButton, { key: ' ' });
+
+		expect(screen.getByText('Confirm Empty Trash')).toBeInTheDocument();
+	});
+
+	it('closes modal when Escape key is pressed', () => {
+		render(<QuickActions />);
+		const emptyTrashButton = screen.getByText('Empty Trash');
+		fireEvent.click(emptyTrashButton);
+
+		expect(screen.getByText('Confirm Empty Trash')).toBeInTheDocument();
+
+		fireEvent.keyDown(document, { key: 'Escape' });
+
+		expect(
+			screen.queryByText('Confirm Empty Trash')
+		).not.toBeInTheDocument();
 	});
 
 	it('renders correct number of action buttons', () => {

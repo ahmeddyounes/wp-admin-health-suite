@@ -95,4 +95,22 @@ interface ActivityLoggerInterface {
 	 * @return bool True if table exists, false otherwise.
 	 */
 	public function table_exists(): bool;
+
+	/**
+	 * Prune old activity logs based on retention settings.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return int Number of rows deleted.
+	 */
+	public function prune_old_logs(): int;
+
+	/**
+	 * Get the total count of log entries.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return int Total count of log entries.
+	 */
+	public function get_log_count(): int;
 }

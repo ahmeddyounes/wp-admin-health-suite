@@ -34,13 +34,14 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 	const BATCH_SIZE = 100;
 
 	/**
-	 * Elementor meta keys that store JSON data.
+	 * Elementor meta keys that store builder data and related settings.
 	 *
 	 * @var array<string>
 	 */
 	const ELEMENTOR_META_KEYS = array(
 		'_elementor_data',
 		'_elementor_draft',
+		'_elementor_page_settings',
 	);
 
 	/**
@@ -318,7 +319,8 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 	/**
 	 * Check if an attachment is used in Elementor content.
 	 *
-	 * Parses Elementor JSON data for image IDs, background images, and gallery widgets.
+	 * Parses Elementor builder data and page settings for media IDs, including
+	 * dynamic-tag values that may embed JSON inside strings.
 	 * Uses targeted search with LIKE patterns to avoid loading all Elementor data.
 	 *
 	 * @since 1.0.0
@@ -333,43 +335,46 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 		}
 
 		$prefix     = $this->connection->get_prefix();
-		$escaped_id = $this->connection->esc_like( (string) $attachment_id );
 
-		// Search for the attachment ID pattern in Elementor JSON data.
-		// Uses word boundaries to prevent false positives (e.g., ID 12 matching 123).
+		// Search for the attachment ID pattern in Elementor builder/page-settings data.
 		$meta_keys_placeholders = implode( ',', array_fill( 0, count( self::ELEMENTOR_META_KEYS ), '%s' ) );
 
+		$like_patterns     = $this->build_attachment_like_patterns_strict( $attachment_id );
+		$like_placeholders = implode( ' OR ', array_fill( 0, count( $like_patterns ), 'pm.meta_value LIKE %s' ) );
+
+		// Use LIKE pre-filtering to avoid loading all Elementor data for every attachment.
+		// We still verify via parsing to prevent false positives.
 		$query = "SELECT pm.meta_value
 			FROM {$prefix}postmeta pm
 			INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
 			WHERE pm.meta_key IN ($meta_keys_placeholders)
 			AND p.post_status NOT IN ('trash', 'auto-draft')
 			AND (
-				pm.meta_value LIKE %s
-				OR pm.meta_value LIKE %s
-				OR pm.meta_value LIKE %s
-				OR pm.meta_value LIKE %s
+				{$like_placeholders}
 			)
-			LIMIT 1";
+			LIMIT %d";
 
-		$result = $this->connection->get_var(
+		$results = $this->connection->get_col(
 			$this->connection->prepare(
 				$query,
 				...array_merge(
 					self::ELEMENTOR_META_KEYS,
-					array(
-						'%"id":' . $escaped_id . ',%',
-						'%"id":' . $escaped_id . '}%',
-						'%"id": ' . $escaped_id . ',%',
-						'%"id": ' . $escaped_id . '}%',
-					)
+					$like_patterns,
+					array( 25 ) // Small batch to allow verification without missing true matches.
 				)
 			)
 		);
 
-		if ( $result ) {
-			// Verify it's actually this attachment (not just substring match).
-			return $this->is_attachment_in_elementor_data( $result, $attachment_id );
+		foreach ( $results as $meta_value ) {
+			if ( $this->is_attachment_in_elementor_data( (string) $meta_value, $attachment_id ) ) {
+				return true;
+			}
+		}
+
+		// Fallback: Elementor dynamic tags can store JSON blobs as escaped strings (e.g. __dynamic__),
+		// which won't match the strict LIKE patterns above. Do a targeted scan for those cases.
+		if ( $this->is_attachment_in_elementor_dynamic_data( $attachment_id ) ) {
+			return true;
 		}
 
 		return $is_used;
@@ -421,7 +426,7 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 	private function search_elementor_structure( array $data, int $attachment_id ): bool {
 		foreach ( $data as $key => $value ) {
 			// Check for direct ID match in various Elementor fields.
-			if ( in_array( $key, array( 'id', 'image_id', 'background_image', 'thumbnail_id' ), true ) ) {
+			if ( in_array( $key, array( 'id', 'image_id', 'background_image', 'thumbnail_id', 'attachment_id', 'media_id' ), true ) ) {
 				if ( absint( $value ) === absint( $attachment_id ) ) {
 					return true;
 				}
@@ -478,6 +483,14 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 			// Recursively search nested arrays.
 			if ( is_array( $value ) ) {
 				if ( $this->search_elementor_structure( $value, $attachment_id ) ) {
+					return true;
+				}
+			}
+
+			// Elementor dynamic fields can store JSON/serialized data inside strings (e.g. __dynamic__).
+			if ( is_string( $value ) ) {
+				$decoded = $this->maybe_decode_nested_string( $value );
+				if ( is_array( $decoded ) && $this->search_elementor_structure( $decoded, $attachment_id ) ) {
 					return true;
 				}
 			}
@@ -706,23 +719,18 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 	public function get_attachment_usage( int $attachment_id, int $limit = 100 ): array {
 		$prefix     = $this->connection->get_prefix();
 		$usages     = array();
-		$escaped_id = $this->connection->esc_like( (string) $attachment_id );
 
 		$meta_keys_placeholders = implode( ',', array_fill( 0, count( self::ELEMENTOR_META_KEYS ), '%s' ) );
+		$like_patterns          = $this->build_attachment_like_patterns_strict( $attachment_id );
+		$like_placeholders      = implode( ' OR ', array_fill( 0, count( $like_patterns ), 'pm.meta_value LIKE %s' ) );
 
 		// Search for posts containing this specific attachment ID in Elementor data.
-		// Uses word boundaries (comma, brace) to prevent false positives (e.g., ID 12 matching 123).
 		$query = "SELECT pm.post_id, p.post_title, pm.meta_value
 			FROM {$prefix}postmeta pm
 			INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
 			WHERE pm.meta_key IN ($meta_keys_placeholders)
 			AND p.post_status NOT IN ('trash', 'auto-draft')
-			AND (
-				pm.meta_value LIKE %s
-				OR pm.meta_value LIKE %s
-				OR pm.meta_value LIKE %s
-				OR pm.meta_value LIKE %s
-			)
+			AND ({$like_placeholders})
 			LIMIT %d";
 
 		$results = $this->connection->get_results(
@@ -730,13 +738,8 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 				$query,
 				...array_merge(
 					self::ELEMENTOR_META_KEYS,
-					array(
-						'%"id":' . $escaped_id . ',%',
-						'%"id":' . $escaped_id . '}%',
-						'%"id": ' . $escaped_id . ',%',
-						'%"id": ' . $escaped_id . '}%',
-						$limit,
-					)
+					$like_patterns,
+					array( $limit )
 				)
 			),
 			'OBJECT'
@@ -745,12 +748,24 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 		foreach ( $results as $result ) {
 			$contexts = $this->find_attachment_contexts_in_elementor_data( $result->meta_value, $attachment_id );
 
+			if ( empty( $contexts ) ) {
+				continue;
+			}
+
 			foreach ( $contexts as $context ) {
 				$usages[] = array(
 					'post_id'    => absint( $result->post_id ),
 					'post_title' => $result->post_title,
 					'context'    => $context,
 				);
+			}
+		}
+
+		// Add dynamic-tag usages (escaped JSON blobs stored in strings).
+		if ( count( $usages ) < $limit ) {
+			$dynamic_usages = $this->get_dynamic_attachment_usage( $attachment_id, $limit - count( $usages ) );
+			if ( ! empty( $dynamic_usages ) ) {
+				$usages = array_merge( $usages, $dynamic_usages );
 			}
 		}
 
@@ -795,7 +810,7 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 
 		foreach ( $data as $key => $value ) {
 			// Check for direct ID match in various Elementor fields.
-			if ( in_array( $key, array( 'id', 'image_id', 'background_image', 'thumbnail_id' ), true ) ) {
+			if ( in_array( $key, array( 'id', 'image_id', 'background_image', 'thumbnail_id', 'attachment_id', 'media_id' ), true ) ) {
 				if ( is_numeric( $value ) && absint( $value ) > 0 ) {
 					$ids[] = absint( $value );
 				}
@@ -842,6 +857,14 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 			// Recursively search nested arrays.
 			if ( is_array( $value ) ) {
 				$ids = array_merge( $ids, $this->collect_attachment_ids_from_structure( $value ) );
+			}
+
+			// Elementor dynamic fields can store JSON/serialized data inside strings (e.g. __dynamic__).
+			if ( is_string( $value ) ) {
+				$decoded = $this->maybe_decode_nested_string( $value );
+				if ( is_array( $decoded ) ) {
+					$ids = array_merge( $ids, $this->collect_attachment_ids_from_structure( $decoded ) );
+				}
 			}
 		}
 
@@ -951,8 +974,239 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 			if ( is_array( $value ) ) {
 				$contexts = array_merge( $contexts, $this->find_contexts_in_structure( $value, $attachment_id, $widget_type ) );
 			}
+
+			// Elementor dynamic fields can store JSON/serialized data inside strings (e.g. __dynamic__).
+			if ( is_string( $value ) ) {
+				$decoded = $this->maybe_decode_nested_string( $value );
+				if ( is_array( $decoded ) ) {
+					$contexts = array_merge( $contexts, $this->find_contexts_in_structure( $decoded, $attachment_id, $widget_type ) );
+				}
+			}
 		}
 
 		return array_unique( $contexts );
+	}
+
+	/**
+	 * Build LIKE patterns to locate an attachment ID in Elementor meta blobs.
+	 *
+	 * Elementor data can be stored as JSON, serialized PHP arrays (page settings),
+	 * and other formats depending on Elementor version and feature usage.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return array<string> LIKE patterns.
+	 */
+	private function build_attachment_like_patterns_strict( int $attachment_id ): array {
+		$id      = (string) $attachment_id;
+		$escaped = $this->connection->esc_like( $id );
+
+		$patterns = array();
+
+		// JSON: "id":123, "id": 123, "id":"123", "id": "123" (with common JSON delimiters).
+		foreach ( array( '', ' ' ) as $space ) {
+			$patterns[] = '%"id":' . $space . $escaped . ',%';
+			$patterns[] = '%"id":' . $space . $escaped . '}%';
+			$patterns[] = '%"id":' . $space . $escaped . ']%';
+			$patterns[] = '%"id":' . $space . '"' . $escaped . '",%';
+			$patterns[] = '%"id":' . $space . '"' . $escaped . '"}%';
+			$patterns[] = '%"id":' . $space . '"' . $escaped . '"]%';
+		}
+
+		// Serialized: s:2:"id";i:123; and s:2:"id";s:N:"123";
+		$patterns[] = '%' . $this->connection->esc_like( 's:2:"id";i:' . $id . ';' ) . '%';
+		$patterns[] = '%' . $this->connection->esc_like( 's:2:"id";s:' ) . '%' . $this->connection->esc_like( ':"' . $id . '";' ) . '%';
+
+		return array_values( array_unique( $patterns ) );
+	}
+
+	/**
+	 * Detect attachment usage in Elementor dynamic-tag data.
+	 *
+	 * Dynamic tags can embed JSON blobs inside string fields (escaped within the main JSON),
+	 * which means the attachment ID may not match strict `"id":123` LIKE patterns.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return bool True if found.
+	 */
+	private function is_attachment_in_elementor_dynamic_data( int $attachment_id ): bool {
+		$prefix                 = $this->connection->get_prefix();
+		$meta_keys_placeholders = implode( ',', array_fill( 0, count( self::ELEMENTOR_META_KEYS ), '%s' ) );
+
+		$dynamic_marker = '%' . $this->connection->esc_like( '__dynamic__' ) . '%';
+		$id_str         = (string) $attachment_id;
+		$escaped_id     = $this->connection->esc_like( $id_str );
+
+		$id_patterns = array(
+			'%:' . $escaped_id . ',%',
+			'%:' . $escaped_id . '}%',
+			'%:' . $escaped_id . ']%',
+			'%: ' . $escaped_id . ',%',
+			'%: ' . $escaped_id . '}%',
+			'%: ' . $escaped_id . ']%',
+		);
+		$id_placeholders = implode( ' OR ', array_fill( 0, count( $id_patterns ), 'pm.meta_value LIKE %s' ) );
+
+		$batch_size  = 50;
+		$offset      = 0;
+		$max_batches = 20;
+		$batches     = 0;
+
+		do {
+			$query = "SELECT pm.meta_value
+				FROM {$prefix}postmeta pm
+				INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
+				WHERE pm.meta_key IN ($meta_keys_placeholders)
+				AND p.post_status NOT IN ('trash', 'auto-draft')
+				AND pm.meta_value LIKE %s
+				AND (
+					{$id_placeholders}
+				)
+				ORDER BY pm.meta_id
+				LIMIT %d OFFSET %d";
+
+			$results = $this->connection->get_col(
+				$this->connection->prepare(
+					$query,
+					...array_merge(
+						self::ELEMENTOR_META_KEYS,
+						array_merge( array( $dynamic_marker ), $id_patterns, array( $batch_size, $offset ) )
+					)
+				)
+			);
+
+			if ( empty( $results ) ) {
+				break;
+			}
+
+			foreach ( $results as $meta_value ) {
+				if ( $this->is_attachment_in_elementor_data( (string) $meta_value, $attachment_id ) ) {
+					return true;
+				}
+			}
+
+			$offset += $batch_size;
+			++$batches;
+		} while ( count( $results ) === $batch_size && $batches < $max_batches );
+
+		if ( $batches >= $max_batches && ! empty( $results ) && count( $results ) === $batch_size ) {
+			$this->log_batch_limit_warning( 'is_attachment_in_elementor_dynamic_data', $batches, $max_batches, $batch_size );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get attachment usage locations from Elementor dynamic-tag data.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @param int $limit         Maximum number of results.
+	 * @return array<array{post_id: int, post_title: string, context: string}> Usage locations.
+	 */
+	private function get_dynamic_attachment_usage( int $attachment_id, int $limit ): array {
+		if ( $limit <= 0 ) {
+			return array();
+		}
+
+		$prefix                 = $this->connection->get_prefix();
+		$meta_keys_placeholders = implode( ',', array_fill( 0, count( self::ELEMENTOR_META_KEYS ), '%s' ) );
+
+		$dynamic_marker = '%' . $this->connection->esc_like( '__dynamic__' ) . '%';
+		$id_str         = (string) $attachment_id;
+		$escaped_id     = $this->connection->esc_like( $id_str );
+
+		$id_patterns = array(
+			'%:' . $escaped_id . ',%',
+			'%:' . $escaped_id . '}%',
+			'%:' . $escaped_id . ']%',
+			'%: ' . $escaped_id . ',%',
+			'%: ' . $escaped_id . '}%',
+			'%: ' . $escaped_id . ']%',
+		);
+		$id_placeholders = implode( ' OR ', array_fill( 0, count( $id_patterns ), 'pm.meta_value LIKE %s' ) );
+
+		$query = "SELECT pm.post_id, p.post_title, pm.meta_value
+			FROM {$prefix}postmeta pm
+			INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
+			WHERE pm.meta_key IN ($meta_keys_placeholders)
+			AND p.post_status NOT IN ('trash', 'auto-draft')
+			AND pm.meta_value LIKE %s
+			AND (
+				{$id_placeholders}
+			)
+			ORDER BY p.post_modified DESC
+			LIMIT %d";
+
+		$results = $this->connection->get_results(
+			$this->connection->prepare(
+				$query,
+				...array_merge(
+					self::ELEMENTOR_META_KEYS,
+					array_merge( array( $dynamic_marker ), $id_patterns, array( $limit ) )
+				)
+			),
+			'OBJECT'
+		);
+
+		$usages = array();
+		foreach ( $results as $result ) {
+			$contexts = $this->find_attachment_contexts_in_elementor_data( $result->meta_value, $attachment_id );
+			if ( empty( $contexts ) ) {
+				continue;
+			}
+
+			foreach ( $contexts as $context ) {
+				$usages[] = array(
+					'post_id'    => absint( $result->post_id ),
+					'post_title' => $result->post_title,
+					'context'    => $context,
+				);
+			}
+		}
+
+		return $usages;
+	}
+
+	/**
+	 * Attempt to decode nested JSON/serialized strings in Elementor data.
+	 *
+	 * Elementor dynamic fields (e.g. __dynamic__) can store JSON blobs as strings
+	 * inside the main JSON structure.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $value Potentially encoded value.
+	 * @return array<mixed>|null Decoded array, or null if not decodable.
+	 */
+	private function maybe_decode_nested_string( string $value ): ?array {
+		$trimmed = trim( $value );
+		if ( '' === $trimmed ) {
+			return null;
+		}
+
+		// Prevent excessive work on very large strings.
+		if ( strlen( $trimmed ) > 200000 ) {
+			return null;
+		}
+
+		$first_char = $trimmed[0];
+		if ( '{' === $first_char || '[' === $first_char ) {
+			$decoded = json_decode( $trimmed, true );
+			if ( is_array( $decoded ) ) {
+				return $decoded;
+			}
+		}
+
+		$decoded = maybe_unserialize( $trimmed );
+		if ( is_array( $decoded ) ) {
+			return $decoded;
+		}
+
+		return null;
 	}
 }

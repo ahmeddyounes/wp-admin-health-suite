@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import PropTypes from 'prop-types';
 
 /**
  * Trend direction types and their corresponding arrow symbols
@@ -37,6 +38,8 @@ const TREND_COLORS = {
  * @param {string}        props.trend      - Trend direction: 'up', 'down', or 'neutral'
  * @param {string}        props.trendValue - Percentage change from last scan (e.g., "5.2" for 5.2%)
  * @param {string}        props.icon       - Icon class or dashicon name (e.g., "dashicons-database")
+ * @param {boolean}       props.loading    - Whether the component is in loading state
+ * @param {string}        props.error      - Error message to display
  * @param {Function}      props.onClick    - Click handler for navigation
  * @return {JSX.Element} Rendered component
  */
@@ -47,6 +50,8 @@ const MetricCard = ({
 	trend = 'neutral',
 	trendValue = null,
 	icon = 'dashicons-chart-bar',
+	loading = false,
+	error = null,
 	onClick = null,
 }) => {
 	// Validate trend direction
@@ -56,24 +61,36 @@ const MetricCard = ({
 	const trendIndicator = TREND_INDICATORS[validTrend];
 	const trendColor = TREND_COLORS[validTrend];
 
+	// Handle null/undefined values with fallback
+	const displayValue = value ?? '—';
+
 	// Format trend display
 	const trendDisplay =
 		trendValue !== null
 			? `${trendIndicator} ${trendValue}%`
 			: trendIndicator;
 
-	// Accessibility label
-	const ariaLabel = `${title}: ${value} ${unit}${
-		trendValue !== null
-			? `, trend ${validTrend} by ${trendValue} percent`
-			: ''
-	}`;
+	// Build accessibility label based on state
+	const getAriaLabel = () => {
+		if (loading) {
+			return `${title}: Loading`;
+		}
+		if (error) {
+			return `${title}: Error - ${error}`;
+		}
+		const trendText =
+			trendValue !== null
+				? `, trend ${validTrend} by ${trendValue} percent`
+				: '';
+		return `${title}: ${displayValue} ${unit}${trendText}`;
+	};
+	const ariaLabel = getAriaLabel();
 
 	// Determine if card should be interactive
 	const isClickable = typeof onClick === 'function';
 
-	// Handle keyboard navigation
-	const handleKeyPress = (e) => {
+	// Handle keyboard navigation (using onKeyDown instead of deprecated onKeyPress)
+	const handleKeyDown = (e) => {
 		if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
 			e.preventDefault();
 			onClick();
@@ -167,8 +184,73 @@ const MetricCard = ({
 		marginLeft: '4px',
 	};
 
+	// Loading skeleton styles
+	const loadingSkeletonStyles = {
+		backgroundColor: '#e0e0e0',
+		borderRadius: '4px',
+		animation: 'pulse 1.5s ease-in-out infinite',
+	};
+
+	// Error styles
+	const errorStyles = {
+		fontSize: '14px',
+		fontWeight: '500',
+		color: '#d63638',
+		lineHeight: '1.4',
+	};
+
 	// State management for hover
 	const [isHovered, setIsHovered] = React.useState(false);
+
+	// Render loading skeleton content
+	const renderLoadingContent = () => (
+		<div style={contentStyles}>
+			<div
+				style={{
+					...loadingSkeletonStyles,
+					width: '80px',
+					height: '16px',
+					marginBottom: '8px',
+				}}
+				aria-hidden="true"
+			/>
+			<div
+				style={{
+					...loadingSkeletonStyles,
+					width: '60px',
+					height: '28px',
+				}}
+				aria-hidden="true"
+			/>
+		</div>
+	);
+
+	// Render error content
+	const renderErrorContent = () => (
+		<div style={contentStyles}>
+			<h3 style={titleStyles}>{title}</h3>
+			<div style={errorStyles}>{error}</div>
+		</div>
+	);
+
+	// Render normal content
+	const renderContent = () => (
+		<div style={contentStyles}>
+			<h3 style={titleStyles}>{title}</h3>
+			<div style={valueContainerStyles}>
+				<span style={valueStyles}>{displayValue}</span>
+				{unit && <span style={unitStyles}>{unit}</span>}
+				{trendValue !== null && !loading && !error && (
+					<span
+						style={trendStyles}
+						aria-label={`Trend ${validTrend} by ${trendValue} percent`}
+					>
+						{trendDisplay}
+					</span>
+				)}
+			</div>
+		</div>
+	);
 
 	return (
 		<div
@@ -176,42 +258,54 @@ const MetricCard = ({
 			role={isClickable ? 'button' : 'article'}
 			tabIndex={isClickable ? 0 : undefined}
 			aria-label={ariaLabel}
-			onClick={isClickable ? onClick : undefined}
-			onKeyPress={handleKeyPress}
+			aria-busy={loading}
+			onClick={isClickable && !loading ? onClick : undefined}
+			onKeyDown={handleKeyDown}
 			onMouseEnter={() => setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 			style={{
 				...cardStyles,
-				...(isHovered && isClickable ? hoverStyles : {}),
+				...(isHovered && isClickable && !loading ? hoverStyles : {}),
+				...(loading ? { opacity: 0.7 } : {}),
+				...(error ? { borderColor: '#d63638' } : {}),
 			}}
 		>
 			{/* Icon */}
 			<div style={iconContainerStyles}>
 				<span
-					className={`dashicons ${icon}`}
-					style={iconStyles}
+					className={`dashicons ${loading ? 'dashicons-update' : icon}`}
+					style={{
+						...iconStyles,
+						...(loading
+							? { animation: 'spin 1s linear infinite' }
+							: {}),
+						...(error ? { color: '#d63638' } : {}),
+					}}
 					aria-hidden="true"
 				/>
 			</div>
 
 			{/* Content */}
-			<div style={contentStyles}>
-				<h3 style={titleStyles}>{title}</h3>
-				<div style={valueContainerStyles}>
-					<span style={valueStyles}>{value}</span>
-					{unit && <span style={unitStyles}>{unit}</span>}
-					{trendValue !== null && (
-						<span
-							style={trendStyles}
-							aria-label={`Trend ${validTrend} by ${trendValue} percent`}
-						>
-							{trendDisplay}
-						</span>
-					)}
-				</div>
-			</div>
+			{loading && renderLoadingContent()}
+			{!loading && error && renderErrorContent()}
+			{!loading && !error && renderContent()}
 		</div>
 	);
+};
+
+/**
+ * PropTypes for MetricCard
+ */
+MetricCard.propTypes = {
+	title: PropTypes.string.isRequired,
+	value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+	unit: PropTypes.string,
+	trend: PropTypes.oneOf(['up', 'down', 'neutral']),
+	trendValue: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+	icon: PropTypes.string,
+	loading: PropTypes.bool,
+	error: PropTypes.string,
+	onClick: PropTypes.func,
 };
 
 export default MetricCard;

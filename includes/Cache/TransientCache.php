@@ -23,6 +23,18 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Implements caching using WordPress transients.
  * Best for sites without persistent object caching.
  *
+ * Key features:
+ * - Value wrapping to distinguish stored false/null from cache misses
+ * - Configurable key prefix for namespace isolation
+ * - Optional ConnectionInterface for database operations
+ *
+ * Limitations:
+ * - WordPress transient keys are limited to 172 characters total
+ *   (45 chars for the key in `_transient_` context)
+ * - TTL cannot be preserved during increment/decrement operations
+ * - Site transients (multisite network-wide) are not supported;
+ *   use the standard transients which are site-specific
+ *
  * @since 1.1.0
  */
 class TransientCache implements CacheInterface {
@@ -66,13 +78,38 @@ class TransientCache implements CacheInterface {
 	private const WRAPPER_KEY = '_wpha_v';
 
 	/**
+	 * Maximum key length for transients.
+	 *
+	 * WordPress transient key storage is limited. The total key
+	 * including `_transient_` prefix (11 chars) or `_transient_timeout_`
+	 * prefix (19 chars) must fit within option_name column constraints.
+	 *
+	 * @var int
+	 */
+	private const MAX_KEY_LENGTH = 172;
+
+	/**
 	 * Build a prefixed cache key.
 	 *
+	 * Sanitizes the key by removing characters that could cause issues
+	 * with WordPress options table storage.
+	 *
 	 * @param string $key Cache key.
-	 * @return string Prefixed key.
+	 * @return string Prefixed and sanitized key.
 	 */
 	private function build_key( string $key ): string {
-		return $this->prefix . $key;
+		$full_key = $this->prefix . $key;
+
+		// Ensure key doesn't exceed WordPress limits.
+		// The _transient_timeout_ prefix is 19 chars, leaving 153 chars for the key.
+		if ( strlen( $full_key ) > self::MAX_KEY_LENGTH - 19 ) {
+			// Use a hash suffix for long keys to ensure uniqueness.
+			$hash     = md5( $full_key );
+			$max_base = self::MAX_KEY_LENGTH - 19 - 33; // 33 = underscore + 32 char hash.
+			$full_key = substr( $full_key, 0, $max_base ) . '_' . $hash;
+		}
+
+		return $full_key;
 	}
 
 	/**

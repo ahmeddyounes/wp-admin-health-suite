@@ -408,6 +408,23 @@ if ( ! function_exists( 'has_action' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_get_environment_type' ) ) {
+	/**
+	 * Get environment type stub.
+	 *
+	 * Returns the value from WPHA_TEST_WP_ENVIRONMENT global if set,
+	 * otherwise returns 'production'.
+	 *
+	 * @return string Environment type.
+	 */
+	function wp_get_environment_type() {
+		if ( isset( $GLOBALS['wpha_test_wp_environment'] ) ) {
+			return $GLOBALS['wpha_test_wp_environment'];
+		}
+		return 'production';
+	}
+}
+
 if ( ! function_exists( 'site_url' ) ) {
 	/**
 	 * Site URL stub.
@@ -653,15 +670,18 @@ if ( ! function_exists( 'sanitize_title' ) ) {
 
 if ( ! function_exists( 'wp_cache_get' ) ) {
 	/**
-	 * WP cache get stub - always returns false.
+	 * WP cache get stub.
 	 *
 	 * @param string $key   Cache key.
 	 * @param string $group Cache group.
 	 * @param bool   $force Whether to force update.
 	 * @param bool   $found Whether key was found (passed by reference).
-	 * @return mixed False by default.
+	 * @return mixed Cached value or false.
 	 */
 	function wp_cache_get( $key, $group = '', $force = false, &$found = null ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_get'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_get'] )( $key, $group, $force, $found );
+		}
 		$found = false;
 		return false;
 	}
@@ -669,29 +689,179 @@ if ( ! function_exists( 'wp_cache_get' ) ) {
 
 if ( ! function_exists( 'wp_cache_set' ) ) {
 	/**
-	 * WP cache set stub - always succeeds.
+	 * WP cache set stub.
 	 *
 	 * @param string $key    Cache key.
 	 * @param mixed  $data   Data to cache.
 	 * @param string $group  Cache group.
 	 * @param int    $expire Expiration in seconds.
-	 * @return bool Always true.
+	 * @return bool True on success.
 	 */
 	function wp_cache_set( $key, $data, $group = '', $expire = 0 ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_set'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_set'] )( $key, $data, $group, $expire );
+		}
 		return true;
 	}
 }
 
 if ( ! function_exists( 'wp_cache_delete' ) ) {
 	/**
-	 * WP cache delete stub - always succeeds.
+	 * WP cache delete stub.
 	 *
 	 * @param string $key   Cache key.
 	 * @param string $group Cache group.
-	 * @return bool Always true.
+	 * @return bool True on success.
 	 */
 	function wp_cache_delete( $key, $group = '' ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_delete'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_delete'] )( $key, $group );
+		}
 		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_flush' ) ) {
+	/**
+	 * WP cache flush stub.
+	 *
+	 * @return bool True on success.
+	 */
+	function wp_cache_flush() {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_flush'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_flush'] )();
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_incr' ) ) {
+	/**
+	 * WP cache increment stub.
+	 *
+	 * @param string $key    Cache key.
+	 * @param int    $offset Amount to increment.
+	 * @param string $group  Cache group.
+	 * @return int|false New value on success, false on failure.
+	 */
+	function wp_cache_incr( $key, $offset = 1, $group = '' ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_incr'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_incr'] )( $key, $offset, $group );
+		}
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_decr' ) ) {
+	/**
+	 * WP cache decrement stub.
+	 *
+	 * @param string $key    Cache key.
+	 * @param int    $offset Amount to decrement.
+	 * @param string $group  Cache group.
+	 * @return int|false New value on success, false on failure.
+	 */
+	function wp_cache_decr( $key, $offset = 1, $group = '' ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_decr'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_decr'] )( $key, $offset, $group );
+		}
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_flush_group' ) ) {
+	/**
+	 * WP cache flush group stub.
+	 *
+	 * @param string $group Cache group.
+	 * @return bool True on success, false if not supported.
+	 */
+	function wp_cache_flush_group( $group ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_flush_group'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_flush_group'] )( $group );
+		}
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_get_multiple' ) ) {
+	/**
+	 * WP cache get multiple stub.
+	 *
+	 * @param array  $keys  Array of keys.
+	 * @param string $group Cache group.
+	 * @return array Array of key => value pairs.
+	 */
+	function wp_cache_get_multiple( $keys, $group = '' ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_get_multiple'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_get_multiple'] )( $keys, $group );
+		}
+		// Fallback to individual gets.
+		$results = array();
+		foreach ( $keys as $key ) {
+			$results[ $key ] = wp_cache_get( $key, $group );
+		}
+		return $results;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_set_multiple' ) ) {
+	/**
+	 * WP cache set multiple stub.
+	 *
+	 * @param array  $data   Associative array of key => value.
+	 * @param string $group  Cache group.
+	 * @param int    $expire Expiration in seconds.
+	 * @return array Array of key => success pairs.
+	 */
+	function wp_cache_set_multiple( $data, $group = '', $expire = 0 ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_set_multiple'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_set_multiple'] )( $data, $group, $expire );
+		}
+		// Fallback to individual sets.
+		$results = array();
+		foreach ( $data as $key => $value ) {
+			$results[ $key ] = wp_cache_set( $key, $value, $group, $expire );
+		}
+		return $results;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_delete_multiple' ) ) {
+	/**
+	 * WP cache delete multiple stub.
+	 *
+	 * @param array  $keys  Array of keys.
+	 * @param string $group Cache group.
+	 * @return array Array of key => success pairs.
+	 */
+	function wp_cache_delete_multiple( $keys, $group = '' ) {
+		if ( isset( $GLOBALS['wpha_test_wp_cache_delete_multiple'] ) ) {
+			return ( $GLOBALS['wpha_test_wp_cache_delete_multiple'] )( $keys, $group );
+		}
+		// Fallback to individual deletes.
+		$results = array();
+		foreach ( $keys as $key ) {
+			$results[ $key ] = wp_cache_delete( $key, $group );
+		}
+		return $results;
+	}
+}
+
+if ( ! function_exists( 'wp_using_ext_object_cache' ) ) {
+	/**
+	 * Check if using external object cache stub.
+	 *
+	 * Returns the value from global if set, otherwise false.
+	 *
+	 * @param bool|null $using Optional. Set external object cache status.
+	 * @return bool Whether using external object cache.
+	 */
+	function wp_using_ext_object_cache( $using = null ) {
+		if ( null !== $using ) {
+			$GLOBALS['wpha_test_ext_object_cache'] = (bool) $using;
+		}
+		return isset( $GLOBALS['wpha_test_ext_object_cache'] ) ? $GLOBALS['wpha_test_ext_object_cache'] : false;
 	}
 }
 
@@ -969,8 +1139,60 @@ if ( ! function_exists( 'get_post' ) ) {
 	 * @return object|null Post object or null.
 	 */
 	function get_post( $post_id = null, $output = 'OBJECT', $filter = 'raw' ) {
+		// Allow tests to inject posts via global map.
+		if ( isset( $GLOBALS['wpha_test_posts'] ) && is_array( $GLOBALS['wpha_test_posts'] ) ) {
+			if ( isset( $GLOBALS['wpha_test_posts'][ $post_id ] ) ) {
+				return $GLOBALS['wpha_test_posts'][ $post_id ];
+			}
+		}
 		// Return null by default - tests should mock this.
 		return null;
+	}
+}
+
+if ( ! function_exists( 'get_post_type' ) ) {
+	/**
+	 * Get post type stub.
+	 *
+	 * @param int|WP_Post|null $post Post ID or post object.
+	 * @return string|false Post type on success, false on failure.
+	 */
+	function get_post_type( $post = null ) {
+		// Allow tests to inject post types via global map.
+		$post_id = is_object( $post ) ? $post->ID : $post;
+		if ( isset( $GLOBALS['wpha_test_post_types'] ) && is_array( $GLOBALS['wpha_test_post_types'] ) ) {
+			if ( isset( $GLOBALS['wpha_test_post_types'][ $post_id ] ) ) {
+				return $GLOBALS['wpha_test_post_types'][ $post_id ];
+			}
+		}
+		// Check test posts for post_type property.
+		if ( isset( $GLOBALS['wpha_test_posts'] ) && is_array( $GLOBALS['wpha_test_posts'] ) ) {
+			if ( isset( $GLOBALS['wpha_test_posts'][ $post_id ] ) ) {
+				$test_post = $GLOBALS['wpha_test_posts'][ $post_id ];
+				if ( is_object( $test_post ) && isset( $test_post->post_type ) ) {
+					return $test_post->post_type;
+				}
+			}
+		}
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_get_attachment_url' ) ) {
+	/**
+	 * Get attachment URL stub.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return string|false Attachment URL or false.
+	 */
+	function wp_get_attachment_url( $attachment_id ) {
+		// Allow tests to inject attachment URLs via global map.
+		if ( isset( $GLOBALS['wpha_test_attachment_urls'] ) && is_array( $GLOBALS['wpha_test_attachment_urls'] ) ) {
+			if ( isset( $GLOBALS['wpha_test_attachment_urls'][ $attachment_id ] ) ) {
+				return $GLOBALS['wpha_test_attachment_urls'][ $attachment_id ];
+			}
+		}
+		return false;
 	}
 }
 
@@ -1010,7 +1232,46 @@ if ( ! function_exists( 'get_post_meta' ) ) {
 	 * @return mixed Meta value(s).
 	 */
 	function get_post_meta( $post_id, $key = '', $single = false ) {
+		// Allow tests to inject meta values via a global map.
+		// Format: [ post_id => [ meta_key => value ] ].
+		if ( isset( $GLOBALS['wpha_test_post_meta'] ) && is_array( $GLOBALS['wpha_test_post_meta'] ) ) {
+			$map = $GLOBALS['wpha_test_post_meta'];
+			if ( isset( $map[ $post_id ] ) && is_array( $map[ $post_id ] ) && array_key_exists( $key, $map[ $post_id ] ) ) {
+				return $map[ $post_id ][ $key ];
+			}
+		}
 		return $single ? '' : array();
+	}
+}
+
+if ( ! function_exists( 'maybe_unserialize' ) ) {
+	/**
+	 * Maybe unserialize stub.
+	 *
+	 * Mirrors WordPress behavior: attempts to unserialize strings, otherwise returns input.
+	 *
+	 * @param mixed $data Data that might be serialized.
+	 * @return mixed Unserialized data or original.
+	 */
+	function maybe_unserialize( $data ) {
+		if ( ! is_string( $data ) ) {
+			return $data;
+		}
+
+		$data = trim( $data );
+
+		if ( '' === $data ) {
+			return $data;
+		}
+
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		$unserialized = @unserialize( $data );
+
+		if ( false !== $unserialized || 'b:0;' === $data ) {
+			return $unserialized;
+		}
+
+		return $data;
 	}
 }
 

@@ -381,4 +381,361 @@ describe('Recommendations', () => {
 		fireEvent.click(runScanButton);
 		expect(onRefresh).toHaveBeenCalledTimes(1);
 	});
+
+	it('executes Fix Now action and shows completion animation', async () => {
+		const onRefresh = jest.fn();
+		global.wp.apiFetch = jest.fn().mockResolvedValue({ success: true });
+
+		render(
+			<Recommendations
+				recommendations={mockRecommendations}
+				onRefresh={onRefresh}
+			/>
+		);
+
+		// Expand first recommendation (which has cleanup action)
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
+		fireEvent.click(firstRecommendation);
+
+		// Click Fix Now
+		const fixNowButton = screen.getByText('Fix Now');
+		fireEvent.click(fixNowButton);
+
+		// Should show executing state
+		expect(await screen.findByText('Executing...')).toBeInTheDocument();
+
+		// Wait for completion
+		await waitFor(() => {
+			expect(global.wp.apiFetch).toHaveBeenCalledWith({
+				path: '/wpha/v1/cleanup/revisions',
+				method: 'POST',
+				data: { endpoint: '/wpha/v1/cleanup/revisions' },
+			});
+		});
+	});
+
+	it('handles Fix Now action failure with alert', async () => {
+		global.wp.apiFetch = jest
+			.fn()
+			.mockRejectedValue(new Error('Network error'));
+
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		// Expand first recommendation
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
+		fireEvent.click(firstRecommendation);
+
+		// Click Fix Now
+		const fixNowButton = screen.getByText('Fix Now');
+		fireEvent.click(fixNowButton);
+
+		// Wait for error alert
+		await waitFor(() => {
+			expect(global.alert).toHaveBeenCalledWith(
+				'Failed to execute action: Network error'
+			);
+		});
+	});
+
+	it('logs error when recommendation has no action endpoint', async () => {
+		const consoleSpy = jest
+			.spyOn(console, 'error')
+			.mockImplementation(() => {});
+		const recommendationNoEndpoint = [
+			{
+				id: 'rec-no-endpoint',
+				title: 'Test recommendation',
+				description: 'No endpoint defined',
+				category: 'database',
+				impact_estimate: 'high',
+				priority: 90,
+				action_type: 'cleanup',
+				action_params: {},
+				steps: ['Step 1'],
+			},
+		];
+
+		render(<Recommendations recommendations={recommendationNoEndpoint} />);
+
+		// Expand recommendation
+		const recommendation = screen
+			.getByText('Test recommendation')
+			.closest('div');
+		fireEvent.click(recommendation);
+
+		// Click Fix Now
+		const fixNowButton = screen.getByText('Fix Now');
+		fireEvent.click(fixNowButton);
+
+		expect(consoleSpy).toHaveBeenCalledWith(
+			'No action endpoint defined for this recommendation'
+		);
+		consoleSpy.mockRestore();
+	});
+
+	it('handles keyboard navigation with Enter key', () => {
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('[role="button"]');
+
+		fireEvent.keyDown(firstRecommendation, { key: 'Enter' });
+		expect(screen.getByText('Steps to resolve:')).toBeInTheDocument();
+
+		fireEvent.keyDown(firstRecommendation, { key: 'Enter' });
+		expect(screen.queryByText('Steps to resolve:')).not.toBeInTheDocument();
+	});
+
+	it('handles keyboard navigation with Space key', () => {
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('[role="button"]');
+
+		fireEvent.keyDown(firstRecommendation, { key: ' ' });
+		expect(screen.getByText('Steps to resolve:')).toBeInTheDocument();
+	});
+
+	it('handles localStorage getItem error gracefully', () => {
+		const consoleSpy = jest
+			.spyOn(console, 'error')
+			.mockImplementation(() => {});
+		const originalGetItem = localStorageMock.getItem;
+		localStorageMock.getItem = () => {
+			throw new Error('Storage error');
+		};
+
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		expect(consoleSpy).toHaveBeenCalledWith(
+			'Error loading dismissed recommendations:',
+			expect.any(Error)
+		);
+
+		localStorageMock.getItem = originalGetItem;
+		consoleSpy.mockRestore();
+	});
+
+	it('handles localStorage setItem error gracefully', () => {
+		const consoleSpy = jest
+			.spyOn(console, 'error')
+			.mockImplementation(() => {});
+		const originalSetItem = localStorageMock.setItem;
+		localStorageMock.setItem = () => {
+			throw new Error('Storage full');
+		};
+
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		// Expand and dismiss
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
+		fireEvent.click(firstRecommendation);
+		const dismissButton = screen.getByText('Dismiss');
+		fireEvent.click(dismissButton);
+
+		expect(consoleSpy).toHaveBeenCalledWith(
+			'Error saving dismissed recommendations:',
+			expect.any(Error)
+		);
+
+		localStorageMock.setItem = originalSetItem;
+		consoleSpy.mockRestore();
+	});
+
+	it('calls API to dismiss recommendation on server', async () => {
+		global.wp.apiFetch = jest.fn().mockResolvedValue({ success: true });
+
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		// Expand and dismiss first recommendation
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
+		fireEvent.click(firstRecommendation);
+		const dismissButton = screen.getByText('Dismiss');
+		fireEvent.click(dismissButton);
+
+		expect(global.wp.apiFetch).toHaveBeenCalledWith({
+			path: '/wpha/v1/recommendations/rec-1/dismiss',
+			method: 'POST',
+		});
+	});
+
+	it('handles API dismiss error gracefully', async () => {
+		const consoleSpy = jest
+			.spyOn(console, 'error')
+			.mockImplementation(() => {});
+		global.wp.apiFetch = jest
+			.fn()
+			.mockRejectedValue(new Error('API error'));
+
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		// Expand and dismiss first recommendation
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
+		fireEvent.click(firstRecommendation);
+		const dismissButton = screen.getByText('Dismiss');
+		fireEvent.click(dismissButton);
+
+		await waitFor(() => {
+			expect(consoleSpy).toHaveBeenCalledWith(
+				'Error dismissing recommendation:',
+				expect.any(Error)
+			);
+		});
+
+		consoleSpy.mockRestore();
+	});
+
+	it('does not show Fix Now button for configure action type', () => {
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		// Expand security recommendation (which has configure action)
+		const securityRecommendation = screen
+			.getByText('Update security settings')
+			.closest('div');
+		fireEvent.click(securityRecommendation);
+
+		// Fix Now should not be present for configure type
+		expect(screen.queryByText('Fix Now')).not.toBeInTheDocument();
+		// But Preview and Learn More should still be there
+		expect(screen.getByText('Preview')).toBeInTheDocument();
+		expect(screen.getByText('Learn More')).toBeInTheDocument();
+	});
+
+	it('shows Fix Now button for optimize action type', () => {
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		// Expand media recommendation (which has optimize action)
+		const mediaRecommendation = screen
+			.getByText('Optimize images')
+			.closest('div');
+		fireEvent.click(mediaRecommendation);
+
+		expect(screen.getByText('Fix Now')).toBeInTheDocument();
+	});
+
+	it('displays steps in preview alert', () => {
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
+		fireEvent.click(firstRecommendation);
+
+		const previewButton = screen.getByText('Preview');
+		fireEvent.click(previewButton);
+
+		expect(global.alert).toHaveBeenCalledWith(
+			expect.stringContaining('Backup database')
+		);
+		expect(global.alert).toHaveBeenCalledWith(
+			expect.stringContaining('Run cleanup script')
+		);
+	});
+
+	it('renders with empty steps array gracefully', () => {
+		const recommendationNoSteps = [
+			{
+				id: 'rec-no-steps',
+				title: 'No steps recommendation',
+				description: 'Has no steps',
+				category: 'database',
+				impact_estimate: 'low',
+				priority: 50,
+				action_type: 'cleanup',
+				action_params: { endpoint: '/test' },
+				steps: [],
+			},
+		];
+
+		render(<Recommendations recommendations={recommendationNoSteps} />);
+
+		const recommendation = screen
+			.getByText('No steps recommendation')
+			.closest('div');
+		fireEvent.click(recommendation);
+
+		// Should not show "Steps to resolve:" when steps array is empty
+		expect(screen.queryByText('Steps to resolve:')).not.toBeInTheDocument();
+	});
+
+	it('renders with missing steps property gracefully', () => {
+		const recommendationMissingSteps = [
+			{
+				id: 'rec-missing-steps',
+				title: 'Missing steps recommendation',
+				description: 'Has no steps property',
+				category: 'database',
+				impact_estimate: 'low',
+				priority: 50,
+				action_type: 'cleanup',
+				action_params: { endpoint: '/test' },
+			},
+		];
+
+		render(
+			<Recommendations recommendations={recommendationMissingSteps} />
+		);
+
+		const recommendation = screen
+			.getByText('Missing steps recommendation')
+			.closest('div');
+		fireEvent.click(recommendation);
+
+		// Should not crash and not show steps section
+		expect(screen.queryByText('Steps to resolve:')).not.toBeInTheDocument();
+	});
+
+	it('uses default category icon for unknown category', () => {
+		const recommendationUnknownCategory = [
+			{
+				id: 'rec-unknown',
+				title: 'Unknown category',
+				description: 'Has unknown category',
+				category: 'custom',
+				impact_estimate: 'low',
+				priority: 50,
+				action_type: 'cleanup',
+				action_params: { endpoint: '/test' },
+			},
+		];
+
+		render(
+			<Recommendations recommendations={recommendationUnknownCategory} />
+		);
+
+		// Should render without crashing
+		expect(screen.getByText('Unknown category')).toBeInTheDocument();
+	});
+
+	it('works when wp.apiFetch is not available', () => {
+		const originalWp = global.wp;
+		global.wp = undefined;
+
+		render(<Recommendations recommendations={mockRecommendations} />);
+
+		// Expand and dismiss - should not crash even without apiFetch
+		const firstRecommendation = screen
+			.getByText('Clean up database')
+			.closest('div');
+		fireEvent.click(firstRecommendation);
+		const dismissButton = screen.getByText('Dismiss');
+		fireEvent.click(dismissButton);
+
+		// Item should still be dismissed locally
+		expect(screen.queryByText('Clean up database')).not.toBeInTheDocument();
+
+		global.wp = originalWp;
+	});
 });

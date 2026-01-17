@@ -177,21 +177,27 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 			return array();
 		}
 
-		$media_fields = array();
-		$field_groups = acf_get_field_groups();
+		return $this->remember(
+			'media_field_keys',
+			function (): array {
+				$media_fields = array();
+				$field_groups = acf_get_field_groups();
 
-		foreach ( $field_groups as $field_group ) {
-			$fields = acf_get_fields( $field_group['key'] );
+				foreach ( $field_groups as $field_group ) {
+					$fields = acf_get_fields( $field_group['key'] );
 
-			if ( $fields ) {
-				$media_fields = array_merge(
-					$media_fields,
-					$this->extract_media_fields( $fields )
-				);
-			}
-		}
+					if ( $fields ) {
+						$media_fields = array_merge(
+							$media_fields,
+							$this->extract_media_fields( $fields )
+						);
+					}
+				}
 
-		return $media_fields;
+				return array_values( array_unique( $media_fields ) );
+			},
+			300
+		);
 	}
 
 	/**
@@ -262,82 +268,157 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 			return $is_used;
 		}
 
-		$prefix            = $this->connection->get_prefix();
+		$attachment_id = absint( $attachment_id );
+
+		if ( $attachment_id <= 0 ) {
+			return false;
+		}
+
 		$attachment_id_str = (string) $attachment_id;
+		$postmeta_table    = $this->connection->get_postmeta_table();
+		$posts_table       = $this->connection->get_posts_table();
 
-		// Check for direct numeric match in meta_value (most common ACF storage).
-		$direct_match = $this->connection->get_var(
+		$media_field_keys = $this->get_media_field_keys();
+
+		// If we can't determine media field keys, fall back to broad pattern matching.
+		// This is less precise but avoids false negatives when ACF field definitions
+		// aren't available (e.g., early bootstrapping or partial installs).
+		if ( empty( $media_field_keys ) ) {
+			return $this->check_acf_image_usage_legacy( $attachment_id );
+		}
+
+		$like_patterns     = $this->build_acf_attachment_like_patterns( $attachment_id );
+		$like_placeholders = implode( ' OR ', array_fill( 0, count( $like_patterns ), 'pm.meta_value LIKE %s' ) );
+		$in_placeholders   = implode( ',', array_fill( 0, count( $media_field_keys ), '%s' ) );
+
+		$query = "SELECT 1
+			FROM {$postmeta_table} pm
+			INNER JOIN {$postmeta_table} fk ON fk.post_id = pm.post_id AND fk.meta_key = CONCAT('_', pm.meta_key)
+			INNER JOIN {$posts_table} p ON pm.post_id = p.ID
+			WHERE p.post_status NOT IN ('trash', 'auto-draft')
+			AND fk.meta_value IN ({$in_placeholders})
+			AND (
+				pm.meta_value = %s
+				OR {$like_placeholders}
+			)
+			LIMIT 1";
+
+		$args  = array_merge( $media_field_keys, array( $attachment_id_str ), $like_patterns );
+		$match = $this->connection->get_var(
 			$this->connection->prepare(
-				"SELECT 1
-				FROM {$prefix}postmeta pm
-				INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
-				WHERE p.post_status NOT IN ('trash', 'auto-draft')
-				AND pm.meta_value = %s
-				LIMIT 1",
-				$attachment_id_str
+				$query,
+				...$args
 			)
 		);
 
-		if ( $direct_match ) {
+		if ( $match ) {
 			return true;
 		}
 
-		// Escape the attachment ID for use in LIKE patterns.
-		$escaped_id = $this->connection->esc_like( (string) $attachment_id );
+		// Some installs may have missing `_field_name` reference rows. Fall back to
+		// a broader scan to avoid false negatives.
+		return $this->check_acf_image_usage_legacy( $attachment_id );
+	}
 
-		// Check for serialized PHP array format: "id";i:123; or s:2:"id";i:123;
-		// The semicolon provides a natural word boundary in serialized data.
-		$serialized_match = $this->connection->get_var(
+	/**
+	 * Legacy ACF attachment usage check (broad scan).
+	 *
+	 * Used as a fallback when field definitions or `_field_name` key references
+	 * aren't available. This is less precise but avoids false negatives.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return bool True if found.
+	 */
+	private function check_acf_image_usage_legacy( int $attachment_id ): bool {
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$posts_table    = $this->connection->get_posts_table();
+
+		$attachment_id_str = (string) absint( $attachment_id );
+		$like_patterns     = $this->build_acf_attachment_like_patterns( $attachment_id );
+		$like_placeholders = implode( ' OR ', array_fill( 0, count( $like_patterns ), 'pm.meta_value LIKE %s' ) );
+
+		$query = "SELECT 1
+			FROM {$postmeta_table} pm
+			INNER JOIN {$posts_table} p ON pm.post_id = p.ID
+			WHERE p.post_status NOT IN ('trash', 'auto-draft')
+			AND (
+				pm.meta_value = %s
+				OR {$like_placeholders}
+			)
+			LIMIT 1";
+
+		$args  = array_merge( array( $attachment_id_str ), $like_patterns );
+		$match = $this->connection->get_var(
 			$this->connection->prepare(
-				"SELECT 1
-				FROM {$prefix}postmeta pm
-				INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
-				WHERE p.post_status NOT IN ('trash', 'auto-draft')
-				AND (
-					pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-				)
-				LIMIT 1",
-				'%"id";i:' . $escaped_id . ';%',
-				'%"ID";i:' . $escaped_id . ';%'
+				$query,
+				...$args
 			)
 		);
 
-		if ( $serialized_match ) {
-			return true;
+		return (bool) $match;
+	}
+
+	/**
+	 * Build LIKE patterns to locate an attachment ID in ACF meta blobs.
+	 *
+	 * ACF can store attachment IDs as:
+	 * - Plain ID strings/ints
+	 * - Serialized arrays (gallery) and objects
+	 * - JSON arrays/objects (newer usage patterns)
+	 *
+	 * Patterns are intentionally broad and should be paired with
+	 * {@see is_attachment_in_acf_value()} for verification.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return array<string> LIKE patterns.
+	 */
+	private function build_acf_attachment_like_patterns( int $attachment_id ): array {
+		$id      = (string) absint( $attachment_id );
+		$escaped = $this->connection->esc_like( $id );
+
+		$patterns = array();
+
+		// Serialized:
+		// - Integers: i:123;
+		// - Strings: s:N:"123"; (we match the stable suffix: :"123";)
+		$patterns[] = '%' . $this->connection->esc_like( 'i:' . $id . ';' ) . '%';
+		$patterns[] = '%' . $this->connection->esc_like( ':"' . $id . '";' ) . '%';
+
+		// JSON objects (common ACF object formats).
+		foreach ( array( '', ' ' ) as $space ) {
+			$patterns[] = '%"id":' . $space . $escaped . ',%';
+			$patterns[] = '%"id":' . $space . $escaped . '}%';
+			$patterns[] = '%"id":' . $space . $escaped . ']%';
+			$patterns[] = '%"id":' . $space . '"' . $escaped . '",%';
+			$patterns[] = '%"id":' . $space . '"' . $escaped . '"}%';
+			$patterns[] = '%"id":' . $space . '"' . $escaped . '"]%';
+
+			$patterns[] = '%"ID":' . $space . $escaped . ',%';
+			$patterns[] = '%"ID":' . $space . $escaped . '}%';
+			$patterns[] = '%"ID":' . $space . $escaped . ']%';
+			$patterns[] = '%"ID":' . $space . '"' . $escaped . '",%';
+			$patterns[] = '%"ID":' . $space . '"' . $escaped . '"}%';
+			$patterns[] = '%"ID":' . $space . '"' . $escaped . '"]%';
 		}
 
-		// Check for JSON format: "id":123 followed by word boundary (, } ] or space).
-		// This prevents false positives where ID 12 matches in "id":123.
-		$json_match = $this->connection->get_var(
-			$this->connection->prepare(
-				"SELECT 1
-				FROM {$prefix}postmeta pm
-				INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
-				WHERE p.post_status NOT IN ('trash', 'auto-draft')
-				AND (
-					pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-				)
-				LIMIT 1",
-				'%"id":' . $escaped_id . ',%',
-				'%"id":' . $escaped_id . '}%',
-				'%"id":' . $escaped_id . ']%',
-				'%"id": ' . $escaped_id . '%',
-				'%"ID":' . $escaped_id . ',%',
-				'%"ID":' . $escaped_id . '}%',
-				'%"ID":' . $escaped_id . ']%',
-				'%"ID": ' . $escaped_id . '%'
-			)
-		);
+		// JSON arrays: [123,456], [123], ["123","456"].
+		foreach ( array( '', ' ' ) as $space ) {
+			$patterns[] = '%' . $this->connection->esc_like( '[' . $space . $id . ',' ) . '%';
+			$patterns[] = '%' . $this->connection->esc_like( ',' . $space . $id . ',' ) . '%';
+			$patterns[] = '%' . $this->connection->esc_like( ',' . $space . $id . ']' ) . '%';
+			$patterns[] = '%' . $this->connection->esc_like( '[' . $space . $id . ']' ) . '%';
 
-		return (bool) $json_match;
+			$patterns[] = '%' . $this->connection->esc_like( '["' . $id . '",' ) . '%';
+			$patterns[] = '%' . $this->connection->esc_like( ',"' . $id . '",' ) . '%';
+			$patterns[] = '%' . $this->connection->esc_like( ',"' . $id . '"]' ) . '%';
+			$patterns[] = '%' . $this->connection->esc_like( '["' . $id . '"]' ) . '%';
+		}
+
+		return array_values( array_unique( $patterns ) );
 	}
 
 	/**
@@ -369,11 +450,14 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 			return $this->search_acf_data_structure( $unserialized, $attachment_id );
 		}
 
-		// Try to decode JSON if it's JSON data.
-		if ( is_string( $meta_value ) && '{' === substr( $meta_value, 0, 1 ) ) {
-			$decoded = json_decode( $meta_value, true );
-			if ( null !== $decoded ) {
-				return $this->search_acf_data_structure( $decoded, $attachment_id );
+		// Try to decode JSON if it's JSON data (object or array).
+		if ( is_string( $meta_value ) ) {
+			$trimmed = ltrim( $meta_value );
+			if ( '' !== $trimmed && ( '{' === $trimmed[0] || '[' === $trimmed[0] ) ) {
+				$decoded = json_decode( $trimmed, true );
+				if ( null !== $decoded ) {
+					return $this->search_acf_data_structure( $decoded, $attachment_id );
+				}
 			}
 		}
 
@@ -624,7 +708,76 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 	 * @return array<int> Array of attachment IDs.
 	 */
 	public function get_used_attachments( int $batch_size = 1000 ): array {
-		$prefix         = $this->connection->get_prefix();
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$posts_table    = $this->connection->get_posts_table();
+		$attachment_ids = array();
+		$offset         = 0;
+		$max_batches    = 100; // Safety limit: max 100k rows total.
+		$batches        = 0;
+		$results_count  = 0;
+
+		$media_field_keys = $this->get_media_field_keys();
+
+		// If we can't identify media field keys, fall back to legacy broad scan.
+		if ( empty( $media_field_keys ) ) {
+			return $this->get_used_attachments_legacy( $batch_size );
+		}
+
+		$in_placeholders = implode( ',', array_fill( 0, count( $media_field_keys ), '%s' ) );
+
+		do {
+			$results = $this->connection->get_col(
+				$this->connection->prepare(
+					"SELECT pm.meta_value
+					FROM {$postmeta_table} pm
+					INNER JOIN {$postmeta_table} fk ON fk.post_id = pm.post_id AND fk.meta_key = CONCAT('_', pm.meta_key)
+					INNER JOIN {$posts_table} p ON pm.post_id = p.ID
+					WHERE p.post_status NOT IN ('trash', 'auto-draft')
+					AND fk.meta_value IN ({$in_placeholders})
+					ORDER BY pm.meta_id
+					LIMIT %d OFFSET %d",
+					...array_merge( $media_field_keys, array( $batch_size, $offset ) )
+				)
+			);
+
+			if ( empty( $results ) ) {
+				break;
+			}
+
+			foreach ( $results as $meta_value ) {
+				$ids            = $this->extract_attachment_ids_from_acf_value( $meta_value );
+				$attachment_ids = array_merge( $attachment_ids, $ids );
+			}
+
+			$offset += $batch_size;
+			++$batches;
+			$results_count = count( $results );
+
+		} while ( $results_count === $batch_size && $batches < $max_batches );
+
+		// Log warning if we hit the safety limit.
+		if ( $batches >= $max_batches && $results_count === $batch_size ) {
+			$this->log_batch_limit_warning( 'get_used_attachments', $batches, $max_batches, $batch_size );
+		}
+
+		return array_unique( array_filter( array_map( 'absint', $attachment_ids ) ) );
+	}
+
+	/**
+	 * Legacy implementation for scanning used attachments in ACF fields.
+	 *
+	 * Falls back to a broad scan across postmeta values when field definitions
+	 * aren't available.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param int $batch_size Batch size.
+	 * @return array<int> Attachment IDs.
+	 */
+	private function get_used_attachments_legacy( int $batch_size = 1000 ): array {
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$posts_table    = $this->connection->get_posts_table();
+
 		$attachment_ids = array();
 		$offset         = 0;
 		$max_batches    = 100; // Safety limit: max 100k rows total.
@@ -632,13 +785,11 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 		$results_count  = 0;
 
 		do {
-			// Query for numeric meta values that could be attachment IDs.
-			// Also query for serialized/JSON data that might contain IDs.
 			$results = $this->connection->get_col(
 				$this->connection->prepare(
 					"SELECT DISTINCT pm.meta_value
-					FROM {$prefix}postmeta pm
-					INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
+					FROM {$postmeta_table} pm
+					INNER JOIN {$posts_table} p ON pm.post_id = p.ID
 					WHERE p.post_status NOT IN ('trash', 'auto-draft')
 					AND (
 						pm.meta_value REGEXP %s
@@ -671,7 +822,7 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 
 		// Log warning if we hit the safety limit.
 		if ( $batches >= $max_batches && $results_count === $batch_size ) {
-			$this->log_batch_limit_warning( 'get_used_attachments', $batches, $max_batches, $batch_size );
+			$this->log_batch_limit_warning( 'get_used_attachments_legacy', $batches, $max_batches, $batch_size );
 		}
 
 		return array_unique( array_filter( array_map( 'absint', $attachment_ids ) ) );
@@ -687,54 +838,99 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 	 * @return array<array{post_id: int, post_title: string, context: string}> Array of usage locations.
 	 */
 	public function get_attachment_usage( int $attachment_id, int $limit = 100 ): array {
-		$prefix            = $this->connection->get_prefix();
+		$postmeta_table    = $this->connection->get_postmeta_table();
+		$posts_table       = $this->connection->get_posts_table();
 		$usages            = array();
 		$attachment_id_str = (string) $attachment_id;
-		$escaped_id        = $this->connection->esc_like( $attachment_id_str );
 
-		// Search for meta values containing this specific attachment ID.
-		// Uses word boundaries to prevent false positives (e.g., ID 12 matching 123).
-		$results = $this->connection->get_results(
-			$this->connection->prepare(
-				"SELECT pm.post_id, pm.meta_key, pm.meta_value, p.post_title
-				FROM {$prefix}postmeta pm
-				INNER JOIN {$prefix}posts p ON pm.post_id = p.ID
-				WHERE p.post_status NOT IN ('trash', 'auto-draft')
-				AND (
-					pm.meta_value = %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-					OR pm.meta_value LIKE %s
-				)
-				LIMIT %d",
-				$attachment_id_str,
-				'%"id";i:' . $escaped_id . ';%',
-				'%"ID";i:' . $escaped_id . ';%',
-				'%"id":' . $escaped_id . ',%',
-				'%"id":' . $escaped_id . '}%',
-				'%"ID":' . $escaped_id . ',%',
-				'%"ID":' . $escaped_id . '}%',
-				$limit
-			),
-			'OBJECT'
-		);
+		$media_field_keys = $this->get_media_field_keys();
+		$like_patterns    = $this->build_acf_attachment_like_patterns( $attachment_id );
+
+		// If we can't identify media field keys, fall back to the legacy broad query.
+		if ( empty( $media_field_keys ) ) {
+			$results = $this->get_attachment_usage_legacy_results( $attachment_id, $limit );
+		} else {
+			$in_placeholders   = implode( ',', array_fill( 0, count( $media_field_keys ), '%s' ) );
+			$like_placeholders = implode( ' OR ', array_fill( 0, count( $like_patterns ), 'pm.meta_value LIKE %s' ) );
+
+			// Pull more than the requested limit to account for possible false positives from LIKE patterns.
+			$query_limit = min( $limit * 5, 500 );
+
+			$results = $this->connection->get_results(
+				$this->connection->prepare(
+					"SELECT pm.post_id, pm.meta_key, pm.meta_value, p.post_title
+					FROM {$postmeta_table} pm
+					INNER JOIN {$postmeta_table} fk ON fk.post_id = pm.post_id AND fk.meta_key = CONCAT('_', pm.meta_key)
+					INNER JOIN {$posts_table} p ON pm.post_id = p.ID
+					WHERE p.post_status NOT IN ('trash', 'auto-draft')
+					AND fk.meta_value IN ({$in_placeholders})
+					AND (
+						pm.meta_value = %s
+						OR {$like_placeholders}
+					)
+					LIMIT %d",
+					...array_merge(
+						$media_field_keys,
+						array( $attachment_id_str ),
+						$like_patterns,
+						array( $query_limit )
+					)
+				),
+				'OBJECT'
+			);
+		}
 
 		foreach ( $results as $result ) {
 			if ( $this->is_attachment_in_acf_value( $result->meta_value, $attachment_id ) ) {
-				$context = $this->get_acf_field_context( $result->meta_key, $result->meta_value, $attachment_id );
+				$context = $this->get_acf_field_context( absint( $result->post_id ), $result->meta_key, $result->meta_value, $attachment_id );
 
 				$usages[] = array(
 					'post_id'    => absint( $result->post_id ),
 					'post_title' => $result->post_title,
 					'context'    => $context,
 				);
+
+				if ( count( $usages ) >= $limit ) {
+					break;
+				}
 			}
 		}
 
 		return $usages;
+	}
+
+	/**
+	 * Legacy results fetch for attachment usage in ACF fields (broad scan).
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @param int $limit         Limit.
+	 * @return array<int, object> Results (OBJECT rows).
+	 */
+	private function get_attachment_usage_legacy_results( int $attachment_id, int $limit ): array {
+		$postmeta_table = $this->connection->get_postmeta_table();
+		$posts_table    = $this->connection->get_posts_table();
+
+		$attachment_id_str = (string) absint( $attachment_id );
+		$like_patterns     = $this->build_acf_attachment_like_patterns( $attachment_id );
+		$like_placeholders = implode( ' OR ', array_fill( 0, count( $like_patterns ), 'pm.meta_value LIKE %s' ) );
+
+		return $this->connection->get_results(
+			$this->connection->prepare(
+				"SELECT pm.post_id, pm.meta_key, pm.meta_value, p.post_title
+				FROM {$postmeta_table} pm
+				INNER JOIN {$posts_table} p ON pm.post_id = p.ID
+				WHERE p.post_status NOT IN ('trash', 'auto-draft')
+				AND (
+					pm.meta_value = %s
+					OR {$like_placeholders}
+				)
+				LIMIT %d",
+				...array_merge( array( $attachment_id_str ), $like_patterns, array( min( $limit * 5, 500 ) ) )
+			),
+			'OBJECT'
+		);
 	}
 
 	/**
@@ -761,11 +957,14 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 			return $this->collect_ids_from_acf_structure( $unserialized );
 		}
 
-		// Try to decode JSON if it's JSON data.
-		if ( is_string( $meta_value ) && '{' === substr( $meta_value, 0, 1 ) ) {
-			$decoded = json_decode( $meta_value, true );
-			if ( null !== $decoded ) {
-				return $this->collect_ids_from_acf_structure( $decoded );
+		// Try to decode JSON if it's JSON data (object or array).
+		if ( is_string( $meta_value ) ) {
+			$trimmed = ltrim( $meta_value );
+			if ( '' !== $trimmed && ( '{' === $trimmed[0] || '[' === $trimmed[0] ) ) {
+				$decoded = json_decode( $trimmed, true );
+				if ( null !== $decoded ) {
+					return $this->collect_ids_from_acf_structure( $decoded );
+				}
 			}
 		}
 
@@ -820,11 +1019,11 @@ class ACF extends AbstractIntegration implements MediaAwareIntegrationInterface 
 	 * @param int    $attachment_id The attachment ID.
 	 * @return string Context description.
 	 */
-	private function get_acf_field_context( string $meta_key, $meta_value, int $attachment_id ): string {
+	private function get_acf_field_context( int $post_id, string $meta_key, $meta_value, int $attachment_id ): string {
 		// Try to get field label from ACF.
 		if ( function_exists( 'acf_get_field' ) ) {
 			// ACF stores field key references with underscore prefix.
-			$field_key_meta = get_metadata( 'post', 0, '_' . ltrim( $meta_key, '_' ), true );
+			$field_key_meta = get_post_meta( $post_id, '_' . ltrim( $meta_key, '_' ), true );
 
 			if ( $field_key_meta && is_string( $field_key_meta ) && strpos( $field_key_meta, 'field_' ) === 0 ) {
 				$field = acf_get_field( $field_key_meta );

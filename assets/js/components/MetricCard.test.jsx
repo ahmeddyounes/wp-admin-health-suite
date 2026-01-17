@@ -119,12 +119,28 @@ describe('MetricCard', () => {
 		expect(handleClick).toHaveBeenCalledTimes(1);
 	});
 
-	it('has onKeyPress handler when clickable', () => {
+	it('calls onClick when Enter key is pressed', () => {
 		const handleClick = jest.fn();
 		render(<MetricCard title="Test" value={100} onClick={handleClick} />);
 		const button = screen.getByRole('button');
-		// Verify the button has the onKeyPress prop attached (keyboard accessibility)
-		expect(button).toHaveProperty('onkeypress');
+		fireEvent.keyDown(button, { key: 'Enter' });
+		expect(handleClick).toHaveBeenCalledTimes(1);
+	});
+
+	it('calls onClick when Space key is pressed', () => {
+		const handleClick = jest.fn();
+		render(<MetricCard title="Test" value={100} onClick={handleClick} />);
+		const button = screen.getByRole('button');
+		fireEvent.keyDown(button, { key: ' ' });
+		expect(handleClick).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not call onClick for other keys', () => {
+		const handleClick = jest.fn();
+		render(<MetricCard title="Test" value={100} onClick={handleClick} />);
+		const button = screen.getByRole('button');
+		fireEvent.keyDown(button, { key: 'Tab' });
+		expect(handleClick).not.toHaveBeenCalled();
 	});
 
 	it('has tabIndex 0 when clickable', () => {
@@ -158,5 +174,118 @@ describe('MetricCard', () => {
 		const { container } = render(<MetricCard title="Test" value={100} />);
 		const icon = container.querySelector('.dashicons');
 		expect(icon).toHaveAttribute('aria-hidden', 'true');
+	});
+
+	describe('loading state', () => {
+		it('shows loading skeleton when loading is true', () => {
+			const { container } = render(
+				<MetricCard title="Test" value={100} loading={true} />
+			);
+			// Should show loading icon
+			expect(
+				container.querySelector('.dashicons-update')
+			).toBeInTheDocument();
+		});
+
+		it('has aria-busy attribute when loading', () => {
+			render(<MetricCard title="Test" value={100} loading={true} />);
+			expect(screen.getByRole('article')).toHaveAttribute(
+				'aria-busy',
+				'true'
+			);
+		});
+
+		it('does not display value content when loading', () => {
+			render(
+				<MetricCard title="Test" value={100} unit="MB" loading={true} />
+			);
+			expect(screen.queryByText('100')).not.toBeInTheDocument();
+		});
+
+		it('prevents click when loading', () => {
+			const handleClick = jest.fn();
+			render(
+				<MetricCard
+					title="Test"
+					value={100}
+					onClick={handleClick}
+					loading={true}
+				/>
+			);
+			fireEvent.click(screen.getByRole('button'));
+			expect(handleClick).not.toHaveBeenCalled();
+		});
+
+		it('has correct aria-label when loading', () => {
+			render(<MetricCard title="Database Size" loading={true} />);
+			expect(
+				screen.getByLabelText('Database Size: Loading')
+			).toBeInTheDocument();
+		});
+	});
+
+	describe('error state', () => {
+		it('displays error message when error prop is provided', () => {
+			render(
+				<MetricCard
+					title="Test"
+					value={100}
+					error="Failed to load data"
+				/>
+			);
+			expect(screen.getByText('Failed to load data')).toBeInTheDocument();
+		});
+
+		it('still displays title when error occurs', () => {
+			render(
+				<MetricCard
+					title="Database Size"
+					value={100}
+					error="Failed to load data"
+				/>
+			);
+			expect(screen.getByText('Database Size')).toBeInTheDocument();
+		});
+
+		it('has error-styled border when error prop is provided', () => {
+			const { container } = render(
+				<MetricCard title="Test" value={100} error="Error occurred" />
+			);
+			const card = container.querySelector('.metric-card');
+			expect(card).toHaveStyle({ borderColor: '#d63638' });
+		});
+
+		it('has correct aria-label when error occurs', () => {
+			render(
+				<MetricCard title="Database Size" error="Connection failed" />
+			);
+			expect(
+				screen.getByLabelText(
+					'Database Size: Error - Connection failed'
+				)
+			).toBeInTheDocument();
+		});
+	});
+
+	describe('null/undefined value handling', () => {
+		it('displays placeholder when value is null', () => {
+			render(<MetricCard title="Test" value={null} />);
+			expect(screen.getByText('—')).toBeInTheDocument();
+		});
+
+		it('displays placeholder when value is undefined', () => {
+			render(<MetricCard title="Test" />);
+			expect(screen.getByText('—')).toBeInTheDocument();
+		});
+
+		it('displays 0 when value is 0', () => {
+			render(<MetricCard title="Test" value={0} />);
+			expect(screen.getByText('0')).toBeInTheDocument();
+		});
+
+		it('displays string values correctly', () => {
+			render(<MetricCard title="Test" value="N/A" />);
+			expect(screen.getByText('N/A')).toBeInTheDocument();
+		});
 	});
 });

@@ -1,0 +1,96 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (1d5583e)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 103 files
+[STARTED] *.{js,jsx} — 8 files
+[STARTED] *.{json,css,scss,md} — 45 files
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 45 files
+[COMPLETED] eslint --fix
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{js,jsx} — 8 files
+[COMPLETED] package.json — 103 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+[31mE[0m..[31mE[0m[31mE[0m[31mE[0m 6 / 6 (100%)
+
+
+
+[1mFILE: includes/Services/ConfigurationService.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 1 ERROR AFFECTING 1 LINE[0m
+--------------------------------------------------------------------------------
+ 435 | [31mERROR[0m | [1mUse Yoda Condition checks, you must.[0m
+     |       | (WordPress.PHP.YodaConditions.NotYoda)
+--------------------------------------------------------------------------------
+
+
+[1mFILE: includes/Cache/MemoryCache.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 2 ERRORS AFFECTING 2 LINES[0m
+--------------------------------------------------------------------------------
+ 224 | [31mERROR[0m | [1mThe use of count() inside a loop condition is not allowed;[0m
+     |       | [1massign the return value to a variable and use the variable in[0m
+     |       | [1mthe loop condition instead[0m
+     |       | (Squiz.PHP.DisallowSizeFunctionsInLoops.Found)
+ 518 | [31mERROR[0m | [1mThe use of count() inside a loop condition is not allowed;[0m
+     |       | [1massign the return value to a variable and use the variable in[0m
+     |       | [1mthe loop condition instead[0m
+     |       | (Squiz.PHP.DisallowSizeFunctionsInLoops.Found)
+--------------------------------------------------------------------------------
+
+
+[1mFILE: includes/Integrations/Elementor.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 2 ERRORS AFFECTING 2 LINES[0m
+--------------------------------------------------------------------------------
+ 1017 | [31mERROR[0m | [1mInline comments must end in full-stops, exclamation marks, or[0m
+      |       | [1mquestion marks[0m (Squiz.Commenting.InlineComment.InvalidEndChar)
+ 1093 | [31mERROR[0m | [1mThe use of count() inside a loop condition is not allowed;[0m
+      |       | [1massign the return value to a variable and use the variable in[0m
+      |       | [1mthe loop condition instead[0m
+      |       | (Squiz.PHP.DisallowSizeFunctionsInLoops.Found)
+--------------------------------------------------------------------------------
+
+
+[1mFILE: includes/Integrations/Acf.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 6 ERRORS AFFECTING 5 LINES[0m
+--------------------------------------------------------------------------------
+  387 | [31mERROR[0m | [1mInline comments must end in full-stops, exclamation marks, or[0m
+      |       | [1mquestion marks[0m (Squiz.Commenting.InlineComment.InvalidEndChar)
+ 1017 | [31mERROR[0m | [1mDoc comment for parameter $meta_key does not match actual[0m
+      |       | [1mvariable name $post_id[0m
+      |       | (Squiz.Commenting.FunctionComment.ParamNameNoMatch)
+ 1018 | [31mERROR[0m | [1mDoc comment for parameter $meta_value does not match actual[0m
+      |       | [1mvariable name $meta_key[0m
+      |       | (Squiz.Commenting.FunctionComment.ParamNameNoMatch)
+ 1019 | [31mERROR[0m | [1mDoc comment for parameter $attachment_id does not match actual[0m
+      |       | [1mvariable name $meta_value[0m
+      |       | (Squiz.Commenting.FunctionComment.ParamNameNoMatch)
+ 1022 | [31mERROR[0m | [1mExpected type hint "string"; found "int" for $meta_key[0m
+      |       | (Squiz.Commenting.FunctionComment.IncorrectTypeHint)
+ 1022 | [31mERROR[0m | [1mExpected type hint "mixed"; found "string" for $meta_value[0m
+      |       | (Squiz.Commenting.FunctionComment.IncorrectTypeHint)
+--------------------------------------------------------------------------------
+
+Time: 357ms; Memory: 16MB
+
+husky - pre-commit script failed (code 1)

@@ -52,9 +52,16 @@
 	--wpha-color-warning: #dba617;
 	--wpha-color-error: #d63638;
 	--wpha-color-info: #2271b1;
+
+	/* Alert background colors */
+	--wpha-alert-success-bg: #f0f9f3;
+	--wpha-alert-warning-bg: #fef8e7;
+	--wpha-alert-error-bg: #fef1f1;
+	--wpha-alert-info-bg: #f0f6fc;
 }
 
 /* Dark Mode Variables */
+/* Applied when WordPress adds .is-dark-theme AND user has dark mode preference */
 @media (prefers-color-scheme: dark) {
 	.is-dark-theme {
 		--wpha-color-text-primary: #f0f0f0;
@@ -65,6 +72,18 @@
 		--wpha-color-bg-tertiary: #323232;
 		--wpha-color-border: #3c3c3c;
 		--wpha-color-border-light: #4a4a4a;
+
+		/* Status colors - slightly adjusted for dark backgrounds */
+		--wpha-color-success: #2ecc40;
+		--wpha-color-warning: #f5c842;
+		--wpha-color-error: #ff4136;
+		--wpha-color-info: #4f94d4;
+
+		/* Alert background colors for dark mode */
+		--wpha-alert-success-bg: rgba(46, 204, 64, 0.15);
+		--wpha-alert-warning-bg: rgba(245, 200, 66, 0.15);
+		--wpha-alert-error-bg: rgba(255, 65, 54, 0.15);
+		--wpha-alert-info-bg: rgba(79, 148, 212, 0.15);
 	}
 }
 
@@ -986,7 +1005,7 @@ textarea:focus-visible,
 }
 
 .wpha-alert-success {
-	background: #f0f9f3;
+	background: var(--wpha-alert-success-bg);
 	border-color: var(--wpha-color-success);
 }
 
@@ -995,7 +1014,7 @@ textarea:focus-visible,
 }
 
 .wpha-alert-warning {
-	background: #fef8e7;
+	background: var(--wpha-alert-warning-bg);
 	border-color: var(--wpha-color-warning);
 }
 
@@ -1004,7 +1023,7 @@ textarea:focus-visible,
 }
 
 .wpha-alert-error {
-	background: #fef1f1;
+	background: var(--wpha-alert-error-bg);
 	border-color: var(--wpha-color-error);
 }
 
@@ -1013,7 +1032,7 @@ textarea:focus-visible,
 }
 
 .wpha-alert-info {
-	background: #f0f6fc;
+	background: var(--wpha-alert-info-bg);
 	border-color: var(--wpha-color-info);
 }
 
