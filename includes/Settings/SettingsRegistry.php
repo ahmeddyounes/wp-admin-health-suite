@@ -325,11 +325,32 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 	 * @return string Sanitized CSS.
 	 */
 	private function sanitize_css( string $css ): string {
+		// Strip all HTML tags first (prevents </style><script> attacks).
 		$css = wp_strip_all_tags( $css );
-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
-		$css = preg_replace( '/javascript:/i', '', $css );
+
+		// Remove any remaining HTML entities that could be decoded.
+		$css = wp_kses( $css, array() );
+
+		// Block style tag breakout attempts.
+		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
+
+		// Remove JavaScript protocol and expressions.
+		$css = preg_replace( '/javascript\s*:/i', '', $css );
 		$css = preg_replace( '/expression\s*\(/i', '', $css );
-		$css = preg_replace( '/import\s+/i', '', $css );
+		$css = preg_replace( '/behavior\s*:/i', '', $css );
+		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
+
+		// Block @import which could load external malicious CSS.
+		$css = preg_replace( '/@import\b/i', '', $css );
+
+		// Block @charset which could enable encoding attacks.
+		$css = preg_replace( '/@charset\b/i', '', $css );
+
+		// Remove any null bytes.
+		$css = str_replace( "\0", '', $css );
+
+		// Remove any remaining angle brackets.
+		$css = str_replace( array( '<', '>' ), '', $css );
 
 		return trim( $css );
 	}

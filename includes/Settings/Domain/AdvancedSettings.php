@@ -36,7 +36,7 @@ class AdvancedSettings extends AbstractDomainSettings {
 	protected function define_section(): array {
 		return array(
 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
+			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
 		);
 	}
 

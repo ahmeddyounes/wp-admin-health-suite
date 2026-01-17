@@ -488,6 +488,9 @@ class SettingsServiceProvider extends ServiceProvider {
 		);
 
 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
+		if ( false === $json ) {
+			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
+		}
 
 		nocache_headers();
 		header( 'Content-Type: application/json; charset=utf-8' );
@@ -549,6 +552,29 @@ class SettingsServiceProvider extends ServiceProvider {
 			$_FILES['import_file']['name'],
 			array( 'json' => 'application/json' )
 		);
+
+		if ( empty( $file_info['ext'] ) ) {
+			// Some servers report JSON as plain text; allow that as well.
+			$file_info = wp_check_filetype_and_ext(
+				$_FILES['import_file']['tmp_name'],
+				$_FILES['import_file']['name'],
+				array( 'json' => 'text/plain' )
+			);
+		}
+
+		if ( empty( $file_info['ext'] ) ) {
+			// As a last resort, allow generic binary mime types. The JSON decoding and
+			// strict structure validation below will still block non-JSON content.
+			$file_info = wp_check_filetype_and_ext(
+				$_FILES['import_file']['tmp_name'],
+				$_FILES['import_file']['name'],
+				array( 'json' => 'application/octet-stream' )
+			);
+		}
+
+		if ( empty( $file_info['ext'] ) ) {
+			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
+		}
 
 		// Read and validate file content.
 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore

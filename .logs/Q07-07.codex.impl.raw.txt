@@ -1,0 +1,3216 @@
+Status: DONE
+
+Summary of changes:
+- Tightened Custom Admin CSS sanitization used for `custom_css` saves/imports (`includes/Settings/SettingsRegistry.php:327`).
+- Hardened settings import by actually enforcing `wp_check_filetype_and_ext()` (with fallbacks for common JSON MIME variations) and added a guard for failed JSON export encoding (`includes/Settings/SettingsServiceProvider.php:488`, `includes/Settings/SettingsServiceProvider.php:553`).
+- Clarified the Advanced settings section description to reflect REST API/rate limiting/CSS/tools scope (`includes/Settings/Domain/AdvancedSettings.php:36`).
+
+How to verify:
+- `npm run lint`
+- `npm test`
+
+Risks / follow-ups:
+- Import is now stricter about MIME detection; very unusual server MIME reporting could block otherwise-valid JSON uploads.
+- `npm run lint` currently reports warnings (but exits successfully).
+
+OpenAI Codex v0.86.0 (research preview)
+--------
+workdir: /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite
+model: gpt-5.2
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: xhigh
+reasoning summaries: auto
+session id: 019bcb13-4734-7c71-be2a-8713dfd705f4
+--------
+user
+You are implementing task Q07-07 in this git repository.
+
+1) Read the spec: .plans/Q07-07.md
+2) Read handoff/context: .t2/handoff/Q07-07.md
+
+Implement the spec fully.
+
+Verification commands (run if non-empty):
+- format: 
+- lint: npm run lint
+- test: npm test
+
+In your final response, include:
+- Status: DONE or NEEDS-REVIEW
+- Summary of changes
+- How to verify (exact commands)
+- Risks / follow-ups
+
+mcp startup: no servers
+Plan update
+  → Read spec and handoff
+  • Inspect relevant codepaths
+  • Implement required changes
+  • Run lint and tests
+  • Summarize and hand off
+exec
+/bin/zsh -lc 'ls -la' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 62ms:
+total 2208
+drwxr-xr-x   55 ahmedyounis  staff    1760 Jan 16 09:09 .
+drwxr-xr-x   43 ahmedyounis  staff    1376 Jan 11 22:56 ..
+-rw-------@   1 ahmedyounis  staff     189 Jan  7 14:37 .babelrc
+-rw-r--r--@   1 ahmedyounis  staff    1286 Jan  8 22:57 .eslintrc.json
+drwxr-xr-x   14 ahmedyounis  staff     448 Jan 17 00:29 .git
+drwxr-xr-x@   3 ahmedyounis  staff      96 Jan 14 06:48 .github
+-rw-------@   1 ahmedyounis  staff     346 Jan  8 22:53 .gitignore
+drwxr-xr-x@   4 ahmedyounis  staff     128 Jan  7 17:43 .husky
+drwxr-xr-x@  10 ahmedyounis  staff     320 Jan 16 23:08 .idea
+drwxr-xr-x@ 383 ahmedyounis  staff   12256 Jan 17 00:29 .logs
+-rw-r--r--@   1 ahmedyounis  staff   28892 Jan 16 22:58 .phpunit.result.cache
+drwxr-xr-x@ 128 ahmedyounis  staff    4096 Jan 17 00:29 .plans
+-rw-r--r--@   1 ahmedyounis  staff     119 Jan  7 17:43 .prettierignore
+-rw-r--r--@   1 ahmedyounis  staff     409 Jan  8 22:57 .prettierrc.json
+drwx------@   3 ahmedyounis  staff      96 Jan  7 14:59 .scripts
+drwxr-xr-x@   6 ahmedyounis  staff     192 Jan 16 06:56 .t2
+-rw-r--r--@   1 ahmedyounis  staff    9207 Jan  8 22:57 ACCESSIBILITY.md
+drwxr-xr-x@   4 ahmedyounis  staff     128 Jan  9 00:36 admin
+drwxr-xr-x@   6 ahmedyounis  staff     192 Jan  7 10:29 assets
+exec
+/bin/zsh -lc "sed -n '1,200p' .plans/Q07-07.md" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 59ms:
+# Q07-07 — Advanced Settings Domain Review
+
+Review includes/Settings/Domain/AdvancedSettings.php for REST API settings, rate limiting configuration, custom CSS handling, and export/import functionality.
+exec
+/bin/zsh -lc 'cat .plans/Q07-07.md' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 56ms:
+# Q07-07 — Advanced Settings Domain Review
+
+Review includes/Settings/Domain/AdvancedSettings.php for REST API settings, rate limiting configuration, custom CSS handling, and export/import functionality.
+
+thinking
+**Reviewing API settings**
+
+I’m looking at a minimal spec that mentions reviewing a specific PHP file for REST API settings, rate limiting, custom CSS handling, and export/import functionality. It sounds like I need to implement the spec fully because something might be wrong in that file. I also have a handoff/context file to consider. Next, I'll check out the handoff document to get more context on what I need to address.
+exec
+/bin/zsh -lc "sed -n '1,200p' .t2/handoff/Q07-07.md" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 65ms:
+# Handoff: Q07-07
+
+Created: 2026-01-17T08:29:56.890927Z
+
+Spec: .plans/Q07-07.md
+
+thinking
+**Reviewing advanced settings file**
+
+The handoff is empty except for the created date, so my task is to review the AdvancedSettings.php file for REST API settings, rate limiting, custom CSS handling, and export/import functionality. It seems there might be improvements or bug fixes needed, but the spec doesn't specify changes. I wonder if earlier tasks flagged issues with this file. I'll inspect the code to ensure everything matches the requirements and check for any vulnerabilities. Let's open the file.
+exec
+/bin/zsh -lc "sed -n '1,200p' includes/Settings/Domain/AdvancedSettings.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 66ms:
+<?php
+/**
+ * Advanced Settings
+ *
+ * Advanced plugin settings including REST API, debug, and security.
+ *
+ * @package WPAdminHealth\Settings\Domain
+ */
+
+namespace WPAdminHealth\Settings\Domain;
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	die;
+}
+
+/**
+ * Class AdvancedSettings
+ *
+ * Manages advanced plugin settings.
+
+thinking
+**Reviewing advanced settings**
+
+I’m looking at the advanced settings fields, which include options like enabling the REST API, setting a rate limit, and toggling debug mode. The spec mentions checking a particular file for additional REST API settings and export/import functionality, which seems to be missing right now. I think we should consider adding those export/import fields and possibly review sanitization requirements. It might also be good to check other domain classes for related settings.
+exec
+/bin/zsh -lc 'ls -la includes/Settings/Domain' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 73ms:
+total 88
+drwxr-xr-x@ 9 ahmedyounis  staff   288 Jan  9 04:58 .
+drwxr-xr-x@ 6 ahmedyounis  staff   192 Jan  9 05:45 ..
+-rw-r--r--@ 1 ahmedyounis  staff  2910 Jan  8 23:30 AbstractDomainSettings.php
+-rw-r--r--@ 1 ahmedyounis  staff  3066 Jan 16 22:33 AdvancedSettings.php
+-rw-r--r--@ 1 ahmedyounis  staff  3679 Jan 16 22:33 CoreSettings.php
+-rw-r--r--@ 1 ahmedyounis  staff  5673 Jan 16 22:54 DatabaseSettings.php
+-rw-r--r--@ 1 ahmedyounis  staff  6961 Jan 16 23:20 MediaSettings.php
+-rw-r--r--@ 1 ahmedyounis  staff  7555 Jan 17 00:13 PerformanceSettings.php
+-rw-r--r--@ 1 ahmedyounis  staff  6406 Jan 17 00:25 SchedulingSettings.php
+
+thinking
+**Exploring settings classes**
+
+I'm considering looking into other settings classes, specifically AbstractDomainSettings. I want to understand how the fields are utilized, particularly regarding sanitize types. I'm curious if there's a 'css' sanitize option among those fields. It seems like a smart move to open that and see what I can find! I'll be examining those details to ensure I have a clearer understanding of how everything works together.
+exec
+/bin/zsh -lc "sed -n '1,240p' includes/Settings/Domain/AbstractDomainSettings.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 60ms:
+<?php
+/**
+ * Abstract Domain Settings
+ *
+ * Base class for domain-specific settings.
+ *
+ * @package WPAdminHealth\Settings\Domain
+ */
+
+namespace WPAdminHealth\Settings\Domain;
+
+use WPAdminHealth\Settings\Contracts\DomainSettingsInterface;
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	die;
+}
+
+/**
+ * Class AbstractDomainSettings
+
+thinking
+**Searching for sanitization functions**
+
+I'm looking into the AbstractDomainSettings, which only seems to handle the "get" operations. Now, I need to figure out where sanitization occurs. It could possibly be in the SettingsManager. My next step is to search for instances of "sanitize" being used. I'll rely on ripgrep to help me find it quickly. This way, I can clarify where sanitization is taking place in the code.
+exec
+/bin/zsh -lc "rg -n \"'sanitize'\" includes/Settings | head" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 69ms:
+includes/Settings/Domain/PerformanceSettings.php:53:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:61:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:69:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:77:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:85:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:93:				'sanitize'    => 'integer',
+includes/Settings/Domain/PerformanceSettings.php:103:				'sanitize'    => 'integer',
+includes/Settings/Domain/PerformanceSettings.php:113:				'sanitize'    => 'integer',
+includes/Settings/Domain/PerformanceSettings.php:123:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:131:				'sanitize'    => 'integer',
+
+thinking
+I’m planning to search for "sanitize_settings" or something related to function definitions. It might be located in the includes/Settings/SettingsManager file. I should also look for "sanitize_callback" to gather more context. It feels like I’m being thorough, which is good considering how crucial these details might be. I'll ensure to check around these functions for any relevant references or implementations that could shed light on their usage. Let's see what I can find!
+exec
+/bin/zsh -lc 'rg -n "sanitize_(callback|settings|value)|sanitize" includes/Settings | head -n 50' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 72ms:
+includes/Settings/SettingsServiceProvider.php:192:		$grade     = isset( $health_data['grade'] ) ? sanitize_text_field( (string) $health_data['grade'] ) : '';
+includes/Settings/SettingsServiceProvider.php:331:				'sanitize_callback' => array( $registry, 'sanitize_settings' ),
+includes/Settings/SettingsServiceProvider.php:584:		$sanitized = $registry->sanitize_settings( $filtered_settings );
+includes/Settings/SettingsServiceProvider.php:585:		update_option( SettingsRegistry::OPTION_NAME, $sanitized );
+includes/Settings/SettingsServiceProvider.php:742:		$section = isset( $_POST['section'] ) ? sanitize_key( $_POST['section'] ) : '';
+includes/Settings/SettingsServiceProvider.php:769:				'tab'     => sanitize_key( $section ),
+includes/Settings/SettingsServiceProvider.php:876:			// Defense-in-depth: Apply strict sanitization even though input was sanitized on save.
+includes/Settings/SettingsServiceProvider.php:878:			$custom_css = $this->sanitize_css_output( $custom_css );
+includes/Settings/SettingsServiceProvider.php:901:	 * @param string $css The CSS to sanitize.
+includes/Settings/SettingsServiceProvider.php:904:	private function sanitize_css_output( string $css ): string {
+includes/Settings/Domain/PerformanceSettings.php:53:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:61:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:69:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:77:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:85:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:93:				'sanitize'    => 'integer',
+includes/Settings/Domain/PerformanceSettings.php:103:				'sanitize'    => 'integer',
+includes/Settings/Domain/PerformanceSettings.php:113:				'sanitize'    => 'integer',
+includes/Settings/Domain/PerformanceSettings.php:123:				'sanitize'    => 'boolean',
+includes/Settings/Domain/PerformanceSettings.php:131:				'sanitize'    => 'integer',
+
+thinking
+**Inspecting settings service**
+
+I’m looking into the SettingsServiceProvider, specifically focusing on custom CSS output sanitization. I think it’s essential to check the relevant functions associated with it. It sounds like a good step to understand how everything works together, especially around configuring and ensuring the safety of CSS inputs. Let’s see what we can find by examining the SettingsServiceProvider and its functions in detail!
+exec
+/bin/zsh -lc "sed -n '800,980p' includes/Settings/SettingsServiceProvider.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 64ms:
+			$this->unschedule_all_tasks();
+			return;
+		}
+
+		// Check if scheduler was just enabled or preferred time changed.
+		$was_enabled    = ! empty( $old_value['scheduler_enabled'] );
+		$old_time       = isset( $old_value['preferred_time'] ) ? absint( $old_value['preferred_time'] ) : 2;
+		$new_time       = isset( $new_value['preferred_time'] ) ? absint( $new_value['preferred_time'] ) : 2;
+		$time_changed   = $old_time !== $new_time;
+		$reschedule_all = ! $was_enabled || $time_changed;
+
+		$next_run = $this->calculate_next_run_time( $new_time );
+
+		// Task scheduling configuration.
+		$tasks = array(
+			'wpha_database_cleanup'  => array(
+				'enabled_key'   => 'enable_scheduled_db_cleanup',
+				'frequency_key' => 'database_cleanup_frequency',
+				'default_freq'  => 'weekly',
+			),
+
+thinking
+**Inspecting functionality details**
+
+I’m looking at the custom CSS output sanitization, which seems quite robust already. Now I need to focus on the export/import functionality. There's a reference in SettingsServiceProvider around line 584 that I should inspect. I’ll check the code around line 560 onwards to see what’s going on. It’s essential to make sure everything functions smoothly for the user, so let’s ensure I’m thorough in this inspection.
+exec
+/bin/zsh -lc "sed -n '520,820p' includes/Settings/SettingsServiceProvider.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 69ms:
+		check_admin_referer( 'wpha_import_settings' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions.', 'wp-admin-health-suite' ) );
+		}
+
+		if ( empty( $_FILES['import_file']['tmp_name'] ) ) {
+			wp_die( esc_html__( 'No file uploaded.', 'wp-admin-health-suite' ) );
+		}
+
+		// Validate file extension.
+		$file_extension = pathinfo( $_FILES['import_file']['name'], PATHINFO_EXTENSION );
+		if ( 'json' !== strtolower( $file_extension ) ) {
+			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
+		}
+
+		// Validate file size (max 100KB - settings should be small).
+		if ( $_FILES['import_file']['size'] > 102400 ) {
+			wp_die( esc_html__( 'File too large. Maximum 100KB allowed.', 'wp-admin-health-suite' ) );
+		}
+
+thinking
+**Examining settings structure**
+
+I’m realizing that the export/import and custom CSS output is found in the SettingsServiceProvider, not the AdvancedSettings class. The specifications mention reviewing AdvancedSettings for these features, so I might need to adjust that. Maybe AdvancedSettings should include fields for export/import, custom CSS, and rate limiting since custom CSS is already present. I’m wondering if the sanitization types are missing or incorrect in the registry for things like 'css', so I’ll check the sanitize_settings in SettingsRegistry.
+exec
+/bin/zsh -lc "sed -n '1,260p' includes/Settings/SettingsRegistry.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 57ms:
+<?php
+/**
+ * Settings Registry
+ *
+ * Aggregates and manages all domain-specific settings.
+ *
+ * @package WPAdminHealth\Settings
+ */
+
+namespace WPAdminHealth\Settings;
+
+use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Settings\Contracts\DomainSettingsInterface;
+use WPAdminHealth\Settings\Contracts\SettingsRegistryInterface;
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	die;
+}
+
+exec
+/bin/zsh -lc "sed -n '260,520p' includes/Settings/SettingsRegistry.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 68ms:
+	 *
+	 * @param array $input Raw input data.
+	 * @return array Sanitized settings.
+	 */
+	public function sanitize_settings( array $input ): array {
+		$sanitized = array();
+		$fields    = $this->get_all_fields();
+		$stored    = get_option( self::OPTION_NAME, array() );
+
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+
+		$input  = $this->migrate_legacy_settings( $input );
+		$stored = $this->migrate_legacy_settings( $stored );
+
+		foreach ( $fields as $field_id => $field ) {
+			$has_input_value = array_key_exists( $field_id, $input );
+			$value           = null;
+
+
+thinking
+**Reviewing CSS handling**
+
+I'm considering the `SettingsRegistry` and its `sanitize_css` function—wondering if it could use improvements. The specifications suggest reviewing the advanced settings domain file to check how custom CSS is handled, including export and import functionality. There seems to be some custom CSS sanitization involved, but I want to ensure the service provider supports all necessary operations. So, I'll focus on locating the export feature next to verify what’s available.
+exec
+/bin/zsh -lc 'rg -n "export" includes/Settings/SettingsServiceProvider.php | head -n 50' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 69ms:
+140:		add_action( 'admin_post_wpha_export_settings', array( $this, 'export_settings' ) );
+471:	public function export_settings(): void {
+474:		check_admin_referer( 'wpha_export_settings' );
+484:		$export = array(
+490:		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
+497:		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON export response.
+exec
+/bin/zsh -lc "sed -n '420,560p' includes/Settings/SettingsServiceProvider.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 61ms:
+				break;
+
+			case 'email':
+				printf(
+					'<input type="email" id="%s" name="%s" value="%s" class="regular-text" />',
+					esc_attr( $id ),
+					esc_attr( $name ),
+					esc_attr( $value )
+				);
+				break;
+
+			case 'select':
+				printf(
+					'<select id="%s" name="%s">',
+					esc_attr( $id ),
+					esc_attr( $name )
+				);
+				foreach ( $field['options'] as $option_value => $option_label ) {
+					printf(
+						'<option value="%s" %s>%s</option>',
+exec
+/bin/zsh -lc 'rg -n "wpha_export_settings|wpha_import_settings" -S .' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 60ms:
+./SECURITY.md:95:- `wpha_export_settings`
+./SECURITY.md:96:- `wpha_import_settings`
+./templates/admin/settings.php:120:							<?php wp_nonce_field( 'wpha_export_settings' ); ?>
+./templates/admin/settings.php:121:							<input type="hidden" name="action" value="wpha_export_settings">
+./templates/admin/settings.php:130:							<?php wp_nonce_field( 'wpha_import_settings' ); ?>
+./templates/admin/settings.php:131:							<input type="hidden" name="action" value="wpha_import_settings">
+./includes/Settings/SettingsServiceProvider.php:140:		add_action( 'admin_post_wpha_export_settings', array( $this, 'export_settings' ) );
+./includes/Settings/SettingsServiceProvider.php:141:		add_action( 'admin_post_wpha_import_settings', array( $this, 'import_settings' ) );
+./includes/Settings/SettingsServiceProvider.php:474:		check_admin_referer( 'wpha_export_settings' );
+./includes/Settings/SettingsServiceProvider.php:520:		check_admin_referer( 'wpha_import_settings' );
+exec
+/bin/zsh -lc "sed -n '1,220p' templates/admin/settings.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 57ms:
+<?php
+/**
+ * Settings Template
+ *
+ * @package WPAdminHealth
+ */
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	die;
+}
+
+// Get settings instance.
+$settings_obj = new \WPAdminHealth\Settings();
+$sections     = $settings_obj->get_sections();
+$settings     = $settings_obj->get_settings();
+
+// Get current tab.
+$current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'general';
+
+
+thinking
+**Reviewing settings and functionality**
+
+I’m looking at the advanced tab, which includes import/export and reset options, but there’s no direct control for those settings. It seems the specifications expect these to fall under the advanced settings domain. I might need to review the advanced settings domain file for any missing descriptions. There’s also mention of restricting export/import functionality, possibly needing security measures. Meanwhile, I’ll make sure the rate limiting is properly enforced in the REST API endpoints, focusing on the usage of "rest_api_rate_limit."
+exec
+/bin/zsh -lc 'rg -n "rest_api_rate_limit" -S .' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 54ms:
+./tasks.csv:51:M06-07,"Advanced Settings Section","Settings fields: enable_rest_api (bool), rest_api_rate_limit (10-120 per minute), debug_mode (bool), custom_css (textarea for admin customization), safe_mode (disables destructive operations). Safe mode: all delete/clean endpoints return preview only. Debug mode: extra logging, visible query times. Acceptance: Safe mode truly prevents data modification, debug mode provides useful info, custom CSS applies."
+./includes/Settings/Domain/AdvancedSettings.php:56:			'rest_api_rate_limit' => array(
+./includes/Settings/SettingsRegistry.php:254:	public function get_rest_api_rate_limit(): int {
+./includes/Settings/SettingsRegistry.php:255:		return absint( $this->get_setting( 'rest_api_rate_limit', 60 ) );
+./includes/REST/RestController.php:343:		$rate_limit = $settings->get_rest_api_rate_limit();
+./tests/integration/RestApiTest.php:378:			array( 'rest_api_rate_limit' => 3 )
+./tests/integration/RestApiTest.php:405:			array( 'rest_api_rate_limit' => 60 )
+./tests/integration/RestApiTest.php:421:			array( 'rest_api_rate_limit' => 100 )
+./tests/integration/RestApiTest.php:424:		$rate_limit = $settings->get_rest_api_rate_limit();
+./tests/integration/RestApiTest.php:430:			array( 'rest_api_rate_limit' => 60 )
+./includes/Contracts/SettingsInterface.php:95:	public function get_rest_api_rate_limit(): int;
+
+thinking
+**Inspecting rate limiting**
+
+I'm looking at tasks.csv, which references the advanced settings section. It seems that might tie back to the original specification, possibly M06-07. However, my current focus is on task Q07-07, which is about domain review. There are tests for the integration of the REST API concerning rate limits, indicating that enforcement is in place. So, I'll check the includes/REST/RestController to understand more about rate limiting and those settings.
+exec
+/bin/zsh -lc "sed -n '260,460p' includes/REST/RestController.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 59ms:
+			return new WP_Error(
+				'rest_not_logged_in',
+				__( 'You are not currently logged in.', 'wp-admin-health-suite' ),
+				array( 'status' => 401 )
+			);
+		}
+
+		// Check if user has manage_options capability.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Sorry, you are not allowed to do that.', 'wp-admin-health-suite' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// Verify nonce.
+		$nonce_check = $this->verify_nonce( $request );
+		if ( is_wp_error( $nonce_check ) ) {
+			return $nonce_check;
+
+thinking
+**Evaluating rate limiting settings**
+
+I'm noticing that the rate limiting uses settings from `get_rest_api_rate_limit`, and I need to keep in mind the constraints in `AdvancedSettings`, which define a minimum of 10 and a maximum of 120. However, I see that `get_rest_api_rate_limit` doesn't enforce these limits directly. The function `sanitize_settings` does ensure the integer settings adhere to those limits. It might be wise to clamp values during retrieval too, especially if they're set another way. There’s a test showing that `rest_api_rate_limit` can be sanitized to 10 when set to 3, which I should check.
+exec
+/bin/zsh -lc "sed -n '340,460p' tests/integration/RestApiTest.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 59ms:
+
+		$request = new WP_REST_Request( 'POST', '/wpha/v1/' );
+		$request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertEquals( 201, $response->get_status() );
+		$data = $response->get_data();
+		$this->assertTrue( $data['success'] );
+	}
+
+	/**
+	 * Test: DELETE endpoint works correctly.
+	 */
+	public function test_delete_item_endpoint() {
+		// Log in as admin.
+		wp_set_current_user( $this->admin_user_id );
+
+		$request = new WP_REST_Request( 'DELETE', '/wpha/v1/123' );
+		$request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
+		$response = $this->server->dispatch( $request );
+
+
+thinking
+**Evaluating rate limit tests**
+
+I'm testing the rest_api_rate_limit setting directly by updating it to 3 without sanitization. My expectation is that rate limiting should work with this limit. However, there's a conflict because the AdvancedSettings specifies a minimum of 10. If my test uses 3, it would fail if clamped to 10. The spec must indicate a minimum range of 10 to 120, but my test might be outdated, or perhaps the minimum was changed to 3 at some point.
+thinking
+**Reviewing advanced settings**
+
+The spec Q07-07 relates to the "Advanced Settings Domain Review," potentially part of quality tasks aimed at ensuring proper sanitization. I want to look into the tasks.csv file, as M06-07 refers to the "Advanced Settings Section," which might be an earlier milestone. The Q07 tasks could involve reviewing domain classes for clarity and completeness—maybe improving descriptions, default values, or ensuring safe_mode and debug_mode are implemented correctly. I'll check the tasks.csv or review_tasks.csv for specifics on Q07 tasks.
+exec
+/bin/zsh -lc 'rg -n "Q07-07" -S .' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 61ms:
+./review_tasks.csv:46:Q07-07,"Advanced Settings Domain Review","Review includes/Settings/Domain/AdvancedSettings.php for REST API settings, rate limiting configuration, custom CSS handling, and export/import functionality."
+
+thinking
+**Reviewing domain tasks**
+
+I'm looking at tasks from review_tasks.csv that seem to focus on domain review. It looks like these tasks are about code reviews rather than modifications, but the user has requested that we implement the specifications fully. I think I might need to adjust the code accordingly. I want to ensure that the domain class supports advanced settings features and that all necessary fields for export/import and custom CSS are included. I’ll inspect other tasks around row 46 for more context.
+exec
+/bin/zsh -lc "sed -n '1,120p' review_tasks.csv" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 56ms:
+id,title,spec
+Q01-01,"Core Plugin Architecture Review","Review includes/Plugin.php for singleton pattern correctness, DI container initialization, hook registration order, and plugin lifecycle management (activation/deactivation). Check for memory leaks, proper dependency resolution, and WordPress best practices compliance."
+Q01-02,"Dependency Injection Container Review","Review includes/Container/Container.php and ServiceProvider.php for proper service registration, singleton vs factory behavior, circular dependency handling, and lazy loading of services. Verify interface binding and resolution logic."
+Q01-03,"Service Provider Registration Review","Review all files in includes/Providers/ (CoreServiceProvider, DatabaseServiceProvider, MediaServiceProvider, PerformanceServiceProvider, AIServiceProvider, RESTServiceProvider, SchedulerServiceProvider) for proper service binding, dependency ordering, and initialization logic."
+Q01-04,"Autoloader and Namespace Review","Review includes/autoload.php for PSR-4 compliance, proper namespace mapping, error handling for missing classes, and performance of class loading. Verify all classes are properly namespaced."
+Q01-05,"Contracts and Interfaces Review","Review all interfaces in includes/Contracts/ for proper abstraction, method signatures, return type declarations, and documentation. Ensure interfaces follow ISP (Interface Segregation Principle)."
+Q02-01,"Database Analyzer Review","Review includes/database/Analyzer.php for SQL query safety, accurate size calculations, proper caching strategy (5-min TTL), and handling of large databases. Check for N+1 queries and proper use of $wpdb->prepare()."
+Q02-02,"Database Revisions Manager Review","Review includes/database/RevisionsManager.php for safe revision deletion logic, configurable retention, proper batch processing, and recovery mechanisms. Verify it doesn't delete revisions of unpublished posts incorrectly."
+Q02-03,"Database Transients Cleaner Review","Review includes/database/TransientsCleaner.php for proper expired transient detection, handling of site transients vs regular transients, and multisite compatibility. Check for race conditions during cleanup."
+Q02-04,"Database Trash Cleaner Review","Review includes/database/TrashCleaner.php for safe trash/spam post deletion, proper handling of scheduled posts, attachment cleanup, and comment spam removal. Verify no accidental deletion of valid content."
+Q02-05,"Database Orphaned Cleaner Review","Review includes/database/OrphanedCleaner.php for accurate orphaned metadata detection (postmeta, usermeta, commentmeta), safe cleanup logic, and handling of multisite metadata. Check for false positives."
+Q02-06,"Database Optimizer Review","Review includes/database/Optimizer.php for safe table optimization operations, InnoDB vs MyISAM handling, table locking implications, and progress reporting. Verify it handles large tables gracefully."
+Q02-07,"Database Orphaned Tables Review","Review includes/database/OrphanedTables.php for accurate detection of tables from deactivated plugins, safe deletion safeguards, and handling of shared tables. Check false positive prevention."
+Q02-08,"Database Connection Wrapper Review","Review includes/database/WpdbConnection.php for proper $wpdb wrapping, error handling, query logging, and connection state management. Verify it properly handles reconnection scenarios."
+Q02-09,"Database Cleanup Task Review","Review includes/database/Tasks/DatabaseCleanupTask.php for proper WP-Cron integration, batch processing, error recovery, and progress tracking. Check for timeout handling on long-running cleanups."
+Q03-01,"Media Scanner Review","Review includes/media/Scanner.php for efficient media library scanning, proper detection of unused/duplicate/large files, batch processing with generators, and memory management for large libraries."
+Q03-02,"Media Duplicate Detector Review","Review includes/media/DuplicateDetector.php for accurate duplicate detection algorithm (hash-based vs content-based), handling of different image sizes, and performance with large media libraries."
+Q03-03,"Media Large Files Review","Review includes/media/LargeFiles.php for configurable threshold detection, proper size calculation, handling of different file types, and integration with optimization recommendations."
+Q03-04,"Media Alt Text Checker Review","Review includes/media/AltTextChecker.php for accurate detection of missing alt text, handling of decorative images, multilingual support (WPML/Polylang), and accessibility compliance reporting."
+Q03-05,"Media Safe Delete Review","Review includes/media/SafeDelete.php for two-step deletion mechanism, 30-day recovery window implementation, proper file system cleanup, and thumbnail handling. Verify recovery actually works."
+
+
+thinking
+**Exploring the review_tasks file**
+
+The review_tasks file is quite large, and the spec for Q07-07 is solely about review. I think our tasks may involve implementing improvements based on this review, but it's unclear what the actual issues are. I should inspect the AdvancedSettings and related code to see if there's any missing capability checks or security concerns. The file contains definitions, and I wonder if the sanitization types are sufficient. For instance, the 'css' field sanitization could be too simplistic and might need to be improved to handle more patterns.
+thinking
+**Investigating export/import functionality**
+
+The spec mentions "export/import functionality," which I noticed is not in AdvancedSettings but rather in SettingsServiceProvider. I wonder if we need to define fields for enabling or disabling import/export. Maybe the setting that toggles REST API and rate limiting should also apply to the REST endpoints for export/import. But wait, export/import is handled by admin-post actions, not REST API. I should check if there's possibly a REST endpoint for settings export/import; I'll search for "import/export" in the REST documentation.
+exec
+/bin/zsh -lc 'rg -n "import_settings|export_settings|Import/Export" includes/REST -S' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite exited 1 in 53ms:
+
+
+
+
+thinking
+**Analyzing export/import settings**
+
+So, I realize that export/import functionalities are considered admin forms. It seems like the advanced settings domain could benefit from additional options like enabling or allowing settings export/import, possibly with security restrictions. The spec isn’t clear about enabling or disabling them, so I wonder if there's a constant or filter needed for security. I'll consider whether actions like 'wpha_export_settings' are always registered or if they should be contingent on certain settings like 'safe_mode'.
+thinking
+**Reviewing advanced settings implementation**
+
+I see that tasks.csv includes M06-07 related to the advanced settings section, which may already include acceptance criteria like safe mode. Q07-07 seems to be about reviewing this to ensure everything is completed correctly and to fix potential bugs. I need to consider how safe mode operates, as it limits delete operations to previews only. The spec doesn’t mention safe mode, just REST API settings and other functionalities. Maybe I should add an option for "Allow settings export/import" in the advanced settings.
+thinking
+**Verifying REST API settings**
+
+I'm thinking this might involve enabling or disabling the REST API. The AdvancedSettings configuration defines 'enable_rest_api' as defaulting to true. The SettingsRegistry uses is_rest_api_enabled, so the RestController should verify this and disable endpoints if it's set to false. I should search for the usage of is_rest_api_enabled to confirm everything's functioning as it should. This seems like an important step to ensure proper API management.
+exec
+/bin/zsh -lc "rg -n \"is_rest_api_enabled\\(\" -S includes | head -n 50" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 70ms:
+includes/REST/RestController.php:250:		if ( ! $settings->is_rest_api_enabled() ) {
+includes/Settings/SettingsRegistry.php:240:	public function is_rest_api_enabled(): bool {
+includes/Contracts/SettingsInterface.php:86:	public function is_rest_api_enabled(): bool;
+exec
+/bin/zsh -lc "sed -n '200,280p' includes/REST/RestController.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 35ms:
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function get_item( $request ) {
+		$id = $request->get_param( 'id' );
+		return $this->format_response( true, array( 'id' => $id ), __( 'Item retrieved successfully.', 'wp-admin-health-suite' ) );
+	}
+
+	/**
+	 * Create a single item.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function create_item( $request ) {
+		return $this->format_response( true, array(), __( 'Item created successfully.', 'wp-admin-health-suite' ), 201 );
+	}
+
+	/**
+exec
+/bin/zsh -lc "sed -n '70,140p' SECURITY.md" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 67ms:
+**File Uploads:**
+
+- File type validation (extension check)
+- File size limits (1MB for settings import)
+- `is_uploaded_file()` verification
+- MIME type validation where applicable
+
+### 4. Nonce Verification
+
+All form submissions and AJAX handlers verify nonces:
+
+**Admin Forms:**
+
+- Settings export/import/reset actions
+- Network settings updates
+- All destructive operations
+
+**REST API:**
+
+- `X-WP-Nonce` header verification
+
+
+
+
+thinking
+**Identifying file size inconsistencies**
+
+I’m noticing a mismatch in the security documentation, which indicates a 1MB limit for settings imports, while the code uses 100KB (102400 bytes). This could be problematic. The documentation may be outdated, and spec Q07-07 discusses export/import functionality, which might help align the limits. Additionally, the comment in the SettingsServiceProvider mentions a max of 100KB for settings being small. Our focus is on the AdvancedSettings domain file, but resolving this inconsistency is important nonetheless.
+thinking
+**Analyzing acceptance criteria and settings**
+
+I’m considering opening the tasks.csv around M06-07 to check acceptance details, although it might not be necessary. My main focus is implementing the spec completely. With minimal specifications, I need to infer any needed changes. It seems the “sanitize” type 'css' isn’t recognized by the SettingsServiceProvider for rendering, which could be an oversight. Also, should the export/import functionality be defined? I’ll look into adjusting field defaults, but tasks.csv mentions the rest_api_rate_limit correctly. I might contemplate adding fields like "rate_limit_window" or "rate_limit_enabled," even if the spec doesn’t outline this.
+thinking
+**Examining rate limiting and settings**
+
+I’m considering the potential bug within rate limiting and settings, particularly how the RestController uses $settings->get_rest_api_rate_limit(). If it returns 0, any request would trigger a 429 error, effectively disabling the API. While the minimum field limit of 10 should prevent this, I’m wondering if disabling the rate limit should allow values like 0 or -1. I should ensure that the rate_limit setting is sanitized as an integer, with appropriate min, max, and a default of 60. Additionally, it might be helpful to consider advanced settings for export/import functionality, like adding options for admins to manage these tools.
+thinking
+**Reviewing tasks for patterns**
+
+I want to examine other domain tasks, specifically looking at things like Q07-06 and Q07-08, to identify any patterns. It makes sense to locate these around their respective lines for the Q07 tasks. By reviewing these, I can gather insights that may help clarify my understanding of how the tasks are structured and whether there are common elements to address. This exploration could be really beneficial for our progress!
+exec
+/bin/zsh -lc 'rg -n "''^Q07-" review_tasks.csv' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 52ms:
+40:Q07-01,"Settings Registry Review","Review includes/Settings/SettingsRegistry.php for central settings management, schema definition, validation logic, and WordPress options API integration."
+41:Q07-02,"Core Settings Domain Review","Review includes/Settings/Domain/CoreSettings.php for core plugin settings definition, safe mode implementation, debug mode handling, and feature toggles."
+42:Q07-03,"Database Settings Domain Review","Review includes/Settings/Domain/DatabaseSettings.php for cleanup threshold settings, retention period configuration, and validation of user inputs."
+43:Q07-04,"Media Settings Domain Review","Review includes/Settings/Domain/MediaSettings.php for exclusion pattern settings, delete confirmation requirements, and safe defaults."
+44:Q07-05,"Performance Settings Domain Review","Review includes/Settings/Domain/PerformanceSettings.php for heartbeat control settings, AJAX limits, and monitoring configuration options."
+45:Q07-06,"Scheduling Settings Domain Review","Review includes/Settings/Domain/SchedulingSettings.php for cron schedule configuration, task enablement settings, and timezone handling."
+46:Q07-07,"Advanced Settings Domain Review","Review includes/Settings/Domain/AdvancedSettings.php for REST API settings, rate limiting configuration, custom CSS handling, and export/import functionality."
+
+thinking
+**Reviewing Q07 tasks**
+
+I'm looking at the Q07 tasks, which focus on reviewing settings registry and domain classes. These probably need actual changes, so I'd like to check other tasks, like Q07-06, to see if they've been implemented with improvements. I might check for commits and inspect Q07-01 for specifications or handoff details. It’s possible these tasks are just for review to ensure everything aligns with the spec, though the user wants a full implementation. There might be outstanding issues, so I'll inspect other domain classes for any patterns and missing documentation, especially in advanced settings.
+exec
+/bin/zsh -lc "sed -n '1,220p' includes/Settings/Domain/CoreSettings.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 62ms:
+<?php
+/**
+ * Core Settings
+ *
+ * General plugin settings.
+ *
+ * @package WPAdminHealth\Settings\Domain
+ */
+
+namespace WPAdminHealth\Settings\Domain;
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	die;
+}
+
+/**
+ * Class CoreSettings
+ *
+ * Manages general plugin settings.
+
+thinking
+**Checking scheduling settings**
+
+I want to see if the SchedulingSettings domain file has a different style or any variety compared to what I've seen. It’s important to explore this and find what stands out or if there are any unique elements. Alright, I’ll take a closer look at the file now to gather more insights. There’s definitely something interesting here, and I’m curious about how it all connects together.
+exec
+/bin/zsh -lc "sed -n '1,260p' includes/Settings/Domain/SchedulingSettings.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 29ms:
+<?php
+/**
+ * Scheduling Settings
+ *
+ * Task scheduling settings.
+ *
+ * @package WPAdminHealth\Settings\Domain
+ */
+
+namespace WPAdminHealth\Settings\Domain;
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	die;
+}
+
+/**
+ * Class SchedulingSettings
+ *
+ * Manages task scheduling settings.
+exec
+/bin/zsh -lc 'rg -n "Import/Export|import" tasks.csv | head -n 50' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 72ms:
+45:M06-01,"Settings Page Framework","Create /includes/class-settings.php using WordPress Settings API. Sections: General, Database Cleanup, Media Audit, Performance, Scheduling, Advanced. Register settings with register_setting(), add_settings_section(), add_settings_field(). Sanitization callbacks for each field type. Default values in activation. Export/import settings as JSON. Reset to defaults option. Acceptance: All settings save correctly, sanitization prevents invalid data, export/import works, reset works."
+52:M06-08,"Settings Admin Page","Create /templates/admin/settings.php. Tabbed interface matching WP settings pages style. Each section as tab. Save button per tab or unified save. Success/error notices on save. Settings export/import in Advanced tab with file upload. Reset section per tab. Preview of scheduled tasks showing next run times. Acceptance: Tabs work correctly, save provides feedback, export creates valid JSON, import validates and applies."
+
+thinking
+**Confirming settings functionality**
+
+I need to check if enabling or disabling the REST API in the settings actually works in terms of disabling the API endpoints. That makes sense to test! I've done that, and now I'm considering the rate limit configuration options, minimum and maximum. Also, custom CSS needs to be sanitized, but I should ensure it only outputs on admin pages and not on the front-end. I’ll look into the output_custom_css function in SettingsServiceProvider. Where is it hooked? Maybe it’s in add_action for admin_head? I’ll check the register in SettingsServiceProvider.
+exec
+/bin/zsh -lc 'rg -n "output_custom_css" -S includes/Settings/SettingsServiceProvider.php' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 66ms:
+145:		add_action( 'admin_head', array( $this, 'output_custom_css' ) );
+870:	public function output_custom_css(): void {
+exec
+/bin/zsh -lc "sed -n '300,420p' includes/Settings/SettingsServiceProvider.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 62ms:
+			$schedules['weekly'] = array(
+				'interval' => WEEK_IN_SECONDS,
+				'display'  => __( 'Once Weekly', 'wp-admin-health-suite' ),
+			);
+		}
+
+		if ( ! isset( $schedules['monthly'] ) ) {
+			$schedules['monthly'] = array(
+				'interval' => 30 * DAY_IN_SECONDS,
+				'display'  => __( 'Once Monthly', 'wp-admin-health-suite' ),
+			);
+		}
+
+		return $schedules;
+	}
+
+	/**
+	 * Register settings with WordPress.
+	 *
+	 * @return void
+exec
+/bin/zsh -lc 'rg -n "function build_field_schema" -n includes/Settings/SettingsRegistry.php' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 67ms:
+528:	private function build_field_schema( array $field ): array {
+exec
+/bin/zsh -lc "sed -n '520,660p' includes/Settings/SettingsRegistry.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 42ms:
+	}
+
+	/**
+	 * Convert a field definition to a JSON schema fragment.
+	 *
+	 * @param array $field Field definition.
+	 * @return array Schema fragment.
+	 */
+	private function build_field_schema( array $field ): array {
+		$sanitize = $field['sanitize'] ?? 'text';
+
+		switch ( $sanitize ) {
+			case 'boolean':
+				$schema = array(
+					'type'    => 'boolean',
+					'default' => (bool) ( $field['default'] ?? false ),
+				);
+				break;
+
+			case 'integer':
+
+
+
+
+
+thinking
+**Reviewing advanced settings**
+
+I see that 'css' uses string types, and I'm tasked with reviewing the advanced settings domain file for functionalities. It's important to document these settings properly since the current description doesn't mention custom CSS or export/import options. I wonder if we need to update the file documentation to meet the specifications. Perhaps there are also missing field definitions for controlling these features? I'll need to investigate the README or docs further, but I also think there could be bugs related to the settings exposed in the REST API.
+thinking
+**Examining REST API exposure**
+
+I realize that the `show_in_rest` for `register_setting` exposes options via the WordPress REST API, specifically `wp/v2/settings`, which is typically restricted to admin access. Ironically, even if `enable_rest_api` is set to false, the settings remain visible because `show_in_rest` is always true. This might be an issue, as the spec suggests we could control whether settings are shown via REST. It seems that `enable_rest_api` is intended for managing custom plugin endpoints, but since it's always set to true, options are still accessible even when the plugin’s REST API is disabled.
+thinking
+**Reviewing REST API settings**
+
+The spec mentions the `AdvancedSettings.php` file for REST API settings, and I wonder if it should include more fields, like toggling `show_in_rest`. It seems that the `show_in_rest` setting is always enabled, which means options are exposed to authorized users via REST, even if the plugin's endpoints are disabled. This could be acceptable, but the spec might require that `enable_rest_api` fully disables all REST-options exposure, including settings. I need to check the REST controller code to clarify how `is_rest_api_enabled` interacts with `show_in_rest`.
+thinking
+**Implementing API settings adjustments**
+
+Since I'm reviewing the advanced settings domain, it seems we might need to ensure that if `enable_rest_api` is false, then `register_setting` should set `show_in_rest` to false as well. The tricky part is that `register_setting` is called before we know the setting's value. However, I think I can call `$registry->is_rest_api_enabled()` to check this. 
+
+It might be necessary to adjust how `show_in_rest` is determined based on the value of `enable_rest_api`, but I need to make sure it only shows as false, preventing exposure via WordPress REST when required. The spec doesn’t explicitly mention this, but it could relate to "REST API settings." There’s also the rate limiting configuration, which seems more suited for plugin endpoints and shouldn't typically apply to WordPress settings.
+thinking
+**Exploring CSS and export/import settings**
+
+I need to consider custom CSS handling and input sanitization. For the export/import functionality, it seems there should be options for restricting these features based on an advanced setting, like `allow_import_export`, particularly for security reasons, as some site owners may want these disabled. 
+
+While the spec doesn’t mention adding toggles, it does ask for a review of the advanced settings related to export/import. Maybe they expect to introduce new settings like `enable_settings_tools`. I'll check the tasks to see if there are any existing advanced settings that address disabling export/import by searching for "export" in tasks.csv.
+exec
+/bin/zsh -lc 'rg -n "Export Settings|export" tasks.csv | head -n 100' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 68ms:
+35:M04-02,"Query Monitor Integration","Create /includes/performance/class-query-monitor.php. Methods: capture_slow_queries(threshold_ms), get_query_summary(), get_queries_by_caller(), export_query_log(). If Query Monitor plugin active, integrate with its data. Otherwise, implement basic monitoring: hook into 'query' filter, measure SAVEQUERIES if enabled. Identify: slow queries (>50ms), duplicate queries, queries without indexes (EXPLAIN). Log to custom table with TTL. Acceptance: Works standalone and enhanced with Query Monitor, identifies genuinely slow queries, logs are prunable."
+45:M06-01,"Settings Page Framework","Create /includes/class-settings.php using WordPress Settings API. Sections: General, Database Cleanup, Media Audit, Performance, Scheduling, Advanced. Register settings with register_setting(), add_settings_section(), add_settings_field(). Sanitization callbacks for each field type. Default values in activation. Export/import settings as JSON. Reset to defaults option. Acceptance: All settings save correctly, sanitization prevents invalid data, export/import works, reset works."
+52:M06-08,"Settings Admin Page","Create /templates/admin/settings.php. Tabbed interface matching WP settings pages style. Each section as tab. Save button per tab or unified save. Success/error notices on save. Settings export/import in Advanced tab with file upload. Reset section per tab. Preview of scheduled tasks showing next run times. Acceptance: Tabs work correctly, save provides feedback, export creates valid JSON, import validates and applies."
+65:M08-07,"Developer Documentation - REST API","Create /docs/developers/rest-api.md. Full API reference: all endpoints, methods, parameters, request/response examples. Authentication requirements. Rate limiting details. Error codes and meanings. Postman collection export. Acceptance: Developer can integrate with all endpoints, examples are copy-paste ready."
+
+
+
+
+
+thinking
+**Evaluating advanced settings security**
+
+I’m considering the advanced settings domain and what should be included, like "enable_import_export" or "enable_custom_css." It seems important to ensure correctness and security without adding unnecessary features. 
+
+I'll inspect the AdvancedSettings domain file for issues, particularly around how it sanitizes CSS. The current method might allow certain invalid imports, and I wonder about the implications of allowing data URLs in CSS. Overall, it appears that safe_mode is beneficial as it prevents data modification.
+thinking
+**Reviewing advanced settings functionality**
+
+I’m noticing that the spec doesn’t mention safe_mode, even though it exists. I think the advanced settings domain could benefit from export/import settings like file size limits, but that’s not in the current scope. 
+
+While reviewing, I’m finding some inconsistencies, like the title in define_section returning "Advanced" instead of "Advanced Settings," which would match the UI better. 
+
+Also, it might make sense for 'custom_css' to use 'textarea' sanitation instead of 'css.' Lastly, I’ll check the default values for fields like 'rest_api_rate_limit.'
+thinking
+**Considering advanced settings structure**
+
+I’m thinking that the advanced settings domain could benefit from a more descriptive section and maybe new fields like 'allow_settings_import.' However, it seems exporting and importing might not be part of this domain file. 
+
+I’ll check the metadata in the AdvancedSettings file, which mentions changes since version 1.2.0, but there’s no indication of export/import features. The advanced tab shows these tools, which clarifies their presence. So, the scope of the review seems to focus on ensuring correctness with respect to user settings related to exporting and importing.
+thinking
+**Examining custom CSS validation**
+
+I’m considering whether we should add validation for the length of the custom_css field in AdvancedSettings, potentially capping it at 50,000 characters to align with the validate_import_structure method. It seems other fields have min and max lengths, but custom_css currently lacks this.
+
+If necessary, I could also introduce a 'max_length' option, although the sanitize_field_value doesn’t handle it. The spec mentions reviewing export/import functionality, which might mean I should include a `$sanitize` type of 'json' and a field for 'allow_settings_import.' I maybe need to check previous Q07 tasks to gather more detail.
+thinking
+**Checking Q07 task patterns**
+
+I’m thinking that each Q07 task might require additional constraints, like ensuring minimum and maximum values for various fields. I should explore the .plans directory for Q07-01 and similar tasks to see if there are minimal descriptions or specific requirements. Understanding these patterns will help me align the expectations better and ensure that I’m covering all necessary aspects in the current context. Let’s dive into those plans and see what insights I can find!
+exec
+/bin/zsh -lc 'ls -ლა .plans | head' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 64ms:
+ls: invalid option -- á
+usage: ls [-@ABCFGHILOPRSTUWXabcdefghiklmnopqrstuvwxy1%,] [--color=when] [-D format] [file ...]
+
+thinking
+**Correcting command syntax**
+
+Oh no, I accidentally typed 'ls -ლა' with an Arabic letter in there, maybe due to my previous distractions. I must have really been in a weird headspace! Let’s make sure to use the correct command: 'ls -la .plans | head' to check the contents properly. That should pull up the right information without any confusion!
+exec
+/bin/zsh -lc 'ls -la .plans | head' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 115ms:
+total 1008
+drwxr-xr-x@ 128 ahmedyounis  staff  4096 Jan 17 00:29 .
+drwxr-xr-x   55 ahmedyounis  staff  1760 Jan 16 09:09 ..
+-rw-r--r--@   1 ahmedyounis  staff   721 Jan  7 10:27 M00-01.md
+-rw-r--r--@   1 ahmedyounis  staff   604 Jan  7 10:33 M00-02.md
+-rw-r--r--@   1 ahmedyounis  staff   660 Jan  7 10:41 M00-03.md
+-rw-r--r--@   1 ahmedyounis  staff   602 Jan  7 10:43 M00-04.md
+-rw-r--r--@   1 ahmedyounis  staff   620 Jan  7 10:47 M00-05.md
+-rw-r--r--@   1 ahmedyounis  staff   648 Jan  7 10:50 M00-06.md
+-rw-r--r--@   1 ahmedyounis  staff   645 Jan  7 10:53 M00-07.md
+
+thinking
+**Considering plans for tasks**
+
+I'm thinking there are a number of plans I could consider. For the tasks labeled with "Q," I wonder if it would make sense to start listing them, beginning with Q07. It's always good to have a clear structure to follow, so I should find a way to organize these thoughts effectively. Let’s compile a list and see how those plans come together. This could help clarify what I need to focus on!
+exec
+/bin/zsh -lc 'ls -la .plans | rg "Q07"' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 95ms:
+-rw-r--r--@   1 ahmedyounis  staff   194 Jan 16 21:40 Q07-01.md
+-rw-r--r--@   1 ahmedyounis  staff   196 Jan 16 22:13 Q07-02.md
+-rw-r--r--@   1 ahmedyounis  staff   194 Jan 16 22:39 Q07-03.md
+-rw-r--r--@   1 ahmedyounis  staff   178 Jan 16 23:00 Q07-04.md
+-rw-r--r--@   1 ahmedyounis  staff   188 Jan 16 23:32 Q07-05.md
+-rw-r--r--@   1 ahmedyounis  staff   185 Jan 17 00:16 Q07-06.md
+-rw-r--r--@   1 ahmedyounis  staff   205 Jan 17 00:29 Q07-07.md
+
+thinking
+**Exploring Q07 specs**
+
+I think I should look into the specs for Q07 tasks to see if they’re minimal or if they provide enough detail. Opening the Q07-06 spec seems like a good start. If I can get a sense of what’s expected, maybe I can figure out the right approach to take. I'm curious to see how these specs guide the tasks! Let’s check them out!
+exec
+/bin/zsh -lc 'cat .plans/Q07-06.md' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 62ms:
+# Q07-06 — Scheduling Settings Domain Review
+
+Review includes/Settings/Domain/SchedulingSettings.php for cron schedule configuration, task enablement settings, and timezone handling.
+
+
+
+
+thinking
+**Evaluating rate limits**
+
+I’m analyzing a rate-limiting process that checks if $count exceeds $rate_limit. When $rate_limit equals 0 and the key doesn't exist, it sets the count to 1 and returns true instantly without checking, allowing the first request to pass. However, subsequent requests would lead to errors after the count increments. So effectively, there's a restriction of one request per minute if the rate limit is set to 0, which might not be the intended design. Adapting the system to treat rate_limit as disabled in certain cases might help.
+thinking
+**Analyzing request limits**
+
+I’m examining how request limits work in the system. It seems that if the rate limit is set to 60, it allows exactly that many requests per minute. For example, if requests start at 1, the system checks if it meets or exceeds the limit, which it won't until the 61st request, leading to an error. In the caching paths, it increments the count similarly, indicating that the usage of a user ID in this caching process might lead to conflicts in a multisite setup. However, since the user ID is global, it appears manageable.
+thinking
+**Evaluating caching and CSS handling**
+
+I'm looking into how transients work, considering that they might be site-specific, while the restful endpoints appear to be as well. When it comes to rate limiting and caching, the cache group appears to use the object cache group `wpha_rate_limits`. For custom CSS handling in WordPress, the `output_custom_css` function utilizes `wp_register_style` with the second parameter set to false, which is indeed allowed. However, older versions might not handle this correctly for inline styles. Sanitizing CSS output is good, but I want to check that the saving process effectively strips unwanted patterns like certain script tags and imports.
+thinking
+**Improving content sanitization**
+
+I’m considering how the output sanitizer manages content, especially regarding saving sanitized content to prevent storing any malicious code. The import functionality uses `$registry->sanitize_settings`, which calls `sanitize_field_value` for CSS fields, applying `sanitize_css`. While the import process sanitizes, it may overlook some patterns. The output sanitizer helps further, which is reassuring. However, the spec notes "custom CSS handling" without mentioning sanitization. It seems beneficial to enhance `sanitize_css` to align with the output sanitizer and remove problematic patterns without breaking existing tests. I should check for any tests related to custom CSS.
+exec
+/bin/zsh -lc 'rg -n "custom_css" tests | head -n 50' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 75ms:
+
+
+thinking
+**Considering tests for export/import**
+
+I’m thinking there are no tests for custom CSS, which seems odd. I wonder if there might be tests related to exporting or importing instead. I should search through the tests for anything labeled as export_settings or import to see if they exist. This feels important to ensure everything is covered, especially if these settings might impact user experience or functionality later on. Let’s dig into those tests!
+exec
+/bin/zsh -lc "rg -n \"export_settings\\(|import_settings\\(\" tests | head -n 50" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 71ms:
+
+
+
+
+
+
+thinking
+**Evaluating code changes**
+
+I'm considering the modifications required for the AdvancedSettings domain file. We might not need to change much. It’s important to perform actual changes to meet "review" tasks, such as updating docblocks and ensuring fields align with features like export/import. 
+
+I'm also inspecting the export/import handling code. There seems to be an issue in the import_settings function: they call wp_check_filetype_and_ext but overlook its output, resulting in a potential bug with MIME type validation. They should validate the output to avoid issues.
+thinking
+**Reviewing security issues**
+
+I see potential violations of the security documentation, especially concerning "export/import functionality." It's crucial to fix this because they call wp_check_filetype_and_ext but never utilize it, which could allow invalid MIME types. They do check for JSON extensions and file sizes, but ignoring the MIME type check is a missed opportunity.
+
+Additionally, the export_settings function retrieves settings unsafely, and the import_settings function should validate uploaded files more rigorously. They should confirm that the file extensions and MIME types match expected values before proceeding. There's definitely work to do here!
+thinking
+**Reviewing file size and security checks**
+
+I'm noticing some file size concerns. The code sets a limit of 102400 bytes, while the comment says max 100KB, and the security document suggests 1MB. So I want to clarify what the desired limit should be. 
+
+They also don't call wp_unslash on $_FILES or $_POST, which seems like a missed step. After importing, they update options with sanitized settings but possibly neglect to clear the cached settings in SettingsRegistry. The potential security improvement here would be to validate the file type results from wp_check_filetype_and_ext. Additionally, using wp_filesystem or sanitize_file_name is common, though not strictly necessary.
+thinking
+**Analyzing import/export specifications**
+
+The spec for Q07-07 instructs a review of AdvancedSettings.php for export/import functionality, but I see that we can still modify SettingsServiceProvider to improve import validation since it relates to export/import. The spec cites AdvancedSettings.php, which includes both functionalities. While we need to be cautious because users want us to implement the spec fully, I noticed a potential bug in import_settings due to an unused MIME type check that we should fix. We might also add new fields or update descriptions related to advanced settings, focusing on aspects like REST API settings and rate limiting.
+thinking
+**Reviewing settings and validations**
+
+I need to ensure several things, starting with the REST API settings and confirming the enable_rest_api field is present, possibly allowing for customizable rate limits. We also need to check the rate limiting configuration to ensure proper min/max settings, and I want a robust sanitization method for the custom_css field.
+
+For export/import functionality, I might contemplate adding settings fields or an option to disable imports, although the spec doesn’t explicitly ask for this. Import settings should ensure only known fields are included, and it's necessary to validate the $file_info results to avoid potential issues with file uploads. 
+
+Additionally, I should look at the sanitize_css method in SettingsRegistry. It might require updates to handle various cases properly, but any changes should be cautious to avoid affecting other areas. Lastly, I'll need to verify that all code passes tests, checking package.json for PHP and JavaScript testing configurations.
+exec
+/bin/zsh -lc 'cat package.json' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 67ms:
+{
+  "name": "wp-admin-health-suite",
+  "version": "1.0.0",
+  "description": "A comprehensive suite for monitoring and maintaining WordPress admin health and performance",
+  "scripts": {
+    "build": "webpack --mode production",
+    "build:dev": "webpack --mode development",
+    "watch": "webpack --mode development --watch",
+    "dev": "webpack serve --mode development --open",
+    "lint": "eslint assets/js --ext .js,.jsx",
+    "lint:fix": "eslint assets/js --ext .js,.jsx --fix",
+    "format": "prettier --write \"**/*.{js,jsx,json,css,scss,md}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,json,css,scss,md}\"",
+    "test": "jest --passWithNoTests",
+    "prepare": "husky"
+  },
+  "keywords": [
+    "wordpress",
+    "plugin",
+    "health",
+
+
+
+
+
+thinking
+**Considering testing processes**
+
+I realize that running `npm test` executes Jest, so any changes in PHP won’t be covered unless we consider PHPUnit tests, possibly executed via Composer. The user hasn’t requested it, but I plan to run `npm lint` and `npm test` as they asked. I aim to ensure our changes won’t break PHP and maybe check coding standards like PHPCS, even though it's not required. I’ll focus on implementing the needed specifications with targeted improvements, avoiding large refactors.
+thinking
+**Reviewing export settings**
+
+In the `export_settings`, I see they use `wp_json_encode` with `JSON_PRETTY_PRINT`, but if encoding fails, it results in an empty output. I think we should handle that error, but maybe not for now. There's also a lack of checks on the `wp_json_encode` result, so calling `wp_die` with an error message might be useful. I notice they include `current_time('mysql')` for timestamps, which is fine, yet I wonder if `wp_unslash` is necessary for the file name. I'll recommend adding advanced fields for import/export controls, while considering the complexity it brings.
+thinking
+**Evaluating export/import functionality**
+
+I need to see "review ... export/import functionality" as a matter of verifying security and proper alignment, not just adding toggles since the task csv doesn’t mention them. Instead, I could enhance the documentation for the `AdvancedSettings` class to include export/import and custom CSS, though it’s not necessary. I’ll also want to check and correct the description for `rest_api_rate_limit`. For improvements, I could update the `SettingsRegistry::sanitize_css` to ensure it matches the output sanitization by removing unnecessary directives. Maybe it’s a good idea to unify processes for input and output or consider making a dedicated CSS sanitizer.
+thinking
+**Improving CSS sanitization**
+
+I realize that I can update the `sanitize_css` method in `SettingsRegistry` to use the same patterns as the output sanitizer. This should help sanitize on both save and import, which is great! I need to confirm that `sanitize_css` doesn’t use `wp_kses` unnecessarily. My plan is to incorporate `wp_strip_all_tags` and possibly `wp_kses`, while ensuring `sanitize_css` is used in the `sanitize_field_value` method. This method handles any input from the UI that might contain CSS, so aligning the logic is key!
+thinking
+**Analyzing sanitize_css and export settings**
+
+I’m looking at the existing `sanitize_css` in `SettingsRegistry` and noticing a few issues. The regex for script tags is redundant after using `wp_strip_all_tags`. While the `import` directive is structured correctly to avoid removing important properties, it could still intersect with comments. Additionally, it misses the removal of `@charset`, `behavior:`, and `-moz-binding:`. 
+
+For export/import, I detect a discrepancy between the specified file size limits. Although the documentation mentions 1MB, the code currently uses 100KB, which could be an issue. Improving the sanitization process for CSS and adjusting the MIME type checks for imports seems crucial, but I want to avoid significant behavioral changes that could affect tests. A detailed plan is on my mind!
+Plan update
+  ✓ Read spec and handoff
+  → Inspect relevant codepaths
+  • Implement required changes
+  • Run lint and tests
+  • Summarize and hand off
+
+
+
+
+
+
+
+
+thinking
+**Evaluating filetype checks**
+
+I'm looking into how WP's filetype check works and what it returns, specifically for JSON files. It seems like it can report both 'application/json' and 'text/plain', which adds some confusion. Some servers may send JSON as one type or the other. I'm considering using `wp_check_filetype_and_ext` for flexibility, but I need to be careful as not all systems may detect it correctly. I’ll aim to allow both 'application/json' and 'text/plain' to avoid unexpected failures when importing.
+thinking
+**Refining filetype validation**
+
+I’m considering how to validate JSON files using `wp_check_filetype_and_ext`. It seems like we can trust the extension check more than the MIME type, especially since some hosts may return an empty type even if the extension is correct. So I think I should focus on checking if the extension is 'json' and only reject if it’s not. We could even skip the type check altogether, as the extension check is already ensuring validity. Plus, I’ll utilize "proper_filename" for any mismatched extensions.
+thinking
+**Assessing upload file checks**
+
+I’m thinking about how to handle file uploads, especially when the file name is tricky, like "evil.php.json". The `pathinfo` may correctly identify the extension as 'json', but if the actual content identifies as 'php', we might face issues. I want to ensure we only enforce the 'json' extension strictly and check that the type, if provided, is in an allowed list. However, I won't block uploads if the type is empty, which seems like a fair approach to avoid breaking things for users while still keeping some checks in place.
+thinking
+**Rethinking file type checks**
+
+I'm considering the reliability of file type detection, especially since it can be inconsistent on some systems. While WordPress does use this for security, I think our plugin should lean more on JSON decoding instead. If `wp_check_filetype_and_ext` returns 'json' as an extension or even if the extension is false but the file name ends in 'json', we could allow it, but that feels a bit insecure. Since we've got the JSON decode in place already, I might just focus on ensuring the extension is 'json' and allow it if decoding succeeds.
+thinking
+**Enhancing file validation processes**
+
+I’m considering how our plugin interfaces with the WordPress environment. It seems best to use `wp_check_filetype_and_ext` to validate the extension and ensure the type is in an allowed list, including 'application/json', 'text/plain', and 'application/octet-stream'. However, I might allow a little flexibility, like permitting empty types if the extension is 'json'. 
+
+Instead of relying heavily on MIME checks, I think it’s safer to verify that the file begins with `{` or `[` for JSON-like content. I’ll implement these checks while ensuring a good user experience.
+thinking
+**Reviewing settings and limits**
+
+I'm considering adding a "tools" field to display information about export/import functionalities, but it may not enhance the functionality. The spec mentions reviewing settings related to safe and debug modes, which currently exist in AdvancedSettings, not CoreSettings. I’ll make sure the `rest_api_rate_limit` respects a minimum of 10 and a maximum of 120, as notes in the spec suggest. 
+
+Clamping at retrieval seems prudent to prevent users from inadvertently locking themselves out. However, I need to be mindful that testing methods might need updates based on these changes.
+thinking
+**Assessing test strategies and sanitization**
+
+I’m considering running both `npm lint` and `npm test`, but since changes are in PHP, I think I should also run PHP unit tests with `composer test`. Although it's not specified, testing everything ensures quality.
+
+For rate limiting, it's essential to ensure values fall within a reasonable range. However, I might leave the method as is to avoid breaking existing tests. 
+
+Regarding exporting settings, we might need to sanitize them to ensure there are no malicious values. Implementing sanitized exports could improve security, while also being careful not to alter stored settings too drastically.
+thinking
+**Considering advanced settings modifications**
+
+I’m thinking the advanced settings domain might need to add a `batch_size` parameter, complete with a description and min-max values. This could involve updating `sanitize_css` in SettingsRegistry, as well as the import and export settings in SettingsServiceProvider.
+
+The spec explicitly mentions reviewing the AdvancedSettings domain file, so I wonder if we should revise the description to better reflect its features, including mentioning tools for import/export. It feels good to enhance clarity, but I’ll ensure I keep the translation functions intact as required. Let's move forward with this plan!
+Plan update
+  ✓ Read spec and handoff
+  ✓ Inspect relevant codepaths
+  → Implement required changes
+  • Run lint and tests
+  • Summarize and hand off
+
+
+
+
+
+
+thinking
+**Implementing changes**
+
+I’m going to implement some necessary changes. It looks like I need to edit files and use the apply_patch function. First, I should decide on the exact changes to be made. For starters, I want to update the sanitize_css method in includes/Settings/SettingsRegistry.php. The idea is to align it with sanitize_css_output, which could help reduce duplication and ensure that the imported settings are safe. However, I need to remember that it’s in SettingsRegistry and not AdvancedSettings.
+thinking
+**Updating settings and sanitization**
+
+I need to update the import_settings method in includes/Settings/SettingsServiceProvider.php to validate `$file_info` and handle errors. I should also make sure that the result from `wp_json_encode` in export_settings isn't false. Additionally, it might be worthwhile to update the section description or docblock in includes/Settings/Domain/AdvancedSettings.php.
+
+Next, I’ll look into the sanitize_css output sanitizer in SettingsRegistry. It uses `wp_strip_all_tags` and regex to clean scripts, but since script tags are already removed, I should consider if that needs to stay. Then, we want to align the output sanitization: removing HTML tags and entities with `wp_kses`.
+thinking
+**Considering additional sanitization steps**
+
+I’m contemplating additional steps for the sanitization process. First, I could include regex to block style tag breakouts, but after using `wp_strip_all_tags`, I'm not sure if any content would be left. For instance, a tag like `</style><script>alert(1)</script>` could just turn into `alert(1)`, and my regex might not catch that. I’ll also want to remove JavaScript protocols and expressions like `javascript:`, as well as block `@import` and `@charset` directives with regex.
+
+Plus, I should remove null bytes and angle brackets. Normalizing line endings doesn’t seem necessary, though.
+thinking
+**Updating the sanitize_css function**
+
+I need to revise the sanitize_css function. The current plan is to use `wp_strip_all_tags` and then `wp_kses` to clean the CSS input. I’ll also use several regex patterns to remove specific unwanted items, like style tags and JavaScript protocols. I’ll include checks for `@import` and `@charset` directives, and I’ll remove null bytes and angle brackets at the end.
+
+I should keep in mind that `wp_kses` might require global functions to work effectively, but it's safe to include. Not sure if I need to remove CSS comments, though—it seems optional.
+thinking
+**Updating import_settings and descriptions**
+
+I’m working on updating the import_settings function in SettingsServiceProvider. Initially, it validates the MIME type using `wp_check_filetype_and_ext`. I plan to ensure that JSON files are accepted appropriately by checking against both `application/json` and `text/plain`. If the extension is empty, I'll call `wp_check_filetype_and_ext` again to validate against the text/plain type.
+
+Also, I’ll include a fallback check for `application/octet-stream` as a last resort, but I'm cautious since this could reduce security. If decoding fails, it’d block any non-JSON files. After that, I’ll update the section description in AdvancedSettings class to reflect what the configuration offers. It should briefly mention configuring REST API access, rate limiting, and custom admin CSS.
+thinking
+**Finalizing updates and patches**
+
+I’m considering how to update the description for the AdvancedSettings section. A suggestion could be: "Advanced settings for REST API access, rate limiting, and customization." I also think it’s worthwhile to include mention of the export/import tools, referring to them as "backup and migration tools." 
+
+However, noting that this may require an update of any translation strings is important too. Overall, I’ll apply patches to update three files and implement the necessary modifications. Let's get this done!
+exec
+/bin/zsh -lc 'rg -n "public function export_settings" -n includes/Settings/SettingsServiceProvider.php' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 64ms:
+471:	public function export_settings(): void {
+
+thinking
+**Analyzing patch issues**
+
+I see that the line exists, but maybe the patch system couldn’t find it because of indentation issues. The patch expects the exact line with a tab preceding it. Our patch didn’t include indentation, but context lines are supposed to include it. In the file, there's indeed tab indentation, and our patch just didn’t match that. I need to focus on ensuring that indentation is included for both export_settings and import_settings. So, I’ll apply patches one file at a time.
+file update
+M /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/includes/Settings/Domain/AdvancedSettings.php
+@@ -38,3 +38,3 @@
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+apply_patch(auto_approved=true) exited 0 in 26ms:
+Success. Updated the following files:
+M includes/Settings/Domain/AdvancedSettings.php
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+
+
+thinking
+**Preparing to patch sanitize_css**
+
+I’m getting ready to apply a patch to the SettingsRegistry for the sanitize_css method. First, I need to confirm that the lines in the existing sanitize_css method haven't changed from the earlier version. It's important to view the surrounding context of sanitize_css to ensure I can patch it correctly. Let's make sure everything aligns before proceeding. I'm all set to move forward with this!
+exec
+/bin/zsh -lc 'rg -n "private function sanitize_css" -n -C 3 includes/Settings/SettingsRegistry.php' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 45ms:
+324-	 * @param string $css CSS code to sanitize.
+325-	 * @return string Sanitized CSS.
+326-	 */
+327:	private function sanitize_css( string $css ): string {
+328-		$css = wp_strip_all_tags( $css );
+329-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+330-		$css = preg_replace( '/javascript:/i', '', $css );
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+
+exec
+/bin/zsh -lc "sed -n '320,360p' includes/Settings/SettingsRegistry.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 33ms:
+
+	/**
+	 * Sanitize CSS input.
+	 *
+	 * @param string $css CSS code to sanitize.
+	 * @return string Sanitized CSS.
+	 */
+	private function sanitize_css( string $css ): string {
+		$css = wp_strip_all_tags( $css );
+		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+		$css = preg_replace( '/javascript:/i', '', $css );
+		$css = preg_replace( '/expression\s*\(/i', '', $css );
+		$css = preg_replace( '/import\s+/i', '', $css );
+
+		return trim( $css );
+	}
+
+	/**
+	 * Sanitize a single field value based on its field definition.
+	 *
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+
+file update
+M /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/includes/Settings/SettingsRegistry.php
+@@ -327,7 +327,28 @@
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+apply_patch(auto_approved=true) exited 0 in 28ms:
+Success. Updated the following files:
+M includes/Settings/SettingsRegistry.php
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+
+
+thinking
+**Patching settings service**
+
+I need to patch the SettingsServiceProvider to include the MIME check for imports and ensure the JSON encoding check is in place. It’s important to get the import_settings section correctly indented. I should start by locating the current snippet that deals with the MIME check, so I can view the surrounding code. Getting this right is crucial, as it will help ensure proper functionality going forward!
+exec
+/bin/zsh -lc "rg -n \"Validate MIME type using WordPress's file type check\" -n -C 2 includes/Settings/SettingsServiceProvider.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 45ms:
+544-		}
+545-
+546:		// Validate MIME type using WordPress's file type check.
+547-		$file_info = wp_check_filetype_and_ext(
+548-			$_FILES['import_file']['tmp_name'],
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+
+exec
+/bin/zsh -lc "sed -n '536,575p' includes/Settings/SettingsServiceProvider.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 42ms:
+		// Validate file size (max 100KB - settings should be small).
+		if ( $_FILES['import_file']['size'] > 102400 ) {
+			wp_die( esc_html__( 'File too large. Maximum 100KB allowed.', 'wp-admin-health-suite' ) );
+		}
+
+		// Ensure file was actually uploaded via HTTP POST.
+		if ( ! is_uploaded_file( $_FILES['import_file']['tmp_name'] ) ) {
+			wp_die( esc_html__( 'Invalid file upload.', 'wp-admin-health-suite' ) );
+		}
+
+		// Validate MIME type using WordPress's file type check.
+		$file_info = wp_check_filetype_and_ext(
+			$_FILES['import_file']['tmp_name'],
+			$_FILES['import_file']['name'],
+			array( 'json' => 'application/json' )
+		);
+
+		// Read and validate file content.
+		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+		if ( false === $json ) {
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+
+
+thinking
+**Patching and checking**
+
+I'm planning to insert fallback checks right after I assign `file_info`. Then, I'll need to patch the `export_settings`. I should focus on the line where `$json = wp_json_encode( $export, JSON_PRETTY_PRINT);` is located and take a look at what's around that part. It seems important to ensure everything is working smoothly together! Let's keep this clear and organized as I patch.
+exec
+/bin/zsh -lc "sed -n '460,520p' includes/Settings/SettingsServiceProvider.php" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 51ms:
+				'<p class="description">%s</p>',
+				esc_html( $field['description'] )
+			);
+		}
+	}
+
+	/**
+	 * Export settings as JSON.
+	 *
+	 * @return void
+	 */
+	public function export_settings(): void {
+		// Security: Verify nonce first to confirm request legitimacy,
+		// then check capability to avoid timing-based information disclosure.
+		check_admin_referer( 'wpha_export_settings' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions.', 'wp-admin-health-suite' ) );
+		}
+
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+
+
+thinking
+**Evaluating JSON handling**
+
+I'm planning to patch the code to check if $json is false. It seems `wp_json_encode` can return either a string or false, so I'll make sure to handle that.
+
+I should consider sanitizing the settings before the export. Actually, exporting sanitized values could be beneficial since `$registry->sanitize_settings($settings)` ensures value types and enforces min/max limits. However, if, say, a user set `rest_api_rate_limit` to 3, it might get clamped to 10 during export, which could be unexpected. Still, I need to make sure the export reflects the actual saved values. So, I’ll focus on checking the $json encoding for now.
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+
+
+
+
+
+
+thinking
+**Clarifying patch content**
+
+I'm trying to figure out how we handled indentation in the patch content, and it seems like we may have used spaces instead of tabs, even though the file structure may rely on tabs. It's tricky because the patch tool is strict about these details! I'll need to patch the import and export hunk separately, making sure to get the correct indentation by copying lines with tabs directly from the file. Indentation is crucial for everything to match correctly. I want to make sure we handle this right!
+thinking
+**Examining sed output**
+
+I’m looking into the output from sed to determine how indentation is represented, and it seems like it shows up as tabs. Since the code relies on tab characters, it’s important that our patch reflects that. I might be able to avoid specifying indentation exactly by using context lines that don’t have leading whitespace, but they might actually include it. I could also just copy from the file output to ensure correctness. Alternatively, I could use `apply_patch` with exact context lines and leading spaces. It's crucial to get this right!
+thinking
+**Patching with indentation**
+
+I'm uncertain about how sed outputs tab characters; they likely appear as tabs. It’s essential to ensure that when we're patching, we can utilize pattern lines with minimal indentation while including context lines around them. The apply_patch tool requires exact lines, so I'll need to specify the correct indentation to match the file. I could use tabs in patch lines for that, but the tool expects literal tabs. An alternative could be using `apply_patch` with "change_context" lines followed by the code. I want to make sure everything aligns perfectly!
+thinking
+**Matching patch grammar**
+
+I'm looking at how the patch grammar requires lines that start with a space to indicate context, meaning the content after that leading space needs to match exactly, including indentation. I could potentially avoid using tabs by selecting context lines that begin at the start of the line. However, it turns out the file's method does have a tab at the beginning. So, I need to ensure I include that correctly. Since the patch tool doesn't support regex, I'll focus on inserting the literal tab characters as needed. Let's get this right!
+thinking
+**Checking file indentation**
+
+I can check the file's indentation using `sed -n '460,500p'`, but to visualize the tabs properly, I can pipe it to `cat -te`. This way, I'll see `^I` where the tabs are. It’s a neat trick! So, I’ll run the command as `sed -n '460,500p' | cat -te` to confirm the indentation visually. This should help clarify how the file is structured, making it easier to work with. Let's go ahead and do that!
+exec
+/bin/zsh -lc "sed -n '460,510p' includes/Settings/SettingsServiceProvider.php | cat -te" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 46ms:
+^I^I^I^I'<p class="description">%s</p>',$
+^I^I^I^Iesc_html( $field['description'] )$
+^I^I^I);$
+^I^I}$
+^I}$
+$
+^I/**$
+^I * Export settings as JSON.$
+^I *$
+^I * @return void$
+^I */$
+^Ipublic function export_settings(): void {$
+^I^I// Security: Verify nonce first to confirm request legitimacy,$
+^I^I// then check capability to avoid timing-based information disclosure.$
+^I^Icheck_admin_referer( 'wpha_export_settings' );$
+$
+^I^Iif ( ! current_user_can( 'manage_options' ) ) {$
+^I^I^Iwp_die( esc_html__( 'You do not have sufficient permissions.', 'wp-admin-health-suite' ) );$
+^I^I}$
+$
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+
+
+thinking
+**Checking indentation in patching**
+
+I noticed some code uses two tabs, like in `^I^I$json = ...`, so I need to replicate that in the patch. It’s important to maintain consistency, so if other lines use tabs, I should include those too. For the import section, it seems I must make a patch after the file_info assignment. To make sure I get the indentation just right, I should check that section using `cat -te` around lines 530-560.
+exec
+/bin/zsh -lc "sed -n '520,570p' includes/Settings/SettingsServiceProvider.php | cat -te" in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 37ms:
+^I^Icheck_admin_referer( 'wpha_import_settings' );$
+$
+^I^Iif ( ! current_user_can( 'manage_options' ) ) {$
+^I^I^Iwp_die( esc_html__( 'You do not have sufficient permissions.', 'wp-admin-health-suite' ) );$
+^I^I}$
+$
+^I^Iif ( empty( $_FILES['import_file']['tmp_name'] ) ) {$
+^I^I^Iwp_die( esc_html__( 'No file uploaded.', 'wp-admin-health-suite' ) );$
+^I^I}$
+$
+^I^I// Validate file extension.$
+^I^I$file_extension = pathinfo( $_FILES['import_file']['name'], PATHINFO_EXTENSION );$
+^I^Iif ( 'json' !== strtolower( $file_extension ) ) {$
+^I^I^Iwp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );$
+^I^I}$
+$
+^I^I// Validate file size (max 100KB - settings should be small).$
+^I^Iif ( $_FILES['import_file']['size'] > 102400 ) {$
+^I^I^Iwp_die( esc_html__( 'File too large. Maximum 100KB allowed.', 'wp-admin-health-suite' ) );$
+^I^I}$
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+
+
+
+
+thinking
+**Reviewing function output**
+
+I see that `wp_check_filetype_and_ext(` is displayed with a newline afterward in the output, but there’s no space between the function name and the parentheses in the cat output. This means it shows `$file_info = wp_check_filetype_and_ext($` followed by a line break. It looks like we included a newline with indentation in our patch, but I need to ensure we match the original code exactly. So, I’ll create a precise patch to insert after the `);` line in the filetype check, making sure to include the correct indentation.
+thinking
+**Patching import section**
+
+I’m planning to apply a patch for the import section. I need to replace the existing code with `wp_check_filetype_and_ext(` formatted correctly with no space before the parentheses, just like it appears in the file. I’ll also add additional checks to ensure everything functions properly.
+
+For the patch, I should maintain tabs for indentation and account for both the import and export sections, possibly using two hunks to ensure everything is clear. Context lines will help with correct indentation, making the patch straightforward.
+thinking
+**Considering patching strategy**
+
+I think I could patch both the import and export sections at once, but there's a risk: if one fails, the entire patch could fail. To play it safe, I’ll focus on patching the export section first. This way, I can ensure that part works before moving on to the import patch. It seems like a more reliable approach overall, reducing the chances of complications down the line. Let's get started with the export patch!
+file update
+M /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/includes/Settings/SettingsServiceProvider.php
+@@ -490,2 +490,5 @@
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+apply_patch(auto_approved=true) exited 0 in 34ms:
+Success. Updated the following files:
+M includes/Settings/SettingsServiceProvider.php
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..19bb292a44f79e89ca3ca37fce7d40e5f324157c
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..19bb292a44f79e89ca3ca37fce7d40e5f324157c
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+
+
+thinking
+**Patching import section**
+
+I need to add checks after the file_info in the import section. That sounds straightforward enough! I want to make sure everything is covered before moving forward with the patching process. It’s important to ensure that any potential issues are addressed beforehand to avoid any future problems. I’ll apply the patch and closely monitor the results afterward to verify that everything functions smoothly. Let's proceed with this!
+file update
+M /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/includes/Settings/SettingsServiceProvider.php
+@@ -555,2 +555,25 @@
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+apply_patch(auto_approved=true) exited 0 in 46ms:
+Success. Updated the following files:
+M includes/Settings/SettingsServiceProvider.php
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+
+
+thinking
+**Verifying changes**
+
+I'm thinking about enforcing new updates. We extended the fallback, which is good. Now, I have to check if `wp_kses` is within the SettingsRegistry scope since it's a global function. I’ll update the AdvancedSettings description as well. I plan to run `npm run lint` and `npm test` for verification, even though we changed PHP, so no npm. Before doing that, I should verify our plan and mark it as complete. I need to review the diff to confirm no more tasks are pending and that we didn’t break anything.
+thinking
+**Running checks on PHP files**
+
+I'm thinking it’s time to run PHP lint on the changed files and maybe perform some additional checks. I'll use the command `php -l` on each file to check for syntax errors. Using a shell command for this will help streamline the process. I want to ensure everything is clean before moving forward. Let's see if any issues pop up, so I can address them right away!
+exec
+/bin/zsh -lc 'php -l includes/Settings/Domain/AdvancedSettings.php && php -l includes/Settings/SettingsRegistry.php && php -l includes/Settings/SettingsServiceProvider.php' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 157ms:
+No syntax errors detected in includes/Settings/Domain/AdvancedSettings.php
+No syntax errors detected in includes/Settings/SettingsRegistry.php
+No syntax errors detected in includes/Settings/SettingsServiceProvider.php
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+
+thinking
+**Marking step completion**
+
+Alright, I've marked the implementation step as completed. Now I'm moving on to running the lint tests. It's crucial to ensure everything is functioning smoothly and following the guidelines. I've got to check for any errors or inconsistencies. Running these tests is an important part of the process, and I'm eager to see what the results are! Let's make sure everything is up to snuff!
+Plan update
+  ✓ Read spec and handoff
+  ✓ Inspect relevant codepaths
+  ✓ Implement required changes
+  → Run lint and tests
+  • Summarize and hand off
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+exec
+/bin/zsh -lc 'npm run lint' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 1.53s:
+
+> wp-admin-health-suite@1.0.0 lint
+> eslint assets/js --ext .js,.jsx
+
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/admin.js
+    7:1  warning  Missing JSDoc @param "window" type    jsdoc/require-param-type
+    8:1  warning  Missing JSDoc @param "$" type         jsdoc/require-param-type
+  276:1  warning  Missing JSDoc @param "message" type   jsdoc/require-param-type
+  277:1  warning  Missing JSDoc @param "duration" type  jsdoc/require-param-type
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/charts.js
+  7:1  warning  Missing JSDoc @param "window" type  jsdoc/require-param-type
+  8:1  warning  Missing JSDoc @param "$" type       jsdoc/require-param-type
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/HealthScoreCircle.jsx
+  31:30  warning  'score' is missing in props validation    react/prop-types
+  31:41  warning  'grade' is missing in props validation    react/prop-types
+  31:54  warning  'loading' is missing in props validation  react/prop-types
+  57:1   warning  Missing JSDoc @param "timestamp" type     jsdoc/require-param-type
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+
+thinking
+**Running tests with warnings**
+
+I just noticed that the linting process finished, but it passed with warnings, which means the exit code is 0. That's probably due to some configuration settings. I should definitely make a note of that in the final response. Now, my next step is to run the tests using npm. It's good to keep track of these warnings, though, as they could point to potential improvements. Let's see how the tests go!
+exec
+/bin/zsh -lc 'npm test' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 1.11s:
+
+> wp-admin-health-suite@1.0.0 test
+> jest --passWithNoTests
+
+PASS assets/js/components/QuickActions.test.jsx
+PASS assets/js/components/ActivityTimeline.test.jsx
+  ● Console
+
+    console.error
+      Warning: An update to ActivityTimeline inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+          at ActivityTimeline (/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/components/ActivityTimeline.jsx:108:46)
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+
+thinking
+**Tracking test progress**
+
+I’m noticing that the tests have passed, but there are console errors and warnings related to ACT, etc. However, Jest is showing a passing status, which is good! I think it makes sense to mark step 4 as completed and to move on to step 5, which is currently in progress. I'm just making sure to keep an eye on those errors to see if they affect anything later on.
+Plan update
+  ✓ Read spec and handoff
+  ✓ Inspect relevant codepaths
+  ✓ Implement required changes
+  ✓ Run lint and tests
+  → Summarize and hand off
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+
+thinking
+**Updating translation and commands**
+
+I'm considering that a risk might be the change in the translation string (for the AdvancedSettings description), which could require an update. Including how to verify commands such as `npm run lint` and `npm test` is also essential. I should provide the exact commands since the user requested that. I need to mention that lint may have warnings, but it exits with code 0. Additionally, I’ll make sure to mark step 5 as completed once I finish the final response, but I won't include the plan. Before the final response, checking the `git diff` for changes will be important too.
+exec
+/bin/zsh -lc 'git diff --stat' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 66ms:
+ includes/Settings/Domain/AdvancedSettings.php |  2 +-
+ includes/Settings/SettingsRegistry.php        | 27 ++++++++++++++++++++++++---
+ includes/Settings/SettingsServiceProvider.php | 26 ++++++++++++++++++++++++++
+ 3 files changed, 51 insertions(+), 4 deletions(-)
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+exec
+/bin/zsh -lc 'git diff' in /Users/ahmedyounis/Documents/Projects/wp-admin-health-suite succeeded in 57ms:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a..9bc8451 100644
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@ class AdvancedSettings extends AbstractDomainSettings {
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501be..93112fb 100644
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
+ 	 * @return string Sanitized CSS.
+ 	 */
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+
+thinking
+**Reviewing CSS sanitizer update**
+
+The diff looks good. We’ve removed the script regex and `import\s+` regex. The new sanitizer doesn’t take out the `import` property, but we eliminated the `@import` directive, which is good. However, we’ve left the `import` inside `!important`, but that's okay for now. We should ensure `@import` is only targeted for removal. Also, I noted that our new CSS sanitizer uses `wp_kses`, which we'll want to verify is loaded. The `npm run lint` produced warnings but exited with a code of 0, so it’s not failing. Now, I’ll update the plan to reflect that it's completed.
+Plan update
+  ✓ Read spec and handoff
+  ✓ Inspect relevant codepaths
+  ✓ Implement required changes
+  ✓ Run lint and tests
+  ✓ Summarize and hand off
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+codex
+Status: DONE
+
+Summary of changes:
+- Tightened Custom Admin CSS sanitization used for `custom_css` saves/imports (`includes/Settings/SettingsRegistry.php:327`).
+- Hardened settings import by actually enforcing `wp_check_filetype_and_ext()` (with fallbacks for common JSON MIME variations) and added a guard for failed JSON export encoding (`includes/Settings/SettingsServiceProvider.php:488`, `includes/Settings/SettingsServiceProvider.php:553`).
+- Clarified the Advanced settings section description to reflect REST API/rate limiting/CSS/tools scope (`includes/Settings/Domain/AdvancedSettings.php:36`).
+
+How to verify:
+- `npm run lint`
+- `npm test`
+
+Risks / follow-ups:
+- Import is now stricter about MIME detection; very unusual server MIME reporting could block otherwise-valid JSON uploads.
+- `npm run lint` currently reports warnings (but exits successfully).
+file update:
+diff --git a/includes/Settings/Domain/AdvancedSettings.php b/includes/Settings/Domain/AdvancedSettings.php
+index 49ac91a3ee9212cf3e3cf206988ee792807c48b2..9bc845143fb9588b0df9473b75d13050521e5e4e
+--- a/includes/Settings/Domain/AdvancedSettings.php
++++ b/includes/Settings/Domain/AdvancedSettings.php
+@@ -36,7 +36,7 @@
+ 	protected function define_section(): array {
+ 		return array(
+ 			'title'       => __( 'Advanced', 'wp-admin-health-suite' ),
+-			'description' => __( 'Advanced settings for power users.', 'wp-admin-health-suite' ),
++			'description' => __( 'Advanced settings for REST API access, rate limiting, custom CSS, and tools.', 'wp-admin-health-suite' ),
+ 		);
+ 	}
+ 
+diff --git a/includes/Settings/SettingsRegistry.php b/includes/Settings/SettingsRegistry.php
+index 73501bebb332a4c761dab7f2e21938ae2877e7cc..93112fba041cb8cd1a86808c40a24f12e2df56f7
+--- a/includes/Settings/SettingsRegistry.php
++++ b/includes/Settings/SettingsRegistry.php
+@@ -325,11 +325,32 @@
+ 	 * @return string Sanitized CSS.
+ 	 */
+ 	private function sanitize_css( string $css ): string {
++		// Strip all HTML tags first (prevents </style><script> attacks).
+ 		$css = wp_strip_all_tags( $css );
+-		$css = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', $css );
+-		$css = preg_replace( '/javascript:/i', '', $css );
++
++		// Remove any remaining HTML entities that could be decoded.
++		$css = wp_kses( $css, array() );
++
++		// Block style tag breakout attempts.
++		$css = preg_replace( '/<\s*\/?\s*style/i', '', $css );
++
++		// Remove JavaScript protocol and expressions.
++		$css = preg_replace( '/javascript\s*:/i', '', $css );
+ 		$css = preg_replace( '/expression\s*\(/i', '', $css );
+-		$css = preg_replace( '/import\s+/i', '', $css );
++		$css = preg_replace( '/behavior\s*:/i', '', $css );
++		$css = preg_replace( '/-moz-binding\s*:/i', '', $css );
++
++		// Block @import which could load external malicious CSS.
++		$css = preg_replace( '/@import\b/i', '', $css );
++
++		// Block @charset which could enable encoding attacks.
++		$css = preg_replace( '/@charset\b/i', '', $css );
++
++		// Remove any null bytes.
++		$css = str_replace( "\0", '', $css );
++
++		// Remove any remaining angle brackets.
++		$css = str_replace( array( '<', '>' ), '', $css );
+ 
+ 		return trim( $css );
+ 	}
+diff --git a/includes/Settings/SettingsServiceProvider.php b/includes/Settings/SettingsServiceProvider.php
+index a3b3cc99607f1f66d9d85c551a120488b777e482..d159f50525d7c0a01f93c385211ca6d244e41619
+--- a/includes/Settings/SettingsServiceProvider.php
++++ b/includes/Settings/SettingsServiceProvider.php
+@@ -488,6 +488,9 @@
+ 		);
+ 
+ 		$json = wp_json_encode( $export, JSON_PRETTY_PRINT );
++		if ( false === $json ) {
++			wp_die( esc_html__( 'Failed to encode settings export.', 'wp-admin-health-suite' ) );
++		}
+ 
+ 		nocache_headers();
+ 		header( 'Content-Type: application/json; charset=utf-8' );
+@@ -550,6 +553,29 @@
+ 			array( 'json' => 'application/json' )
+ 		);
+ 
++		if ( empty( $file_info['ext'] ) ) {
++			// Some servers report JSON as plain text; allow that as well.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'text/plain' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			// As a last resort, allow generic binary mime types. The JSON decoding and
++			// strict structure validation below will still block non-JSON content.
++			$file_info = wp_check_filetype_and_ext(
++				$_FILES['import_file']['tmp_name'],
++				$_FILES['import_file']['name'],
++				array( 'json' => 'application/octet-stream' )
++			);
++		}
++
++		if ( empty( $file_info['ext'] ) ) {
++			wp_die( esc_html__( 'Invalid file type. Only JSON files are accepted.', 'wp-admin-health-suite' ) );
++		}
++
+ 		// Read and validate file content.
+ 		$json = file_get_contents( $_FILES['import_file']['tmp_name'] ); // phpcs:ignore
+ 		if ( false === $json ) {
+
+tokens used
+170,926
