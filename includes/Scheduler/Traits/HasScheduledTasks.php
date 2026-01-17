@@ -9,6 +9,7 @@
 
 namespace WPAdminHealth\Scheduler\Traits;
 
+use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Scheduler\Contracts\SchedulableInterface;
 use WPAdminHealth\Scheduler\Contracts\SchedulerRegistryInterface;
 
@@ -23,6 +24,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Used by service providers to register their scheduled tasks with the registry.
  *
  * @since 1.2.0
+ *
+ * @phpstan-require-extends ServiceProvider
  */
 trait HasScheduledTasks {
 
@@ -42,32 +45,51 @@ trait HasScheduledTasks {
 	 *
 	 * Call this method in the service provider's boot() method.
 	 *
+	 * @param array<int, class-string<SchedulableInterface>>|null $tasks Optional task class list override.
 	 * @return void
 	 */
-	protected function register_scheduled_tasks(): void {
+	protected function register_scheduled_tasks( ?array $tasks = null ): void {
 		if ( ! $this->container->has( SchedulerRegistryInterface::class ) ) {
 			return;
 		}
 
 		$registry = $this->container->get( SchedulerRegistryInterface::class );
-		$tasks    = $this->get_scheduled_tasks();
+
+		if ( ! $registry instanceof SchedulerRegistryInterface ) {
+			return;
+		}
+
+		$tasks = null === $tasks ? $this->get_scheduled_tasks() : $tasks;
+
+		if ( empty( $tasks ) ) {
+			return;
+		}
+
+		$tasks = array_values(
+			array_unique(
+				array_filter(
+					$tasks,
+					function ( $task ) {
+						return is_string( $task ) && '' !== $task;
+					}
+				)
+			)
+		);
 
 		foreach ( $tasks as $task_class ) {
-			if ( ! class_exists( $task_class ) ) {
-				continue;
-			}
-
 			// Tasks must be bound in the container to ensure proper dependency injection.
 			if ( ! $this->container->has( $task_class ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 					error_log(
 						sprintf(
-							'[WP Admin Health Suite] Task class %s is not bound in the container. Register it in a service provider.',
+							'[WP Admin Health Suite] Task %s is not bound in the container. Register it in a service provider.',
 							$task_class
 						)
 					);
 				}
+
+				// Nothing else we can do unless the task is in the container.
 				continue;
 			}
 
@@ -75,6 +97,18 @@ trait HasScheduledTasks {
 
 			if ( $task instanceof SchedulableInterface ) {
 				$registry->register( $task );
+			} elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				$task_type = function_exists( 'get_debug_type' ) ? get_debug_type( $task ) : gettype( $task );
+
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log(
+					sprintf(
+						'[WP Admin Health Suite] Task %s resolved to %s and does not implement %s.',
+						$task_class,
+						$task_type,
+						SchedulableInterface::class
+					)
+				);
 			}
 		}
 	}

@@ -12,6 +12,7 @@ namespace WPAdminHealth\Providers;
 use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Scheduler\SchedulerRegistry;
 use WPAdminHealth\Scheduler\Contracts\SchedulerRegistryInterface;
+use WPAdminHealth\Scheduler\Traits\HasScheduledTasks;
 use WPAdminHealth\Database\Tasks\DatabaseCleanupTask;
 use WPAdminHealth\Media\Tasks\MediaScanTask;
 use WPAdminHealth\Performance\Tasks\PerformanceCheckTask;
@@ -42,6 +43,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.2.0
  */
 class SchedulerServiceProvider extends ServiceProvider {
+
+	use HasScheduledTasks;
 
 	/**
 	 * Services provided by this provider.
@@ -78,6 +81,19 @@ class SchedulerServiceProvider extends ServiceProvider {
 
 		// Register task classes.
 		$this->register_tasks();
+	}
+
+	/**
+	 * {@inheritdoc}
+	 *
+	 * @return array<class-string<\WPAdminHealth\Scheduler\Contracts\SchedulableInterface>>
+	 */
+	protected function get_scheduled_tasks(): array {
+		return array(
+			DatabaseCleanupTask::class,
+			MediaScanTask::class,
+			PerformanceCheckTask::class,
+		);
 	}
 
 	/**
@@ -145,20 +161,16 @@ class SchedulerServiceProvider extends ServiceProvider {
 	 * @return void
 	 */
 	private function register_tasks_with_registry(): void {
+		$this->register_scheduled_tasks();
+
+		if ( ! $this->container->has( SchedulerRegistryInterface::class ) ) {
+			return;
+		}
+
 		$registry = $this->container->get( SchedulerRegistryInterface::class );
 
-		// Register all task types.
-		$task_classes = array(
-			DatabaseCleanupTask::class,
-			MediaScanTask::class,
-			PerformanceCheckTask::class,
-		);
-
-		foreach ( $task_classes as $task_class ) {
-			if ( $this->container->has( $task_class ) ) {
-				$task = $this->container->get( $task_class );
-				$registry->register( $task );
-			}
+		if ( ! $registry instanceof SchedulerRegistryInterface ) {
+			return;
 		}
 
 		/**
