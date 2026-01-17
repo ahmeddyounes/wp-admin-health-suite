@@ -11,6 +11,7 @@ namespace WPAdminHealth\Media;
 
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SafeDeleteInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -33,6 +34,13 @@ class SafeDelete implements SafeDeleteInterface {
 	private ConnectionInterface $connection;
 
 	/**
+	 * Settings instance (optional).
+	 *
+	 * @var SettingsInterface|null
+	 */
+	private ?SettingsInterface $settings = null;
+
+	/**
 	 * Trash directory name.
 	 *
 	 * @var string
@@ -44,7 +52,7 @@ class SafeDelete implements SafeDeleteInterface {
 	 *
 	 * @var int
 	 */
-	private $retention_days = 30;
+	private int $retention_days = 30;
 
 	/**
 	 * Database table name.
@@ -61,9 +69,58 @@ class SafeDelete implements SafeDeleteInterface {
 	 *
 	 * @param ConnectionInterface $connection Database connection.
 	 */
-	public function __construct( ConnectionInterface $connection ) {
+	public function __construct( ConnectionInterface $connection, ?SettingsInterface $settings = null ) {
 		$this->connection = $connection;
+		$this->settings   = $settings;
 		$this->table_name = $this->connection->get_prefix() . 'wpha_deleted_media';
+		$this->retention_days = $this->get_configured_retention_days();
+	}
+
+	/**
+	 * Set settings instance.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param SettingsInterface|null $settings Settings instance.
+	 * @return void
+	 */
+	public function set_settings( ?SettingsInterface $settings ): void {
+		$this->settings        = $settings;
+		$this->retention_days  = $this->get_configured_retention_days();
+	}
+
+	/**
+	 * Get configured trash retention days.
+	 *
+	 * Falls back to defaults if settings are unavailable.
+	 *
+	 * @return int Retention days.
+	 */
+	private function get_configured_retention_days(): int {
+		$days = 30;
+
+		if ( $this->settings ) {
+			$days = absint( $this->settings->get_setting( 'media_trash_retention_days', 30 ) );
+		} else {
+			$raw_settings = get_option( 'wpha_settings', array() );
+			if ( is_array( $raw_settings ) ) {
+				if ( isset( $raw_settings['media_trash_retention_days'] ) ) {
+					$days = absint( $raw_settings['media_trash_retention_days'] );
+				} elseif ( isset( $raw_settings['media_retention_days'] ) ) {
+					$days = absint( $raw_settings['media_retention_days'] );
+				}
+			}
+		}
+
+		// Enforce sane bounds even if legacy/un-sanitized data exists.
+		if ( $days < 7 ) {
+			$days = 7;
+		}
+		if ( $days > 365 ) {
+			$days = 365;
+		}
+
+		return $days;
 	}
 
 	/**

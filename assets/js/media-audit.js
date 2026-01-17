@@ -293,7 +293,7 @@
 					apiPath = '/wpha/v1/media/duplicates';
 					break;
 				case 'large-files':
-					apiPath = '/wpha/v1/media/large-files';
+					apiPath = '/wpha/v1/media/large';
 					break;
 				case 'missing-alt':
 					apiPath = '/wpha/v1/media/missing-alt';
@@ -960,15 +960,24 @@
 		 * @param tab
 		 */
 		executeBulkAction(action, items, tab) {
-			const apiPath =
+			const request =
 				action === 'delete'
-					? '/wpha/v1/media/delete'
-					: '/wpha/v1/media/ignore';
+					? {
+							path: '/wpha/v1/media/delete',
+							method: 'POST',
+							data: { ids: items, confirm: true },
+						}
+					: {
+							path: '/wpha/v1/media/exclusions',
+							method: 'POST',
+							data: {
+								ids: items,
+								reason: 'Ignored via Media Audit',
+							},
+						};
 
 			wp.apiFetch({
-				path: apiPath,
-				method: 'POST',
-				data: { ids: items },
+				...request,
 			})
 				.then((response) => {
 					if (response.success) {
@@ -986,7 +995,8 @@
 
 						this.showNotice(
 							'success',
-							response.data.message ||
+							response.message ||
+								response.data?.message ||
 								'Action completed successfully.'
 						);
 					}

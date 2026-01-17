@@ -18,6 +18,7 @@ use WPAdminHealth\Contracts\ReferenceFinderInterface;
 use WPAdminHealth\Contracts\SafeDeleteInterface;
 use WPAdminHealth\Contracts\ExclusionsInterface;
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Media\Scanner;
 use WPAdminHealth\Media\SafeDelete;
 use WPAdminHealth\Media\DuplicateDetector;
@@ -70,8 +71,10 @@ class MediaServiceProvider extends ServiceProvider {
 		// Register Exclusions first - no dependencies, required by other media services.
 		$this->container->singleton(
 			ExclusionsInterface::class,
-			function () {
-				return new Exclusions();
+			function ( $container ) {
+				return new Exclusions(
+					$container->get( SettingsInterface::class )
+				);
 			}
 		);
 		$this->container->alias( 'media.exclusions', ExclusionsInterface::class );
@@ -92,7 +95,8 @@ class MediaServiceProvider extends ServiceProvider {
 			SafeDeleteInterface::class,
 			function ( $container ) {
 				return new SafeDelete(
-					$container->get( ConnectionInterface::class )
+					$container->get( ConnectionInterface::class ),
+					$container->get( SettingsInterface::class )
 				);
 			}
 		);

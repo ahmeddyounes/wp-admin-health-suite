@@ -9,6 +9,7 @@
 
 namespace WPAdminHealth\Media;
 
+use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\ExclusionsInterface;
 
 // Exit if accessed directly.
@@ -30,6 +31,298 @@ class Exclusions implements ExclusionsInterface {
 	 * @var string
 	 */
 	private $option_key = 'wp_admin_health_media_exclusions';
+
+	/**
+	 * Settings instance (optional).
+	 *
+	 * @var SettingsInterface|null
+	 */
+	private ?SettingsInterface $settings = null;
+
+	/**
+	 * Cached settings-based exclusions.
+	 *
+	 * @var array|null
+	 */
+	private ?array $cached_settings_exclusions = null;
+
+	/**
+	 * Cached uploads base directory (normalized with forward slashes).
+	 *
+	 * @var string|null
+	 */
+	private ?string $uploads_basedir = null;
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param SettingsInterface|null $settings Optional settings instance.
+	 */
+	public function __construct( ?SettingsInterface $settings = null ) {
+		$this->settings = $settings;
+	}
+
+	/**
+	 * Get the settings instance if available.
+	 *
+	 * @return SettingsInterface|null Settings instance or null if unavailable.
+	 */
+	private function get_settings(): ?SettingsInterface {
+		if ( null !== $this->settings ) {
+			return $this->settings;
+		}
+
+		// Fall back to the plugin container if available.
+		if ( class_exists( '\WPAdminHealth\Plugin' ) ) {
+			try {
+				/** @var SettingsInterface $settings */
+				$settings       = \WPAdminHealth\Plugin::get_instance()->get_container()->get( SettingsInterface::class );
+				$this->settings = $settings;
+				return $settings;
+			} catch ( \Throwable $e ) {
+				return null;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get and cache uploads base directory (normalized).
+	 *
+	 * @return string Uploads base directory path.
+	 */
+	private function get_uploads_basedir(): string {
+		if ( null !== $this->uploads_basedir ) {
+			return $this->uploads_basedir;
+		}
+
+		$upload_dir            = wp_upload_dir();
+		$basedir               = isset( $upload_dir['basedir'] ) ? (string) $upload_dir['basedir'] : '';
+		$this->uploads_basedir = str_replace( '\\', '/', rtrim( $basedir, '/' ) );
+
+		return $this->uploads_basedir;
+	}
+
+	/**
+	 * Parse a list of integers from settings value.
+	 *
+	 * Accepts comma and/or newline separated values.
+	 *
+	 * @param string $raw Raw value.
+	 * @return array<int, bool> Map of excluded IDs.
+	 */
+	private function parse_excluded_ids( string $raw ): array {
+		$raw = wp_strip_all_tags( $raw );
+
+		preg_match_all( '/\d+/', $raw, $matches );
+
+		$ids = array();
+		if ( isset( $matches[0] ) && is_array( $matches[0] ) ) {
+			foreach ( $matches[0] as $match ) {
+				$id = absint( $match );
+				if ( $id <= 0 ) {
+					continue;
+				}
+				$ids[ $id ] = true;
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * Parse patterns from settings value.
+	 *
+	 * Accepts comma and/or newline separated values.
+	 *
+	 * @param string $raw Raw value.
+	 * @return array<int, string> Patterns.
+	 */
+	private function parse_patterns( string $raw ): array {
+		$raw = wp_strip_all_tags( $raw );
+		$raw = str_replace( array( "\r\n", "\r" ), "\n", $raw );
+
+		$parts = preg_split( '/[\n,]+/', $raw );
+		if ( false === $parts || empty( $parts ) ) {
+			return array();
+		}
+
+		$patterns = array();
+		foreach ( $parts as $part ) {
+			$pattern = trim( (string) $part );
+			if ( '' === $pattern ) {
+				continue;
+			}
+
+			$patterns[] = sanitize_text_field( $pattern );
+		}
+
+		$patterns = array_values( array_unique( array_filter( $patterns, 'strlen' ) ) );
+
+		return $patterns;
+	}
+
+	/**
+	 * Get settings-based exclusions (cached).
+	 *
+	 * @return array{
+	 *     excluded_ids: array<int, bool>,
+	 *     mime_exact: array<string, bool>,
+	 *     mime_patterns: array<int, string>,
+	 *     file_patterns: array<int, string>
+	 * }
+	 */
+	private function get_settings_exclusions(): array {
+		if ( null !== $this->cached_settings_exclusions ) {
+			return $this->cached_settings_exclusions;
+		}
+
+		$excluded_ids_raw     = '';
+		$excluded_mime_raw    = '';
+		$excluded_files_raw   = '';
+		$settings             = $this->get_settings();
+
+		if ( $settings ) {
+			$excluded_ids_raw   = (string) $settings->get_setting( 'excluded_media_ids', '' );
+			$excluded_mime_raw  = (string) $settings->get_setting( 'exclude_media_types', '' );
+			$excluded_files_raw = (string) $settings->get_setting( 'exclude_media_file_patterns', '' );
+		} else {
+			$raw_settings = get_option( 'wpha_settings', array() );
+			if ( is_array( $raw_settings ) ) {
+				$excluded_ids_raw   = isset( $raw_settings['excluded_media_ids'] ) ? (string) $raw_settings['excluded_media_ids'] : '';
+				$excluded_mime_raw  = isset( $raw_settings['exclude_media_types'] ) ? (string) $raw_settings['exclude_media_types'] : '';
+				$excluded_files_raw = isset( $raw_settings['exclude_media_file_patterns'] ) ? (string) $raw_settings['exclude_media_file_patterns'] : '';
+			}
+		}
+
+		$excluded_ids = $this->parse_excluded_ids( $excluded_ids_raw );
+
+		$mime_exact    = array();
+		$mime_patterns = array();
+		foreach ( $this->parse_patterns( $excluded_mime_raw ) as $pattern ) {
+			$pattern = strtolower( preg_replace( '/\s+/', '', $pattern ) );
+			if ( '' === $pattern ) {
+				continue;
+			}
+
+			if ( strpbrk( $pattern, '*?[' ) !== false ) {
+				$mime_patterns[] = $pattern;
+			} else {
+				$mime_exact[ $pattern ] = true;
+			}
+		}
+
+		$file_patterns = $this->parse_patterns( $excluded_files_raw );
+
+		$this->cached_settings_exclusions = array(
+			'excluded_ids'   => $excluded_ids,
+			'mime_exact'     => $mime_exact,
+			'mime_patterns'  => $mime_patterns,
+			'file_patterns'  => $file_patterns,
+		);
+
+		return $this->cached_settings_exclusions;
+	}
+
+	/**
+	 * Check if a MIME type matches configured exclusion patterns.
+	 *
+	 * @param string $mime_type MIME type.
+	 * @param array  $mime_exact Exact matches (lowercase => true).
+	 * @param array  $mime_patterns Wildcard patterns (lowercase).
+	 * @return bool True if excluded by MIME patterns.
+	 */
+	private function is_mime_type_excluded( string $mime_type, array $mime_exact, array $mime_patterns ): bool {
+		$mime_type = strtolower( trim( $mime_type ) );
+
+		if ( '' === $mime_type ) {
+			return false;
+		}
+
+		if ( isset( $mime_exact[ $mime_type ] ) ) {
+			return true;
+		}
+
+		foreach ( $mime_patterns as $pattern ) {
+			if ( '' === $pattern ) {
+				continue;
+			}
+
+			if ( function_exists( 'fnmatch' ) && fnmatch( $pattern, $mime_type ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Check if a file path matches configured exclusion patterns.
+	 *
+	 * Supports both glob patterns (fnmatch) and plain substring matches.
+	 *
+	 * @param string $file_path File path.
+	 * @param array  $patterns Patterns.
+	 * @return bool True if excluded by file patterns.
+	 */
+	private function is_file_excluded( string $file_path, array $patterns ): bool {
+		$file_path = str_replace( '\\', '/', $file_path );
+
+		if ( '' === $file_path || empty( $patterns ) ) {
+			return false;
+		}
+
+		$basedir         = $this->get_uploads_basedir();
+		$relative_path   = $file_path;
+		$basedir_prefix  = '' !== $basedir ? rtrim( $basedir, '/' ) . '/' : '';
+
+		if ( '' !== $basedir_prefix && 0 === strpos( $relative_path, $basedir_prefix ) ) {
+			$relative_path = substr( $relative_path, strlen( $basedir_prefix ) );
+		}
+
+		$basename      = basename( $relative_path );
+		$relative_path = ltrim( $relative_path, '/' );
+
+		$relative_lower = strtolower( $relative_path );
+		$basename_lower = strtolower( $basename );
+
+		foreach ( $patterns as $pattern ) {
+			$pattern = trim( (string) $pattern );
+			if ( '' === $pattern ) {
+				continue;
+			}
+
+			$pattern_lower = strtolower( $pattern );
+			$is_glob       = strpbrk( $pattern_lower, '*?[' ) !== false;
+			$has_slash     = strpos( $pattern_lower, '/' ) !== false;
+
+			if ( $is_glob && function_exists( 'fnmatch' ) ) {
+				if ( $has_slash ) {
+					if ( fnmatch( $pattern_lower, $relative_lower ) ) {
+						return true;
+					}
+				} elseif ( fnmatch( $pattern_lower, $basename_lower ) ) {
+					return true;
+				}
+
+				continue;
+			}
+
+			// Plain substring match fallback.
+			if ( $has_slash ) {
+				if ( false !== strpos( $relative_lower, $pattern_lower ) ) {
+					return true;
+				}
+			} elseif ( false !== strpos( $basename_lower, $pattern_lower ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	/**
 	 * Add an exclusion for an attachment.
@@ -120,9 +413,41 @@ class Exclusions implements ExclusionsInterface {
 	 */
 	public function is_excluded( int $attachment_id ): bool {
 		$attachment_id = absint( $attachment_id );
-		$exclusions = $this->get_all_exclusions();
 
-		return isset( $exclusions[ $attachment_id ] );
+		if ( $attachment_id <= 0 ) {
+			return false;
+		}
+
+		// Manual exclusions (via exclusions manager).
+		$exclusions = $this->get_all_exclusions();
+		if ( isset( $exclusions[ $attachment_id ] ) ) {
+			return true;
+		}
+
+		// Settings-based exclusions.
+		$settings_exclusions = $this->get_settings_exclusions();
+
+		if ( isset( $settings_exclusions['excluded_ids'][ $attachment_id ] ) ) {
+			return true;
+		}
+
+		// MIME type exclusions.
+		if ( ! empty( $settings_exclusions['mime_exact'] ) || ! empty( $settings_exclusions['mime_patterns'] ) ) {
+			$mime_type = get_post_mime_type( $attachment_id );
+			if ( $mime_type && $this->is_mime_type_excluded( (string) $mime_type, $settings_exclusions['mime_exact'], $settings_exclusions['mime_patterns'] ) ) {
+				return true;
+			}
+		}
+
+		// File pattern exclusions.
+		if ( ! empty( $settings_exclusions['file_patterns'] ) ) {
+			$file_path = get_attached_file( $attachment_id );
+			if ( $file_path && $this->is_file_excluded( (string) $file_path, $settings_exclusions['file_patterns'] ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -198,12 +523,10 @@ class Exclusions implements ExclusionsInterface {
 			return array();
 		}
 
-		$exclusions = $this->get_all_exclusions();
-
 		return array_filter(
 			$attachment_ids,
-			function ( $attachment_id ) use ( $exclusions ) {
-				return ! isset( $exclusions[ $attachment_id ] );
+			function ( $attachment_id ) {
+				return ! $this->is_excluded( (int) $attachment_id );
 			}
 		);
 	}

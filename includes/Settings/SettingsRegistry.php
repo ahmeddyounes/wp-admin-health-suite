@@ -373,6 +373,36 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 				}
 				return $int;
 
+			case 'integer_list':
+				if ( null === $value ) {
+					return (string) $default;
+				}
+
+				$raw = wp_strip_all_tags( (string) $value );
+				$raw = str_replace( array( "\r\n", "\r" ), "\n", $raw );
+
+				preg_match_all( '/\d+/', $raw, $matches );
+
+				$ints = array();
+				if ( isset( $matches[0] ) && is_array( $matches[0] ) ) {
+					foreach ( $matches[0] as $match ) {
+						$int = absint( $match );
+						if ( $int <= 0 ) {
+							continue;
+						}
+						$ints[] = $int;
+					}
+				}
+
+				$ints = array_values( array_unique( $ints ) );
+
+				$max_items = isset( $field['max_items'] ) ? absint( $field['max_items'] ) : 100;
+				if ( $max_items > 0 ) {
+					$ints = array_slice( $ints, 0, $max_items );
+				}
+
+				return implode( "\n", array_map( 'strval', $ints ) );
+
 			case 'email':
 				$email = sanitize_email( (string) $value );
 				if ( '' !== $email && ! is_email( $email ) ) {
@@ -422,6 +452,38 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 
 				return implode( "\n", $sanitized_items );
 
+			case 'line_list':
+				if ( null === $value ) {
+					return (string) $default;
+				}
+
+				$raw = wp_strip_all_tags( (string) $value );
+				$raw = str_replace( array( "\r\n", "\r" ), "\n", $raw );
+
+				$items = array_map( 'trim', explode( "\n", $raw ) );
+				$items = array_filter( $items, 'strlen' );
+
+				$sanitized_items = array();
+				foreach ( $items as $item ) {
+					$item = sanitize_text_field( $item );
+					$item = trim( $item );
+
+					if ( '' === $item ) {
+						continue;
+					}
+
+					$sanitized_items[] = $item;
+				}
+
+				$sanitized_items = array_values( array_unique( $sanitized_items ) );
+
+				$max_items = isset( $field['max_items'] ) ? absint( $field['max_items'] ) : 100;
+				if ( $max_items > 0 ) {
+					$sanitized_items = array_slice( $sanitized_items, 0, $max_items );
+				}
+
+				return implode( "\n", $sanitized_items );
+
 			case 'textarea':
 				return sanitize_textarea_field( (string) $value );
 
@@ -445,6 +507,13 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 			&& array_key_exists( 'cleanup_orphaned_metadata', $settings )
 		) {
 			$settings['orphaned_cleanup_enabled'] = (bool) $settings['cleanup_orphaned_metadata'];
+		}
+
+		if (
+			! array_key_exists( 'media_trash_retention_days', $settings )
+			&& array_key_exists( 'media_retention_days', $settings )
+		) {
+			$settings['media_trash_retention_days'] = absint( $settings['media_retention_days'] );
 		}
 
 		return $settings;

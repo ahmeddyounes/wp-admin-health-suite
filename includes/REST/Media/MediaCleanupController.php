@@ -100,6 +100,13 @@ class MediaCleanupController extends RestController {
 							'sanitize_callback' => array( $this, 'sanitize_ids' ),
 							'validate_callback' => 'rest_validate_request_arg',
 						),
+						'confirm' => array(
+							'description'       => __( 'Explicit confirmation flag required for deletion.', 'wp-admin-health-suite' ),
+							'type'              => 'boolean',
+							'default'           => false,
+							'sanitize_callback' => 'rest_sanitize_boolean',
+							'validate_callback' => 'rest_validate_request_arg',
+						),
 					),
 				),
 			)
@@ -229,6 +236,19 @@ class MediaCleanupController extends RestController {
 		}
 
 		$safe_mode = $this->is_safe_mode_enabled();
+
+		$require_confirmation = (bool) $this->get_settings()->get_setting( 'require_media_delete_confirmation', true );
+		$confirmed            = (bool) filter_var( $request->get_param( 'confirm' ), FILTER_VALIDATE_BOOLEAN );
+
+		if ( $require_confirmation && ! $safe_mode && ! $confirmed ) {
+			return $this->format_error_response(
+				new WP_Error(
+					'confirmation_required',
+					__( 'Deletion confirmation is required.', 'wp-admin-health-suite' )
+				),
+				428
+			);
+		}
 
 		// Filter out excluded attachments - they should not be deleted.
 		$excluded_ids  = array_filter(
