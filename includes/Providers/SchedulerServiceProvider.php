@@ -63,8 +63,15 @@ class SchedulerServiceProvider extends ServiceProvider {
 		// Register the SchedulerRegistry.
 		$this->container->singleton(
 			SchedulerRegistryInterface::class,
-			function () {
-				return new SchedulerRegistry();
+			function ( $container ) {
+				$registry = new SchedulerRegistry();
+
+				// Inject database connection for lock operations when available.
+				if ( $container->has( ConnectionInterface::class ) ) {
+					$registry->set_connection( $container->get( ConnectionInterface::class ) );
+				}
+
+				return $registry;
 			}
 		);
 		$this->container->alias( 'scheduler.registry', SchedulerRegistryInterface::class );
@@ -174,13 +181,8 @@ class SchedulerServiceProvider extends ServiceProvider {
 	 * @return void
 	 */
 	private function setup_cron_hooks(): void {
-		// Hook for executing tasks from the registry.
+		// Optional generic hook for executing tasks from the registry (task_id, options).
 		add_action( 'wpha_execute_registered_task', array( $this, 'execute_registered_task' ), 10, 2 );
-
-		// Hook individual task execution to cron hooks.
-		add_action( 'wpha_database_cleanup', array( $this, 'execute_database_cleanup' ) );
-		add_action( 'wpha_media_scan', array( $this, 'execute_media_scan' ) );
-		add_action( 'wpha_performance_check', array( $this, 'execute_performance_check' ) );
 	}
 
 	/**
@@ -190,7 +192,13 @@ class SchedulerServiceProvider extends ServiceProvider {
 	 * @param array  $options Task options.
 	 * @return void
 	 */
-	public function execute_registered_task( string $task_id, array $options = array() ): void {
+	public function execute_registered_task( $task_id = '', $options = array() ): void {
+		if ( ! is_string( $task_id ) || '' === $task_id ) {
+			return;
+		}
+
+		$options = is_array( $options ) ? $options : array();
+
 		$registry = $this->container->get( SchedulerRegistryInterface::class );
 		$registry->execute( $task_id, $options );
 	}

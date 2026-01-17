@@ -42,11 +42,38 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	const LOCK_PREFIX = 'wpha_task_lock_';
 
 	/**
+	 * Task hook prefix.
+	 *
+	 * Task IDs are mapped to WordPress hooks using: wpha_{task_id}
+	 *
+	 * @since 1.2.0
+	 *
+	 * @var string
+	 */
+	const TASK_HOOK_PREFIX = 'wpha_';
+
+	/**
+	 * Default Action Scheduler group for recurring tasks.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @var string
+	 */
+	const ACTION_SCHEDULER_GROUP = 'wpha_scheduling';
+
+	/**
 	 * Registered tasks.
 	 *
 	 * @var array<string, SchedulableInterface>
 	 */
 	private array $tasks = array();
+
+	/**
+	 * Map of hook name to task ID for registered task hooks.
+	 *
+	 * @var array<string, string>
+	 */
+	private array $hook_to_task_id = array();
 
 	/**
 	 * Database connection.
@@ -60,7 +87,11 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	 * {@inheritdoc}
 	 */
 	public function register( SchedulableInterface $task ): void {
-		$this->tasks[ $task->get_task_id() ] = $task;
+		$task_id = $task->get_task_id();
+		$this->tasks[ $task_id ] = $task;
+
+		// Register the WP-Cron hook for this task so WP-Cron / Action Scheduler can execute it.
+		$this->register_task_hook( $task_id );
 
 		/**
 		 * Fires when a task is registered with the scheduler.
@@ -73,6 +104,16 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 		 * @param string               $task_id The task identifier.
 		 */
 		do_action( 'wpha_scheduler_task_registered', $task, $task->get_task_id() );
+	}
+
+	/**
+	 * Get the WordPress hook name for a task ID.
+	 *
+	 * @param string $task_id Task identifier.
+	 * @return string WordPress hook name.
+	 */
+	public function get_task_hook( string $task_id ): string {
+		return self::TASK_HOOK_PREFIX . $task_id;
 	}
 
 	/**
@@ -211,10 +252,59 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	}
 
 	/**
+	 * Execute a task from its WP hook.
+	 *
+	 * This enables WP-Cron and Action Scheduler to execute registered tasks
+	 * using their hook names (e.g. "wpha_database_cleanup").
+	 *
+	 * @param mixed $options Optional task options (must be an array).
+	 * @return void
+	 */
+	public function handle_task_hook( $options = array() ): void {
+		$hook = current_filter();
+		if ( ! is_string( $hook ) || '' === $hook ) {
+			return;
+		}
+
+		$options = is_array( $options ) ? $options : array();
+
+		$task_id = $this->hook_to_task_id[ $hook ] ?? null;
+
+		// Fallback for hooks not registered via the registry (e.g. legacy hooks).
+		if ( null === $task_id && 0 === strpos( $hook, self::TASK_HOOK_PREFIX ) ) {
+			$task_id = substr( $hook, strlen( self::TASK_HOOK_PREFIX ) );
+		}
+
+		if ( ! is_string( $task_id ) || '' === $task_id ) {
+			return;
+		}
+
+		$this->execute( $task_id, $options );
+	}
+
+	/**
+	 * Register the WP hook used to execute a task.
+	 *
+	 * @param string $task_id Task identifier.
+	 * @return void
+	 */
+	private function register_task_hook( string $task_id ): void {
+		$hook = $this->get_task_hook( $task_id );
+		$this->hook_to_task_id[ $hook ] = $task_id;
+
+		// Avoid duplicate registrations on repeated task registration.
+		if ( has_action( $hook, array( $this, 'handle_task_hook' ) ) ) {
+			return;
+		}
+
+		add_action( $hook, array( $this, 'handle_task_hook' ), 10, 1 );
+	}
+
+	/**
 	 * Acquire a lock for task execution.
 	 *
 	 * Uses MySQL advisory locks (GET_LOCK) for truly atomic locking.
-	 * Falls back to transients if GET_LOCK is unavailable.
+	 * Falls back to an option-based lock if GET_LOCK is unavailable.
 	 *
 	 * @since 1.2.0
 	 * @since 1.2.1 Use MySQL GET_LOCK for atomic operations.
@@ -224,6 +314,7 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	 */
 	private function acquire_lock( string $task_id ): bool {
 		$lock_name = 'wpha_task_' . md5( $task_id );
+		$lock_key  = self::LOCK_PREFIX . md5( $task_id );
 
 		// Try MySQL advisory lock first (atomic operation).
 		// GET_LOCK returns: 1 = acquired, 0 = already held, NULL = error.
@@ -241,14 +332,41 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 			);
 		}
 
+		$lock_value = array(
+			'started_at' => time(),
+			'pid'        => getmypid(),
+		);
+
 		if ( 1 === (int) $result ) {
 			// Store lock info in transient for debugging/monitoring.
-			$lock_value = array(
-				'started_at' => time(),
-				'pid'        => getmypid(),
-			);
-			set_transient( self::LOCK_PREFIX . $task_id, $lock_value, self::LOCK_TIMEOUT );
+			set_transient( $lock_key, $lock_value, self::LOCK_TIMEOUT );
 			return true;
+		}
+
+		// If GET_LOCK is unavailable (NULL/error), fall back to an option-based lock.
+		if ( null === $result ) {
+			// add_option is atomic at the DB level and provides a reasonable fallback for environments
+			// where GET_LOCK is unavailable (e.g. some DB proxies).
+			$acquired = add_option( $lock_key, $lock_value, '', 'no' );
+
+			if ( $acquired ) {
+				set_transient( $lock_key, $lock_value, self::LOCK_TIMEOUT );
+				return true;
+			}
+
+			$existing = get_option( $lock_key );
+			$started  = is_array( $existing ) && isset( $existing['started_at'] ) ? (int) $existing['started_at'] : 0;
+
+			// If the lock appears stale, attempt to recover.
+			if ( $started > 0 && ( time() - $started ) > self::LOCK_TIMEOUT ) {
+				delete_option( $lock_key );
+				$acquired = add_option( $lock_key, $lock_value, '', 'no' );
+
+				if ( $acquired ) {
+					set_transient( $lock_key, $lock_value, self::LOCK_TIMEOUT );
+					return true;
+				}
+			}
 		}
 
 		return false;
@@ -265,6 +383,7 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	 */
 	private function release_lock( string $task_id ): bool {
 		$lock_name = 'wpha_task_' . md5( $task_id );
+		$lock_key  = self::LOCK_PREFIX . md5( $task_id );
 
 		// Release MySQL advisory lock.
 		if ( $this->connection ) {
@@ -281,7 +400,10 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 		}
 
 		// Also clean up the transient.
-		delete_transient( self::LOCK_PREFIX . $task_id );
+		delete_transient( $lock_key );
+
+		// Clean up option-based lock fallback (if used).
+		delete_option( $lock_key );
 
 		return 1 === (int) $result;
 	}
@@ -317,10 +439,113 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 				'description'       => $task->get_description(),
 				'default_frequency' => $task->get_default_frequency(),
 				'enabled'           => $task->is_enabled(),
+				'hook'              => $this->get_task_hook( $task->get_task_id() ),
+				'next_run'          => $this->get_next_run( $task->get_task_id() ),
 				'settings_schema'   => $task->get_settings_schema(),
 			);
 		}
 
 		return $definitions;
+	}
+
+	/**
+	 * Schedule a task using Action Scheduler when available, falling back to WP-Cron.
+	 *
+	 * @param string $task_id   Task identifier.
+	 * @param string $frequency Frequency (daily, weekly, monthly).
+	 * @param int    $next_run  Next run timestamp.
+	 * @param string $group     Action Scheduler group.
+	 * @return void
+	 */
+	public function schedule_task( string $task_id, string $frequency, int $next_run, string $group = self::ACTION_SCHEDULER_GROUP ): void {
+		$hook = $this->get_task_hook( $task_id );
+
+		if ( 'disabled' === $frequency ) {
+			$this->unschedule_task( $task_id, $group );
+			return;
+		}
+
+		$interval = $this->get_interval_seconds( $frequency );
+		if ( ! $interval ) {
+			return;
+		}
+
+		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( $hook, array(), $group );
+			as_schedule_recurring_action( $next_run, $interval, $hook, array(), $group );
+			return;
+		}
+
+		// Ensure we don't accidentally leave multiple schedules behind.
+		wp_clear_scheduled_hook( $hook );
+		wp_schedule_event( $next_run, $this->get_cron_schedule_name( $frequency ), $hook );
+	}
+
+	/**
+	 * Unschedule a task from Action Scheduler and WP-Cron.
+	 *
+	 * @param string $task_id Task identifier.
+	 * @param string $group   Action Scheduler group.
+	 * @return void
+	 */
+	public function unschedule_task( string $task_id, string $group = self::ACTION_SCHEDULER_GROUP ): void {
+		$hook = $this->get_task_hook( $task_id );
+
+		if ( function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( $hook, array(), $group );
+		}
+
+		wp_clear_scheduled_hook( $hook );
+	}
+
+	/**
+	 * Get the next scheduled run for a task.
+	 *
+	 * @param string $task_id Task identifier.
+	 * @param string $group   Action Scheduler group.
+	 * @return int|null Timestamp or null if not scheduled.
+	 */
+	public function get_next_run( string $task_id, string $group = self::ACTION_SCHEDULER_GROUP ): ?int {
+		$hook = $this->get_task_hook( $task_id );
+
+		if ( function_exists( 'as_next_scheduled_action' ) ) {
+			$next = as_next_scheduled_action( $hook, array(), $group );
+		} else {
+			$next = wp_next_scheduled( $hook );
+		}
+
+		return false === $next ? null : (int) $next;
+	}
+
+	/**
+	 * Get interval in seconds for a frequency.
+	 *
+	 * @param string $frequency Frequency name.
+	 * @return int|false Interval in seconds, or false if invalid.
+	 */
+	private function get_interval_seconds( string $frequency ) {
+		$intervals = array(
+			'daily'   => DAY_IN_SECONDS,
+			'weekly'  => WEEK_IN_SECONDS,
+			'monthly' => 30 * DAY_IN_SECONDS,
+		);
+
+		return $intervals[ $frequency ] ?? false;
+	}
+
+	/**
+	 * Get WP-Cron schedule name.
+	 *
+	 * @param string $frequency Frequency.
+	 * @return string Schedule name.
+	 */
+	private function get_cron_schedule_name( string $frequency ): string {
+		$schedules = array(
+			'daily'   => 'daily',
+			'weekly'  => 'weekly',
+			'monthly' => 'monthly',
+		);
+
+		return $schedules[ $frequency ] ?? 'daily';
 	}
 }
