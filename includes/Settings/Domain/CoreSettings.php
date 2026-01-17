@@ -101,7 +101,7 @@ class CoreSettings extends AbstractDomainSettings {
 				'type'        => 'checkbox',
 				'default'     => false,
 				'sanitize'    => 'boolean',
-				'description' => __( 'Remove all plugin data when uninstalling.', 'wp-admin-health-suite' ),
+				'description' => __( 'When enabled, all plugin data (tables, options, transients) will be permanently deleted when the plugin is uninstalled. Leave disabled to preserve data for later reinstallation.', 'wp-admin-health-suite' ),
 			),
 			'health_score_threshold'      => array(
 				'section'     => 'general',

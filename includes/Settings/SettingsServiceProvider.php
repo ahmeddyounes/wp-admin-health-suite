@@ -11,6 +11,7 @@ namespace WPAdminHealth\Settings;
 
 use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\HealthCalculator;
 use WPAdminHealth\Settings\Contracts\SettingsRegistryInterface;
 use WPAdminHealth\Settings\Domain\CoreSettings;
 use WPAdminHealth\Settings\Domain\DatabaseSettings;
@@ -142,6 +143,148 @@ class SettingsServiceProvider extends ServiceProvider {
 		add_action( 'admin_post_wpha_reset_section', array( $this, 'reset_section' ) );
 		add_action( 'update_option_' . SettingsRegistry::OPTION_NAME, array( $this, 'handle_scheduling_update' ), 10, 2 );
 		add_action( 'admin_head', array( $this, 'output_custom_css' ) );
+
+		// Core UI features (controlled by settings).
+		add_action( 'wp_dashboard_setup', array( $this, 'register_dashboard_widget' ) );
+		add_action( 'admin_bar_menu', array( $this, 'register_admin_bar_menu' ), 90 );
+	}
+
+	/**
+	 * Register the WordPress dashboard widget.
+	 *
+	 * Controlled by the `enable_dashboard_widget` setting.
+	 *
+	 * @return void
+	 */
+	public function register_dashboard_widget(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		/** @var SettingsInterface $settings */
+		$settings = $this->container->get( SettingsInterface::class );
+
+		if ( ! (bool) $settings->get_setting( 'enable_dashboard_widget', true ) ) {
+			return;
+		}
+
+		wp_add_dashboard_widget(
+			'wpha_admin_health_widget',
+			__( 'Admin Health', 'wp-admin-health-suite' ),
+			array( $this, 'render_dashboard_widget' )
+		);
+	}
+
+	/**
+	 * Render the WordPress dashboard widget content.
+	 *
+	 * @return void
+	 */
+	public function render_dashboard_widget(): void {
+		/** @var SettingsInterface $settings */
+		$settings = $this->container->get( SettingsInterface::class );
+
+		/** @var HealthCalculator $health_calculator */
+		$health_calculator = $this->container->get( HealthCalculator::class );
+		$health_data       = $health_calculator->calculate_overall_score();
+
+		$score     = isset( $health_data['score'] ) ? absint( $health_data['score'] ) : 0;
+		$grade     = isset( $health_data['grade'] ) ? sanitize_text_field( (string) $health_data['grade'] ) : '';
+		$timestamp = isset( $health_data['timestamp'] ) ? absint( $health_data['timestamp'] ) : 0;
+
+		$threshold = absint( $settings->get_setting( 'health_score_threshold', 70 ) );
+
+		echo '<p><strong>' . esc_html__( 'Health Score:', 'wp-admin-health-suite' ) . '</strong> ' . esc_html( $score ) . ( '' !== $grade ? ' <span>(' . esc_html( $grade ) . ')</span>' : '' ) . '</p>';
+
+		if ( $threshold > 0 && $score > 0 && $score < $threshold ) {
+			echo '<p class="description" style="color:#d63638;">' . esc_html__( 'Below your configured warning threshold.', 'wp-admin-health-suite' ) . '</p>';
+		}
+
+		if ( $timestamp > 0 ) {
+			echo '<p class="description">' . esc_html__( 'Last updated:', 'wp-admin-health-suite' ) . ' ' . esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $timestamp ) ) . '</p>';
+		}
+
+		if ( $settings->is_safe_mode_enabled() ) {
+			echo '<p class="description"><strong>' . esc_html__( 'Safe Mode is enabled.', 'wp-admin-health-suite' ) . '</strong> ' . esc_html__( 'Destructive operations will run in preview-only mode.', 'wp-admin-health-suite' ) . '</p>';
+		}
+
+		echo '<p><a class="button button-primary" href="' . esc_url( admin_url( 'admin.php?page=admin-health' ) ) . '">' . esc_html__( 'Open Admin Health Dashboard', 'wp-admin-health-suite' ) . '</a></p>';
+	}
+
+	/**
+	 * Register the admin bar menu.
+	 *
+	 * Controlled by the `admin_bar_menu` setting.
+	 *
+	 * @param \WP_Admin_Bar $wp_admin_bar Admin bar instance.
+	 * @return void
+	 */
+	public function register_admin_bar_menu( \WP_Admin_Bar $wp_admin_bar ): void {
+		if ( ! is_admin_bar_showing() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		/** @var SettingsInterface $settings */
+		$settings = $this->container->get( SettingsInterface::class );
+
+		if ( ! (bool) $settings->get_setting( 'admin_bar_menu', true ) ) {
+			return;
+		}
+
+		$parent_id = 'wpha_admin_health';
+
+		$wp_admin_bar->add_node(
+			array(
+				'id'    => $parent_id,
+				'title' => __( 'Admin Health', 'wp-admin-health-suite' ),
+				'href'  => admin_url( 'admin.php?page=admin-health' ),
+			)
+		);
+
+		$items = array(
+			'dashboard'  => array(
+				'title' => __( 'Dashboard', 'wp-admin-health-suite' ),
+				'href'  => admin_url( 'admin.php?page=admin-health' ),
+			),
+			'database'   => array(
+				'title' => __( 'Database Health', 'wp-admin-health-suite' ),
+				'href'  => admin_url( 'admin.php?page=admin-health-database' ),
+			),
+			'media'      => array(
+				'title' => __( 'Media Audit', 'wp-admin-health-suite' ),
+				'href'  => admin_url( 'admin.php?page=admin-health-media' ),
+			),
+			'performance' => array(
+				'title' => __( 'Performance', 'wp-admin-health-suite' ),
+				'href'  => admin_url( 'admin.php?page=admin-health-performance' ),
+			),
+			'settings'   => array(
+				'title' => __( 'Settings', 'wp-admin-health-suite' ),
+				'href'  => admin_url( 'admin.php?page=admin-health-settings' ),
+			),
+		);
+
+		foreach ( $items as $id => $item ) {
+			$wp_admin_bar->add_node(
+				array(
+					'parent' => $parent_id,
+					'id'     => $parent_id . '_' . $id,
+					'title'  => $item['title'],
+					'href'   => $item['href'],
+				)
+			);
+		}
+
+		if ( $settings->is_safe_mode_enabled() ) {
+			$wp_admin_bar->add_node(
+				array(
+					'parent' => $parent_id,
+					'id'     => $parent_id . '_safe_mode',
+					'title'  => __( 'Safe Mode: On', 'wp-admin-health-suite' ),
+					'href'   => admin_url( 'admin.php?page=admin-health-settings&tab=advanced' ),
+				)
+			);
+		}
 	}
 
 	/**

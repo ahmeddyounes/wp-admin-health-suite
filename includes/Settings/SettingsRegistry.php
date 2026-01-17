@@ -208,6 +208,11 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 	 * @return bool True if safe mode is enabled.
 	 */
 	public function is_safe_mode_enabled(): bool {
+		// Allow wp-config.php to force safe mode on/off.
+		if ( defined( 'WPHA_SAFE_MODE' ) ) {
+			return (bool) WPHA_SAFE_MODE;
+		}
+
 		return (bool) $this->get_setting( 'safe_mode', false );
 	}
 
@@ -217,6 +222,11 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 	 * @return bool True if debug mode is enabled.
 	 */
 	public function is_debug_mode_enabled(): bool {
+		// Allow wp-config.php to force debug mode on/off.
+		if ( defined( 'WPHA_DEBUG_MODE' ) ) {
+			return (bool) WPHA_DEBUG_MODE;
+		}
+
 		return (bool) $this->get_setting( 'debug_mode', false );
 	}
 
@@ -226,6 +236,11 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 	 * @return bool True if REST API is enabled.
 	 */
 	public function is_rest_api_enabled(): bool {
+		// Allow wp-config.php to disable the REST API regardless of settings.
+		if ( defined( 'WPHA_DISABLE_REST_API' ) && WPHA_DISABLE_REST_API ) {
+			return false;
+		}
+
 		return (bool) $this->get_setting( 'enable_rest_api', true );
 	}
 

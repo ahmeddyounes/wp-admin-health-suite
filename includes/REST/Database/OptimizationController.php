@@ -193,8 +193,57 @@ class OptimizationController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function optimize_tables( $request ) {
+		$safe_mode = $this->is_safe_mode_enabled();
 		$tables  = $request->get_param( 'tables' );
 		$results = array();
+
+		if ( $safe_mode ) {
+			$would_optimize = array();
+
+			if ( empty( $tables ) ) {
+				foreach ( $this->optimizer->get_tables_needing_optimization() as $table ) {
+					$table_name = is_array( $table )
+						? ( isset( $table['name'] ) ? sanitize_text_field( (string) $table['name'] ) : '' )
+						: sanitize_text_field( (string) $table );
+
+					if ( '' === $table_name ) {
+						continue;
+					}
+
+					$would_optimize[] = array(
+						'table_name' => $table_name,
+						'overhead'   => is_array( $table ) && isset( $table['overhead'] ) ? absint( $table['overhead'] ) : 0,
+					);
+				}
+			} else {
+				foreach ( $tables as $table_name ) {
+					$table_name = sanitize_text_field( (string) $table_name );
+					if ( '' === $table_name ) {
+						continue;
+					}
+
+					$overhead = $this->optimizer->get_table_overhead( $table_name );
+
+					$would_optimize[] = array(
+						'table_name' => $table_name,
+						'overhead'   => false !== $overhead ? absint( $overhead ) : 0,
+					);
+				}
+			}
+
+			return $this->format_response(
+				true,
+				array(
+					'results'           => array(),
+					'tables_optimized'  => 0,
+					'total_bytes_freed' => 0,
+					'safe_mode'         => true,
+					'preview_only'      => true,
+					'would_optimize'    => $would_optimize,
+				),
+				__( 'Safe mode enabled: optimization preview only, no changes were made.', 'wp-admin-health-suite' )
+			);
+		}
 
 		if ( empty( $tables ) ) {
 			// Optimize all tables that need optimization.
@@ -254,8 +303,24 @@ class OptimizationController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function repair_tables( $request ) {
+		$safe_mode = $this->is_safe_mode_enabled();
 		$tables  = $request->get_param( 'tables' );
 		$results = array();
+
+		if ( $safe_mode ) {
+			return $this->format_response(
+				true,
+				array(
+					'results'         => array(),
+					'tables_repaired' => 0,
+					'total_tables'    => is_array( $tables ) ? count( $tables ) : 0,
+					'safe_mode'       => true,
+					'preview_only'    => true,
+					'would_repair'    => is_array( $tables ) ? $tables : array(),
+				),
+				__( 'Safe mode enabled: repair preview only, no changes were made.', 'wp-admin-health-suite' )
+			);
+		}
 
 		if ( empty( $tables ) ) {
 			return $this->format_error_response(

@@ -97,14 +97,6 @@ class AdvancedSettings extends AbstractDomainSettings {
 				'min'         => 10,
 				'max'         => 1000,
 			),
-			'delete_data_on_uninstall' => array(
-				'section'     => 'advanced',
-				'title'       => __( 'Delete Data on Uninstall', 'wp-admin-health-suite' ),
-				'type'        => 'checkbox',
-				'default'     => false,
-				'sanitize'    => 'boolean',
-				'description' => __( 'When enabled, all plugin data (tables, options, transients) will be permanently deleted when the plugin is uninstalled. Leave disabled to preserve data for later reinstallation.', 'wp-admin-health-suite' ),
-			),
 		);
 	}
 }

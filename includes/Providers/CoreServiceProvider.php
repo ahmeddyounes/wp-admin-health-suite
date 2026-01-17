@@ -12,6 +12,7 @@ namespace WPAdminHealth\Providers;
 use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\CacheInterface;
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Cache\CacheFactory;
 use WPAdminHealth\HealthCalculator;
 
@@ -63,7 +64,8 @@ class CoreServiceProvider extends ServiceProvider {
 			HealthCalculator::class,
 			function ( $container ) {
 				return new HealthCalculator(
-					$container->get( ConnectionInterface::class )
+					$container->get( ConnectionInterface::class ),
+					$container->get( SettingsInterface::class )
 				);
 			}
 		);

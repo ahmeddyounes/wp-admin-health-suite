@@ -8,6 +8,7 @@
 namespace WPAdminHealth;
 
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -36,7 +37,7 @@ class HealthCalculator {
 	const CACHE_KEY = 'wpha_health_score';
 
 	/**
-	 * Transient expiration time (1 hour).
+	 * Default transient expiration time (1 hour).
 	 *
 	 * @var int
 	 */
@@ -76,21 +77,53 @@ class HealthCalculator {
 	private ConnectionInterface $connection;
 
 	/**
+	 * Settings instance.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @var SettingsInterface|null
+	 */
+	private ?SettingsInterface $settings;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
+	 * @since 1.6.0 Added SettingsInterface parameter to honor settings-driven behavior.
 	 *
 	 * @param ConnectionInterface $connection Database connection.
+	 * @param SettingsInterface|null $settings Optional settings instance.
 	 */
-	public function __construct( ConnectionInterface $connection ) {
+	public function __construct( ConnectionInterface $connection, ?SettingsInterface $settings = null ) {
 		$this->connection = $connection;
+		$this->settings   = $settings;
+	}
+
+	/**
+	 * Get health score cache expiration in seconds.
+	 *
+	 * Honors the `health_score_cache_duration` setting (1-24 hours) when available.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return int Cache expiration in seconds.
+	 */
+	private function get_cache_expiration(): int {
+		if ( ! $this->settings instanceof SettingsInterface ) {
+			return self::CACHE_EXPIRATION;
+		}
+
+		$hours = absint( $this->settings->get_setting( 'health_score_cache_duration', 1 ) );
+		$hours = max( 1, min( 24, $hours ) );
+
+		return $hours * HOUR_IN_SECONDS;
 	}
 
 	/**
 	 * Calculate overall site health score.
 	 *
 	 * Computes a weighted score based on all health factors.
-	 * Results are cached for 1 hour to prevent repeated heavy queries.
+	 * Results are cached based on the configured cache duration to prevent repeated heavy queries.
 	 *
 	 * @since 1.0.0
 	 *
@@ -148,7 +181,7 @@ class HealthCalculator {
 		);
 
 		// Cache the result.
-		set_transient( self::CACHE_KEY, $result, self::CACHE_EXPIRATION );
+		set_transient( self::CACHE_KEY, $result, $this->get_cache_expiration() );
 
 		return $result;
 	}
