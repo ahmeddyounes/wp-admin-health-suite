@@ -81,6 +81,7 @@ class HeartbeatController extends RestController {
 							'required'          => true,
 							'enum'              => array( 'dashboard', 'editor', 'frontend' ),
 							'sanitize_callback' => 'sanitize_text_field',
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 						'enabled'  => array(
 							'description'       => __( 'Whether heartbeat is enabled.', 'wp-admin-health-suite' ),

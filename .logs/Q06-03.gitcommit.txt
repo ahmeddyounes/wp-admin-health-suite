@@ -1,0 +1,40 @@
+[main 2f37e4e] Q06-03: implement
+ 8 files changed, 339 insertions(+), 15 deletions(-)
+ create mode 100644 .logs/Q06-02.gitcommit.txt
+ create mode 100644 .logs/Q06-03.claude.impl.last.md
+ create mode 100644 .logs/Q06-03.claude.impl.raw.txt
+ create mode 100644 .plans/Q06-03.md
+ create mode 100644 .t2/handoff/Q06-03.md
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (9b5a289)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 8 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 4 files
+[SKIPPED] *.{js,jsx} — no files
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 4 files
+[COMPLETED] package.json — 8 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+.. 2 / 2 (100%)
+
+
+Time: 248ms; Memory: 16MB
+
+Pre-commit checks passed!

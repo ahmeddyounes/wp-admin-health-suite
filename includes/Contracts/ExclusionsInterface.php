@@ -50,7 +50,7 @@ interface ExclusionsInterface {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @return array<array{id: int, reason: string, added_at: string}> Array of excluded attachment data.
+	 * @return array<array{attachment_id: int, reason: string, excluded_at: string, excluded_by: int}> Array of excluded attachment data.
 	 */
 	public function get_exclusions(): array;
 

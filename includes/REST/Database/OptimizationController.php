@@ -144,10 +144,33 @@ class OptimizationController extends RestController {
 
 		$table_details = array();
 		foreach ( $tables as $table ) {
-			$overhead = $this->optimizer->get_table_overhead( $table );
+			// Back-compat: allow either the newer array format or legacy string list.
+			if ( is_array( $table ) ) {
+				$table_name = isset( $table['name'] ) ? sanitize_text_field( (string) $table['name'] ) : '';
+				if ( '' === $table_name ) {
+					continue;
+				}
+
+				$table_details[] = array(
+					'table_name' => $table_name,
+					'overhead'   => isset( $table['overhead'] ) ? absint( $table['overhead'] ) : 0,
+					'data_size'  => isset( $table['data_size'] ) ? absint( $table['data_size'] ) : 0,
+					'engine'     => isset( $table['engine'] ) ? sanitize_text_field( (string) $table['engine'] ) : '',
+					'is_large'   => isset( $table['is_large'] ) ? (bool) $table['is_large'] : false,
+				);
+				continue;
+			}
+
+			$table_name = sanitize_text_field( (string) $table );
+			if ( '' === $table_name ) {
+				continue;
+			}
+
+			$overhead = $this->optimizer->get_table_overhead( $table_name );
+
 			$table_details[] = array(
-				'table_name' => $table,
-				'overhead'   => $overhead ? $overhead : 0,
+				'table_name' => $table_name,
+				'overhead'   => false !== $overhead ? absint( $overhead ) : 0,
 			);
 		}
 

@@ -97,20 +97,47 @@ class QueryAnalysisController extends RestController {
 	public function get_query_analysis( $request ) {
 		$connection = $this->get_connection();
 
-		$slow_queries = array();
-		$query_count  = $connection->get_num_queries();
+		$query_count = $connection->get_num_queries();
 
-		// Get slow query log if available.
-		$query_log = $connection->get_query_log();
-		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES && ! empty( $query_log ) ) {
-			foreach ( $query_log as $query_data ) {
-				if ( $query_data[1] > 0.05 ) { // Queries slower than 50ms.
-					$slow_queries[] = array(
-						'query'  => $query_data[0],
-						'time'   => (float) $query_data[1],
-						'caller' => $query_data[2],
-					);
+		$threshold_ms = 50.0;
+		$status       = $this->query_monitor->get_monitoring_status();
+		$can_capture  = isset( $status['monitoring_enabled'] ) ? (bool) $status['monitoring_enabled'] : ( defined( 'SAVEQUERIES' ) && SAVEQUERIES );
+
+		// Only show raw SQL when explicitly enabled (WPHA_DEBUG) and debug mode is on.
+		// Otherwise, return a redacted query string to reduce accidental data exposure.
+		$include_raw_sql = $this->is_debug_mode_enabled() && $this->can_view_detailed_debug();
+
+		$slow_queries = array();
+		if ( $can_capture ) {
+			$captured = $this->query_monitor->capture_slow_queries( $threshold_ms );
+			foreach ( $captured as $query ) {
+				$sql     = isset( $query['sql'] ) ? $query['sql'] : ( $query['query'] ?? '' );
+				$time_ms = isset( $query['time'] ) ? (float) $query['time'] : 0.0;
+
+				$sql_string = is_string( $sql ) ? $sql : '';
+				$query_hash = '' !== $sql_string ? substr( md5( $sql_string ), 0, 12 ) : '';
+
+				$item = array(
+					'query'      => $this->sanitize_sql_for_output( $sql_string, ! $include_raw_sql ),
+					'query_hash' => $query_hash,
+					'query_type' => $this->get_query_type( $sql_string ),
+					'time'       => round( $time_ms / 1000, 5 ),
+					'caller'     => $this->sanitize_caller_for_output( isset( $query['caller'] ) ? (string) $query['caller'] : '' ),
+				);
+
+				if ( isset( $query['component'] ) ) {
+					$item['component'] = sanitize_text_field( (string) $query['component'] );
 				}
+
+				if ( isset( $query['is_duplicate'] ) ) {
+					$item['is_duplicate'] = (bool) $query['is_duplicate'];
+				}
+
+				if ( isset( $query['needs_index'] ) ) {
+					$item['needs_index'] = (bool) $query['needs_index'];
+				}
+
+				$slow_queries[] = $item;
 			}
 		}
 
@@ -125,7 +152,9 @@ class QueryAnalysisController extends RestController {
 		$response_data = array(
 			'total_queries' => $query_count,
 			'slow_queries'  => array_slice( $slow_queries, 0, 20 ), // Top 20 slow queries.
-			'savequeries'   => defined( 'SAVEQUERIES' ) && SAVEQUERIES,
+			'savequeries'   => $can_capture,
+			'threshold_ms'  => $threshold_ms,
+			'monitoring'    => $status,
 		);
 
 		return $this->format_response(
@@ -133,5 +162,79 @@ class QueryAnalysisController extends RestController {
 			$response_data,
 			__( 'Query analysis retrieved successfully.', 'wp-admin-health-suite' )
 		);
+	}
+
+	/**
+	 * Sanitize SQL for REST output.
+	 *
+	 * Collapses whitespace, optionally redacts literals, and enforces a length limit.
+	 * This is for display purposes only and is never executed.
+	 *
+	 * @since 1.6.1
+	 *
+	 * @param string $sql           SQL query string.
+	 * @param bool   $redact_values Whether to redact string/numeric literals.
+	 * @return string Sanitized SQL string for output.
+	 */
+	private function sanitize_sql_for_output( string $sql, bool $redact_values ): string {
+		$sql = trim( $sql );
+		if ( '' === $sql ) {
+			return '';
+		}
+
+		// Normalize whitespace for readability and to reduce accidental leakage of formatting.
+		$sql = preg_replace( '/\\s+/', ' ', $sql );
+		$sql = is_string( $sql ) ? $sql : '';
+
+		if ( $redact_values ) {
+			// Redact common literal formats to reduce exposure of user/content data.
+			// Replace quoted strings with '?' placeholders.
+			$sql = preg_replace( "/'(?:\\\\\\\\.|[^'\\\\\\\\])*'/", "'?'", $sql );
+			$sql = is_string( $sql ) ? $sql : '';
+			$sql = preg_replace( '/"(?:\\\\\\\\.|[^"\\\\\\\\])*"/', '"?"', $sql );
+			$sql = is_string( $sql ) ? $sql : '';
+
+			// Replace numeric literals (including decimals) with '?'.
+			$sql = preg_replace( '/\\b\\d+(?:\\.\\d+)?\\b/', '?', $sql );
+			$sql = is_string( $sql ) ? $sql : '';
+		}
+
+		// Enforce a max length to avoid huge payloads.
+		$max_len = 500;
+		if ( strlen( $sql ) > $max_len ) {
+			$sql = substr( $sql, 0, $max_len ) . '…';
+		}
+
+		return sanitize_text_field( $sql );
+	}
+
+	/**
+	 * Sanitize caller information for REST output.
+	 *
+	 * Removes absolute path prefixes where possible and enforces a length limit.
+	 *
+	 * @since 1.6.1
+	 *
+	 * @param string $caller Caller string.
+	 * @return string Sanitized caller string.
+	 */
+	private function sanitize_caller_for_output( string $caller ): string {
+		$caller = sanitize_text_field( $caller );
+
+		if ( defined( 'ABSPATH' ) && is_string( ABSPATH ) && '' !== ABSPATH ) {
+			$caller = str_replace( ABSPATH, '', $caller );
+		}
+
+		$caller = trim( $caller );
+		if ( '' === $caller ) {
+			return 'unknown';
+		}
+
+		$max_len = 200;
+		if ( strlen( $caller ) > $max_len ) {
+			$caller = substr( $caller, 0, $max_len ) . '…';
+		}
+
+		return $caller;
 	}
 }

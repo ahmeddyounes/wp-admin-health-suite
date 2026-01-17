@@ -126,8 +126,19 @@ const ActivityTimeline = () => {
 				method: 'GET',
 			});
 
-			if (response.success && Array.isArray(response.data)) {
-				setActivities(response.data);
+			if (response.success) {
+				if (Array.isArray(response.data)) {
+					setActivities(response.data);
+				} else if (
+					response.data &&
+					Array.isArray(response.data.items)
+				) {
+					setActivities(response.data.items);
+				} else {
+					throw new Error(
+						response.message || 'Failed to fetch activities'
+					);
+				}
 			} else {
 				throw new Error(
 					response.message || 'Failed to fetch activities'

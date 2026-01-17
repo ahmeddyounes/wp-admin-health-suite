@@ -95,33 +95,52 @@ class PluginProfilerController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_plugin_impact( $request ) {
-		if ( ! function_exists( 'get_plugins' ) ) {
+		if ( ! function_exists( 'get_plugins' ) || ! function_exists( 'get_plugin_data' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
 
-		$all_plugins    = get_plugins();
-		$active_plugins = get_option( 'active_plugins', array() );
-		$plugin_data    = array();
+		$all_plugins = function_exists( 'get_plugins' ) ? get_plugins() : array();
 
-		foreach ( $active_plugins as $plugin_file ) {
-			if ( ! isset( $all_plugins[ $plugin_file ] ) ) {
-				continue;
+		$results      = $this->plugin_profiler->measure_plugin_impact();
+		$measurements = array();
+		$meta         = array();
+
+		if ( isset( $results['status'] ) && 'success' === $results['status'] ) {
+			$measurements = isset( $results['measurements'] ) && is_array( $results['measurements'] ) ? $results['measurements'] : array();
+
+			if ( isset( $results['measured_at'] ) ) {
+				$meta['measured_at'] = (string) $results['measured_at'];
 			}
 
-			$plugin = $all_plugins[ $plugin_file ];
+			if ( isset( $results['note'] ) ) {
+				$meta['note'] = (string) $results['note'];
+			}
+		} elseif ( isset( $results['message'] ) ) {
+			$meta['error'] = (string) $results['message'];
+		}
+		$plugin_data  = array();
 
-			// Estimate impact based on plugin characteristics.
-			$load_time = $this->estimate_plugin_load_time( $plugin_file );
-			$memory    = $this->estimate_plugin_memory( $plugin_file );
-			$queries   = $this->estimate_plugin_queries( $plugin_file );
+		foreach ( $measurements as $measurement ) {
+			$plugin_file = isset( $measurement['file'] ) ? (string) $measurement['file'] : '';
+			$name        = isset( $measurement['name'] ) ? (string) $measurement['name'] : '';
+
+			$version = '';
+			if ( $plugin_file && isset( $all_plugins[ $plugin_file ]['Version'] ) ) {
+				$version = (string) $all_plugins[ $plugin_file ]['Version'];
+			}
+
+			$load_time_ms = isset( $measurement['time'] ) ? round( (float) $measurement['time'] * 1000, 1 ) : 0.0;
+			$memory_kb    = isset( $measurement['memory'] ) ? (int) round( (float) $measurement['memory'] / 1024 ) : 0;
+			$queries      = isset( $measurement['queries'] ) ? absint( $measurement['queries'] ) : 0;
 
 			$plugin_data[] = array(
-				'name'      => $plugin['Name'],
-				'file'      => $plugin_file,
-				'version'   => $plugin['Version'],
-				'load_time' => $load_time,
-				'memory'    => $memory,
-				'queries'   => $queries,
+				'name'         => $name,
+				'file'         => $plugin_file,
+				'version'      => $version,
+				'load_time'    => $load_time_ms,
+				'memory'       => $memory_kb,
+				'queries'      => $queries,
+				'impact_score' => isset( $measurement['impact_score'] ) ? (float) $measurement['impact_score'] : 0.0,
 			);
 		}
 
@@ -135,7 +154,10 @@ class PluginProfilerController extends RestController {
 
 		return $this->format_response(
 			true,
-			array( 'plugins' => $plugin_data ),
+			array_merge(
+				array( 'plugins' => $plugin_data ),
+				$meta
+			),
 			__( 'Plugin impact data retrieved successfully.', 'wp-admin-health-suite' )
 		);
 	}

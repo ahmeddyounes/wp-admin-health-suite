@@ -187,6 +187,9 @@ class SettingsServiceProvider extends ServiceProvider {
 				'type'              => 'array',
 				'sanitize_callback' => array( $registry, 'sanitize_settings' ),
 				'default'           => $registry->get_default_settings(),
+				'show_in_rest'      => array(
+					'schema' => $registry->get_option_schema(),
+				),
 			)
 		);
 
@@ -240,6 +243,11 @@ class SettingsServiceProvider extends ServiceProvider {
 
 		switch ( $field['type'] ) {
 			case 'checkbox':
+				// Ensure a value is always submitted (unchecked checkboxes submit nothing).
+				printf(
+					'<input type="hidden" name="%s" value="0" />',
+					esc_attr( $name )
+				);
 				printf(
 					'<input type="checkbox" id="%s" name="%s" value="1" %s />',
 					esc_attr( $id ),

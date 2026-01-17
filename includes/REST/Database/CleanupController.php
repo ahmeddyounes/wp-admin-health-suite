@@ -183,6 +183,7 @@ class CleanupController extends RestController {
 							'description'       => __( 'Only delete expired transients.', 'wp-admin-health-suite' ),
 							'type'              => 'boolean',
 							'default'           => true,
+							'sanitize_callback' => 'rest_sanitize_boolean',
 							'validate_callback' => 'rest_validate_request_arg',
 						),
 						'exclude_patterns' => array(

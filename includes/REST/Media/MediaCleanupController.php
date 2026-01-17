@@ -228,6 +228,8 @@ class MediaCleanupController extends RestController {
 			);
 		}
 
+		$safe_mode = $this->is_safe_mode_enabled();
+
 		// Filter out excluded attachments - they should not be deleted.
 		$excluded_ids  = array_filter(
 			$ids,
@@ -247,11 +249,63 @@ class MediaCleanupController extends RestController {
 			);
 		}
 
+		if ( $safe_mode ) {
+			$preview = array(
+				'success'        => true,
+				'safe_mode'      => true,
+				'preview_only'   => true,
+				'prepared_items' => array_map(
+					static function ( $attachment_id ) {
+						return array( 'attachment_id' => absint( $attachment_id ) );
+					},
+					$ids_to_delete
+				),
+				'message'        => __( 'Safe mode enabled. No files were moved to trash.', 'wp-admin-health-suite' ),
+			);
+
+			if ( ! empty( $excluded_ids ) ) {
+				$preview['excluded_ids'] = array_values( $excluded_ids );
+				$preview['message']     .= sprintf(
+					' ' . _n(
+						'%d item was skipped because it is excluded.',
+						'%d items were skipped because they are excluded.',
+						count( $excluded_ids ),
+						'wp-admin-health-suite'
+					),
+					count( $excluded_ids )
+				);
+			}
+
+			$this->log_activity( 'media_delete', $preview );
+
+			return $this->format_response(
+				true,
+				$preview,
+				$preview['message']
+			);
+		}
+
 		$result = $this->safe_delete->prepare_deletion( $ids_to_delete );
+
+		// Do not expose absolute file paths via REST responses.
+		if ( isset( $result['prepared_items'] ) && is_array( $result['prepared_items'] ) ) {
+			$result['prepared_items'] = array_map(
+				static function ( $item ) {
+					if ( ! is_array( $item ) ) {
+						return $item;
+					}
+
+					unset( $item['file_path'] );
+					return $item;
+				},
+				$result['prepared_items']
+			);
+		}
 
 		// Include info about skipped excluded items in the result.
 		if ( ! empty( $excluded_ids ) ) {
 			$result['excluded_ids'] = array_values( $excluded_ids );
+			$result['message']      = isset( $result['message'] ) ? (string) $result['message'] : '';
 			$result['message']     .= sprintf(
 				' ' . _n(
 					'%d item was skipped because it is excluded.',
@@ -295,6 +349,25 @@ class MediaCleanupController extends RestController {
 	public function restore_media( $request ) {
 		$deletion_id = $request->get_param( 'deletion_id' );
 
+		$safe_mode = $this->is_safe_mode_enabled();
+		if ( $safe_mode ) {
+			$preview = array(
+				'success'      => true,
+				'safe_mode'    => true,
+				'preview_only' => true,
+				'deletion_id'  => absint( $deletion_id ),
+				'message'      => __( 'Safe mode enabled. No files were restored from trash.', 'wp-admin-health-suite' ),
+			);
+
+			$this->log_activity( 'media_restore', $preview );
+
+			return $this->format_response(
+				true,
+				$preview,
+				$preview['message']
+			);
+		}
+
 		$result = $this->safe_delete->restore_deleted( $deletion_id );
 
 		if ( ! $result['success'] ) {
@@ -332,14 +405,30 @@ class MediaCleanupController extends RestController {
 		// Enrich with attachment details.
 		$enriched_exclusions = array();
 		foreach ( $exclusions as $exclusion ) {
-			$attachment_id = $exclusion['attachment_id'];
-			$details = MediaHelper::get_attachment_details( $attachment_id );
+			$attachment_id = isset( $exclusion['attachment_id'] ) ? absint( $exclusion['attachment_id'] ) : 0;
+			$details       = MediaHelper::get_attachment_details( $attachment_id );
 
-			$user = get_user_by( 'id', $exclusion['excluded_by'] );
-			$excluded_by_name = $user ? $user->display_name : __( 'Unknown', 'wp-admin-health-suite' );
+			$excluded_by = isset( $exclusion['excluded_by'] ) ? absint( $exclusion['excluded_by'] ) : 0;
+			$user        = $excluded_by ? get_user_by( 'id', $excluded_by ) : null;
+			$excluded_by_name = $user ? sanitize_text_field( (string) $user->display_name ) : __( 'Unknown', 'wp-admin-health-suite' );
+
+			$excluded_at = isset( $exclusion['excluded_at'] ) ? sanitize_text_field( (string) $exclusion['excluded_at'] ) : '';
+			if ( '' !== $excluded_at && function_exists( 'mysql_to_rfc3339' ) ) {
+				$rfc3339 = mysql_to_rfc3339( $excluded_at );
+				if ( false !== $rfc3339 ) {
+					$excluded_at = $rfc3339;
+				}
+			}
+
+			$sanitized_exclusion = array(
+				'attachment_id' => $attachment_id,
+				'excluded_at'   => $excluded_at,
+				'reason'        => isset( $exclusion['reason'] ) ? sanitize_text_field( (string) $exclusion['reason'] ) : '',
+				'excluded_by'   => $excluded_by,
+			);
 
 			$enriched_exclusions[] = array_merge(
-				$exclusion,
+				$sanitized_exclusion,
 				$details,
 				array( 'excluded_by_name' => $excluded_by_name )
 			);
@@ -468,7 +557,10 @@ class MediaCleanupController extends RestController {
 			return array();
 		}
 
-		return array_map( 'absint', $value );
+		$ids = array_filter( array_map( 'absint', $value ) );
+		$ids = array_values( array_unique( $ids ) );
+
+		return $ids;
 	}
 
 	/**

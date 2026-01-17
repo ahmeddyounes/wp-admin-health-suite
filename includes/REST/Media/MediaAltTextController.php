@@ -91,6 +91,20 @@ class MediaAltTextController extends RestController {
 				),
 			)
 		);
+
+		// GET /wpha/v1/media/missing-alt - Alias for missing alt text endpoint.
+		register_rest_route(
+			$this->namespace,
+			'/media/missing-alt',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_missing_alt_text' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+					'args'                => $this->get_pagination_params(),
+				),
+			)
+		);
 	}
 
 	/**

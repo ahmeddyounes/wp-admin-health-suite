@@ -91,6 +91,7 @@ class AutoloadController extends RestController {
 							'type'              => 'string',
 							'required'          => true,
 							'sanitize_callback' => 'sanitize_text_field',
+							'validate_callback' => 'rest_validate_request_arg',
 						),
 						'autoload'    => array(
 							'description'       => __( 'Whether to autoload the option.', 'wp-admin-health-suite' ),
@@ -118,6 +119,10 @@ class AutoloadController extends RestController {
 		$connection    = $this->get_connection();
 		$options_table = $connection->get_options_table();
 
+		$size_stats  = $this->autoload_analyzer->get_autoload_size();
+		$total_size  = isset( $size_stats['total_size'] ) ? (int) $size_stats['total_size'] : 0;
+		$total_count = isset( $size_stats['count'] ) ? (int) $size_stats['count'] : 0;
+
 		$autoload_options = $connection->get_results(
 			"SELECT option_name, LENGTH(option_value) as size
 			FROM {$options_table}
@@ -126,7 +131,6 @@ class AutoloadController extends RestController {
 			LIMIT 50"
 		);
 
-		$total_size = $this->get_autoload_size();
 		$options    = array();
 
 		foreach ( $autoload_options as $option ) {
@@ -137,10 +141,10 @@ class AutoloadController extends RestController {
 		}
 
 		$response_data = array(
-			'total_size'   => $total_size,
-			'total_size_mb' => round( $total_size / 1024 / 1024, 2 ),
-			'options'      => $options,
-			'count'        => count( $autoload_options ),
+			'total_size'    => $total_size,
+			'total_size_mb' => isset( $size_stats['total_size_mb'] ) ? (float) $size_stats['total_size_mb'] : round( $total_size / 1024 / 1024, 2 ),
+			'options'       => $options,
+			'count'         => $total_count,
 		);
 
 		return $this->format_response(
@@ -218,8 +222,9 @@ class AutoloadController extends RestController {
 			);
 		}
 
-		// Clear the alloptions cache to ensure changes take effect.
-		wp_cache_delete( 'alloptions', 'options' );
+			// Clear the alloptions cache to ensure changes take effect.
+			wp_cache_delete( $option_name, 'options' );
+			wp_cache_delete( 'alloptions', 'options' );
 
 		return $this->format_response(
 			true,

@@ -22,6 +22,76 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MediaHelper {
 
 	/**
+	 * Cached uploads base directory path.
+	 *
+	 * @since 1.6.0
+	 * @var string|null
+	 */
+	private static ?string $uploads_basedir = null;
+
+	/**
+	 * Get the uploads base directory.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @return string The uploads base directory path.
+	 */
+	private static function get_uploads_basedir(): string {
+		if ( null === self::$uploads_basedir ) {
+			$upload_dir = wp_upload_dir();
+			$basedir    = isset( $upload_dir['basedir'] ) ? (string) $upload_dir['basedir'] : '';
+
+			self::$uploads_basedir = $basedir ? ( realpath( $basedir ) ?: $basedir ) : '';
+		}
+
+		return self::$uploads_basedir;
+	}
+
+	/**
+	 * Validate that a file path is within the uploads directory.
+	 *
+	 * Security: Prevents path traversal and local file probing via
+	 * tampered attachment metadata.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param string $file_path The file path to validate.
+	 * @return bool True if path is valid and within uploads, false otherwise.
+	 */
+	private static function is_valid_upload_path( string $file_path ): bool {
+		$file_path = trim( $file_path );
+
+		if ( '' === $file_path ) {
+			return false;
+		}
+
+		$uploads_basedir = self::get_uploads_basedir();
+		if ( '' === $uploads_basedir ) {
+			return false;
+		}
+
+		// Resolve the real path (resolves symlinks and ../ sequences).
+		$real_path = realpath( $file_path );
+
+		// If realpath fails (file doesn't exist), validate the directory portion.
+		if ( false === $real_path ) {
+			$dir_path = realpath( dirname( $file_path ) );
+			if ( false === $dir_path ) {
+				return false;
+			}
+			$real_path = $dir_path . DIRECTORY_SEPARATOR . basename( $file_path );
+		}
+
+		// Ensure the real path starts with the uploads directory.
+		// Use strict comparison to prevent partial directory name matches.
+		if ( 0 !== strpos( $real_path, $uploads_basedir . DIRECTORY_SEPARATOR ) && $real_path !== $uploads_basedir ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	 * Get attachment details with thumbnail URL.
 	 *
 	 * Consolidated method to avoid code duplication across media controllers.
@@ -33,44 +103,60 @@ class MediaHelper {
 	 */
 	public static function get_attachment_details( int $attachment_id ): array {
 		$file_path = get_attached_file( $attachment_id );
-		$filename  = $file_path ? basename( $file_path ) : '';
-		$file_size = $file_path && file_exists( $file_path ) ? filesize( $file_path ) : 0;
+
+		$url = wp_get_attachment_url( $attachment_id );
+		$url = $url ? esc_url_raw( $url ) : '';
+
+		$filename  = '';
+		$file_size = 0;
+
+		if ( $file_path && self::is_valid_upload_path( $file_path ) && file_exists( $file_path ) && is_file( $file_path ) ) {
+			$filename = basename( $file_path );
+			$size     = filesize( $file_path );
+			$file_size = false === $size ? 0 : (int) $size;
+		} elseif ( $url ) {
+			$filename = basename( $url );
+		}
 
 		$thumbnail_url = wp_get_attachment_image_url( $attachment_id, 'thumbnail' );
 		if ( ! $thumbnail_url ) {
-			$thumbnail_url = wp_get_attachment_url( $attachment_id );
+			$thumbnail_url = $url;
 		}
+		$thumbnail_url = $thumbnail_url ? esc_url_raw( $thumbnail_url ) : '';
 
-		$url  = wp_get_attachment_url( $attachment_id );
 		$post = get_post( $attachment_id );
 
-		$title     = $post ? $post->post_title : '';
-		$date      = $post ? $post->post_date : '';
-		$mime_type = get_post_mime_type( $attachment_id );
+		$title = $post ? sanitize_text_field( $post->post_title ) : '';
 
-		$type = 'document';
-		if ( $mime_type && strpos( $mime_type, 'image/' ) === 0 ) {
-			$type = 'image';
-		} elseif ( $mime_type && strpos( $mime_type, 'video/' ) === 0 ) {
-			$type = 'video';
+		$date = $post ? sanitize_text_field( $post->post_date ) : '';
+		if ( '' !== $date && function_exists( 'mysql_to_rfc3339' ) ) {
+			$rfc3339 = mysql_to_rfc3339( $date );
+			if ( false !== $rfc3339 ) {
+				$date = $rfc3339;
+			}
 		}
+
+		$mime_type = get_post_mime_type( $attachment_id );
+		$mime_type = $mime_type ? sanitize_mime_type( (string) $mime_type ) : '';
+
+		$type = self::get_media_type( $mime_type );
 
 		return array(
 			'id'                  => $attachment_id,
 			'title'               => $title,
-			'filename'            => $filename,
+			'filename'            => sanitize_text_field( $filename ),
 			'file_size'           => $file_size,
 			'file_size_formatted' => size_format( $file_size ),
 			'mime_type'           => $mime_type,
 			'thumbnail_url'       => $thumbnail_url,
-			'edit_link'           => admin_url( 'post.php?post=' . $attachment_id . '&action=edit' ),
+			'edit_link'           => esc_url_raw( admin_url( 'post.php?post=' . $attachment_id . '&action=edit' ) ),
 
 			// UI-friendly aliases.
 			'size'      => $file_size,
 			'thumbnail' => $thumbnail_url,
 			'url'       => $url,
 			'date'      => $date,
-			'type'      => $type,
+			'type'      => sanitize_key( $type ),
 		);
 	}
 

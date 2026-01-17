@@ -89,8 +89,23 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 	 * {@inheritdoc}
 	 */
 	public function get_all_settings(): array {
+		if ( null !== $this->cached_settings ) {
+			return $this->cached_settings;
+		}
+
 		$settings = get_option( self::OPTION_NAME, array() );
-		return wp_parse_args( $settings, $this->get_default_settings() );
+		if ( ! is_array( $settings ) ) {
+			$settings = array();
+		}
+
+		// Only keep known setting keys to prevent option injection and stale keys.
+		$known_fields = $this->get_all_fields();
+		if ( ! empty( $known_fields ) ) {
+			$settings = array_intersect_key( $settings, $known_fields );
+		}
+
+		$this->cached_settings = wp_parse_args( $settings, $this->get_default_settings() );
+		return $this->cached_settings;
 	}
 
 	/**
@@ -232,56 +247,55 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 	public function sanitize_settings( array $input ): array {
 		$sanitized = array();
 		$fields    = $this->get_all_fields();
+		$stored    = get_option( self::OPTION_NAME, array() );
 
-		foreach ( $fields as $field_id => $field ) {
-			$value = $input[ $field_id ] ?? $field['default'];
-
-			switch ( $field['sanitize'] ?? 'text' ) {
-				case 'boolean':
-					$sanitized[ $field_id ] = (bool) $value;
-					break;
-
-				case 'integer':
-					$sanitized[ $field_id ] = absint( $value );
-					if ( isset( $field['min'] ) && $sanitized[ $field_id ] < $field['min'] ) {
-						$sanitized[ $field_id ] = $field['min'];
-					}
-					if ( isset( $field['max'] ) && $sanitized[ $field_id ] > $field['max'] ) {
-						$sanitized[ $field_id ] = $field['max'];
-					}
-					break;
-
-				case 'email':
-					$sanitized[ $field_id ] = sanitize_email( $value );
-					if ( ! empty( $sanitized[ $field_id ] ) && ! is_email( $sanitized[ $field_id ] ) ) {
-						$sanitized[ $field_id ] = $field['default'];
-					}
-					break;
-
-				case 'select':
-					if ( isset( $field['options'] ) && array_key_exists( $value, $field['options'] ) ) {
-						$sanitized[ $field_id ] = $value;
-					} else {
-						$sanitized[ $field_id ] = $field['default'];
-					}
-					break;
-
-				case 'css':
-					$sanitized[ $field_id ] = $this->sanitize_css( $value );
-					break;
-
-				case 'textarea':
-					$sanitized[ $field_id ] = sanitize_textarea_field( $value );
-					break;
-
-				case 'text':
-				default:
-					$sanitized[ $field_id ] = sanitize_text_field( $value );
-					break;
-			}
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
 		}
 
+		foreach ( $fields as $field_id => $field ) {
+			$has_input_value = array_key_exists( $field_id, $input );
+			$value           = null;
+
+			// Preserve existing settings for fields not present in the submitted payload.
+			// This is required because the settings UI saves per-tab, not as a single form.
+			if ( $has_input_value ) {
+				$value = $input[ $field_id ];
+			} elseif ( array_key_exists( $field_id, $stored ) ) {
+				$value = $stored[ $field_id ];
+			} else {
+				$value = $field['default'] ?? null;
+			}
+
+			$sanitized[ $field_id ] = $this->sanitize_field_value( $value, $field );
+		}
+
+		// Clear any cached settings since we're returning the next canonical value.
+		$this->cached_settings = null;
+
 		return $sanitized;
+	}
+
+	/**
+	 * Build a REST/Options API schema for the settings option.
+	 *
+	 * Intended for use with register_setting() => show_in_rest schema.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return array JSON schema for the settings option.
+	 */
+	public function get_option_schema(): array {
+		$properties = array();
+		foreach ( $this->get_all_fields() as $field_id => $field ) {
+			$properties[ $field_id ] = $this->build_field_schema( $field );
+		}
+
+		return array(
+			'type'                 => 'object',
+			'properties'           => $properties,
+			'additionalProperties' => false,
+		);
 	}
 
 	/**
@@ -298,6 +312,132 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 		$css = preg_replace( '/import\s+/i', '', $css );
 
 		return trim( $css );
+	}
+
+	/**
+	 * Sanitize a single field value based on its field definition.
+	 *
+	 * @param mixed $value Raw value.
+	 * @param array $field Field definition.
+	 * @return mixed Sanitized value.
+	 */
+	private function sanitize_field_value( $value, array $field ) {
+		$default  = $field['default'] ?? null;
+		$sanitize = $field['sanitize'] ?? 'text';
+
+		// Reject non-scalar input for scalar field types.
+		if ( is_array( $value ) || is_object( $value ) ) {
+			$value = $default;
+		}
+
+		switch ( $sanitize ) {
+			case 'boolean':
+				if ( null === $value ) {
+					return (bool) $default;
+				}
+
+				$bool = filter_var( $value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+				return null === $bool ? (bool) $default : $bool;
+
+			case 'integer':
+				$int = absint( $value );
+				if ( isset( $field['min'] ) && $int < $field['min'] ) {
+					$int = $field['min'];
+				}
+				if ( isset( $field['max'] ) && $int > $field['max'] ) {
+					$int = $field['max'];
+				}
+				return $int;
+
+			case 'email':
+				$email = sanitize_email( (string) $value );
+				if ( '' !== $email && ! is_email( $email ) ) {
+					return (string) $default;
+				}
+				return $email;
+
+			case 'select':
+				if ( isset( $field['options'] ) && array_key_exists( $value, $field['options'] ) ) {
+					return $value;
+				}
+				return $default;
+
+			case 'css':
+				return $this->sanitize_css( (string) $value );
+
+			case 'textarea':
+				return sanitize_textarea_field( (string) $value );
+
+			case 'text':
+			default:
+				return sanitize_text_field( (string) $value );
+		}
+	}
+
+	/**
+	 * Convert a field definition to a JSON schema fragment.
+	 *
+	 * @param array $field Field definition.
+	 * @return array Schema fragment.
+	 */
+	private function build_field_schema( array $field ): array {
+		$sanitize = $field['sanitize'] ?? 'text';
+
+		switch ( $sanitize ) {
+			case 'boolean':
+				$schema = array(
+					'type'    => 'boolean',
+					'default' => (bool) ( $field['default'] ?? false ),
+				);
+				break;
+
+			case 'integer':
+				$schema = array(
+					'type'    => 'integer',
+					'default' => absint( $field['default'] ?? 0 ),
+				);
+				if ( isset( $field['min'] ) ) {
+					$schema['minimum'] = (int) $field['min'];
+				}
+				if ( isset( $field['max'] ) ) {
+					$schema['maximum'] = (int) $field['max'];
+				}
+				break;
+
+			case 'email':
+				$schema = array(
+					'type'    => 'string',
+					'format'  => 'email',
+					'default' => (string) ( $field['default'] ?? '' ),
+				);
+				break;
+
+			case 'select':
+				$schema = array(
+					'type'    => 'string',
+					'default' => (string) ( $field['default'] ?? '' ),
+				);
+				if ( isset( $field['options'] ) && is_array( $field['options'] ) ) {
+					$schema['enum'] = array_map( 'strval', array_keys( $field['options'] ) );
+				}
+				break;
+
+			case 'css':
+			case 'textarea':
+			case 'text':
+			default:
+				$schema = array(
+					'type'    => 'string',
+					'default' => (string) ( $field['default'] ?? '' ),
+				);
+				break;
+		}
+
+		if ( ! empty( $field['description'] ) && is_string( $field['description'] ) ) {
+			$schema['description'] = $field['description'];
+		}
+
+		return $schema;
 	}
 
 	/**

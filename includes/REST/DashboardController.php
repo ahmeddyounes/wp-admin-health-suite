@@ -325,13 +325,21 @@ class DashboardController extends RestController {
 		// Format the activities data.
 		$formatted_activities = array_map(
 			function ( $activity ) {
+				$created_at = isset( $activity['created_at'] ) ? sanitize_text_field( $activity['created_at'] ) : '';
+				if ( '' !== $created_at && function_exists( 'mysql_to_rfc3339' ) ) {
+					$rfc3339 = mysql_to_rfc3339( $created_at );
+					if ( false !== $rfc3339 ) {
+						$created_at = $rfc3339;
+					}
+				}
+
 				return array(
 					'id'            => (int) $activity['id'],
 					'scan_type'     => sanitize_text_field( $activity['scan_type'] ),
-					'items_found'   => (int) $activity['items_found'],
-					'items_cleaned' => (int) $activity['items_cleaned'],
-					'bytes_freed'   => (int) $activity['bytes_freed'],
-					'created_at'    => $activity['created_at'],
+					'items_found'   => isset( $activity['items_found'] ) ? absint( $activity['items_found'] ) : 0,
+					'items_cleaned' => isset( $activity['items_cleaned'] ) ? absint( $activity['items_cleaned'] ) : 0,
+					'bytes_freed'   => isset( $activity['bytes_freed'] ) ? absint( $activity['bytes_freed'] ) : 0,
+					'created_at'    => $created_at,
 				);
 			},
 			$activities

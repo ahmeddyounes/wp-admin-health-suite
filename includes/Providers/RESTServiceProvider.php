@@ -427,7 +427,6 @@ class RESTServiceProvider extends ServiceProvider {
 			'rest.database_controller',
 			'rest.media_controller',
 			'rest.dashboard_controller',
-			'rest.performance_controller',
 			'rest.activity_controller',
 			'rest.database.table_analysis_controller',
 			'rest.database.optimization_controller',

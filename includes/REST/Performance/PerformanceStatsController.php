@@ -75,6 +75,19 @@ class PerformanceStatsController extends RestController {
 			)
 		);
 
+		// GET /wpha/v1/performance/score (legacy alias for /performance/stats).
+		register_rest_route(
+			$this->namespace,
+			'/performance/score',
+			array(
+				array(
+					'methods'             => \WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_performance_stats' ),
+					'permission_callback' => array( $this, 'check_permissions' ),
+				),
+			)
+		);
+
 		// GET /wpha/v1/performance/recommendations.
 		register_rest_route(
 			$this->namespace,

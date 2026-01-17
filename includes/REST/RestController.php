@@ -296,6 +296,12 @@ class RestController extends WP_REST_Controller {
 	 */
 	protected function verify_nonce( $request ) {
 		$nonce = $request->get_header( 'X-WP-Nonce' );
+		if ( empty( $nonce ) ) {
+			// Back-compat: allow `_wpnonce` param for clients that can't set headers.
+			$nonce = $request->get_param( '_wpnonce' );
+		}
+
+		$nonce = is_string( $nonce ) ? sanitize_text_field( $nonce ) : '';
 
 		if ( empty( $nonce ) ) {
 			return new WP_Error(
@@ -559,7 +565,7 @@ class RestController extends WP_REST_Controller {
 	 *
 	 * @return bool True if user can view detailed debug info.
 	 */
-	private function can_view_detailed_debug(): bool {
+	protected function can_view_detailed_debug(): bool {
 		// Require explicit WPHA_DEBUG constant for detailed debug output.
 		if ( ! defined( 'WPHA_DEBUG' ) || ! WPHA_DEBUG ) {
 			return false;
@@ -581,7 +587,7 @@ class RestController extends WP_REST_Controller {
 	 * @param string $query The SQL query.
 	 * @return string The query type (SELECT, INSERT, UPDATE, DELETE, or OTHER).
 	 */
-	private function get_query_type( string $query ): string {
+	protected function get_query_type( string $query ): string {
 		$query = trim( strtoupper( $query ) );
 
 		$types = array( 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'SHOW', 'DESCRIBE' );

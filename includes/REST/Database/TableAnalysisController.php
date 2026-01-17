@@ -210,10 +210,14 @@ class TableAnalysisController extends RestController {
 	public function get_revisions( $request ) {
 		$limit = $request->get_param( 'limit' );
 
+		$posts_with_most_revisions = $this->sanitize_posts_with_most_revisions(
+			$this->revisions_manager->get_posts_with_most_revisions( absint( $limit ) )
+		);
+
 		$data = array(
 			'total_count'              => $this->revisions_manager->get_all_revisions_count(),
 			'size_estimate'            => $this->revisions_manager->get_revisions_size_estimate(),
-			'posts_with_most_revisions' => $this->revisions_manager->get_posts_with_most_revisions( $limit ),
+			'posts_with_most_revisions' => $posts_with_most_revisions,
 		);
 
 		return $this->format_response(
@@ -221,6 +225,33 @@ class TableAnalysisController extends RestController {
 			$data,
 			__( 'Revision details retrieved successfully.', 'wp-admin-health-suite' )
 		);
+	}
+
+	/**
+	 * Sanitize posts_with_most_revisions result rows for REST output.
+	 *
+	 * @since 1.6.1
+	 *
+	 * @param array $rows Raw rows from RevisionsManager.
+	 * @return array Sanitized rows.
+	 */
+	private function sanitize_posts_with_most_revisions( array $rows ): array {
+		$sanitized = array();
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$sanitized[] = array(
+				'post_id'        => isset( $row['post_id'] ) ? absint( $row['post_id'] ) : 0,
+				'post_title'     => isset( $row['post_title'] ) ? sanitize_text_field( (string) $row['post_title'] ) : '',
+				'post_type'      => isset( $row['post_type'] ) ? sanitize_key( (string) $row['post_type'] ) : '',
+				'revision_count' => isset( $row['revision_count'] ) ? absint( $row['revision_count'] ) : 0,
+			);
+		}
+
+		return $sanitized;
 	}
 
 	/**
