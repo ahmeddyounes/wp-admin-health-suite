@@ -92,6 +92,27 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 	protected string $enabled_option_key = 'enable_scheduled_db_cleanup';
 
 	/**
+	 * {@inheritdoc}
+	 *
+	 * @var int
+	 */
+	protected int $default_time_limit = self::DEFAULT_TIME_LIMIT;
+
+	/**
+	 * {@inheritdoc}
+	 *
+	 * @var int
+	 */
+	protected int $time_buffer = self::TIME_BUFFER;
+
+	/**
+	 * {@inheritdoc}
+	 *
+	 * @var string
+	 */
+	protected string $progress_option_key = self::PROGRESS_OPTION_KEY;
+
+	/**
 	 * Revisions manager.
 	 *
 	 * @var RevisionsManagerInterface
@@ -127,20 +148,6 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 	private OptimizerInterface $optimizer;
 
 	/**
-	 * Start time of the current execution.
-	 *
-	 * @var float
-	 */
-	private float $start_time = 0.0;
-
-	/**
-	 * Time limit for the current execution in seconds.
-	 *
-	 * @var int
-	 */
-	private int $time_limit;
-
-	/**
 	 * Constructor.
 	 *
 	 * @param RevisionsManagerInterface  $revisions_manager  Revisions manager.
@@ -161,7 +168,6 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 		$this->orphaned_cleaner   = $orphaned_cleaner;
 		$this->trash_cleaner      = $trash_cleaner;
 		$this->optimizer          = $optimizer;
-		$this->time_limit         = self::DEFAULT_TIME_LIMIT;
 	}
 
 	/**
@@ -372,64 +378,6 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 	}
 
 	/**
-	 * Configure the time limit based on PHP settings and options.
-	 *
-	 * @since 1.5.0
-	 *
-	 * @param array $options Task options.
-	 * @return void
-	 */
-	private function configure_time_limit( array $options ): void {
-		// Allow overriding via options (useful for manual runs or testing).
-		if ( isset( $options['time_limit'] ) && is_int( $options['time_limit'] ) ) {
-			$this->time_limit = $options['time_limit'];
-			return;
-		}
-
-		// Try to determine the PHP max_execution_time.
-		$max_execution_time = (int) ini_get( 'max_execution_time' );
-
-		// If max_execution_time is 0 (unlimited) or not set, use our default.
-		if ( $max_execution_time <= 0 ) {
-			$this->time_limit = self::DEFAULT_TIME_LIMIT;
-			return;
-		}
-
-		// Use the smaller of PHP's limit (minus buffer) or our default.
-		$this->time_limit = min(
-			$max_execution_time - self::TIME_BUFFER,
-			self::DEFAULT_TIME_LIMIT
-		);
-
-		// Ensure we have at least some time to work.
-		$this->time_limit = max( $this->time_limit, 5 );
-	}
-
-	/**
-	 * Check if the time limit is approaching.
-	 *
-	 * @since 1.5.0
-	 *
-	 * @return bool True if we should stop processing.
-	 */
-	private function is_time_limit_approaching(): bool {
-		$elapsed = microtime( true ) - $this->start_time;
-		return $elapsed >= ( $this->time_limit - self::TIME_BUFFER );
-	}
-
-	/**
-	 * Get the remaining time in seconds.
-	 *
-	 * @since 1.5.0
-	 *
-	 * @return float Remaining time in seconds.
-	 */
-	private function get_remaining_time(): float {
-		$elapsed = microtime( true ) - $this->start_time;
-		return max( 0, $this->time_limit - $elapsed - self::TIME_BUFFER );
-	}
-
-	/**
 	 * Execute a subtask with error recovery.
 	 *
 	 * Wraps subtask execution in a try-catch block to prevent individual
@@ -442,101 +390,16 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 	 * @return array Result with 'items', 'bytes', and optionally 'error' keys.
 	 */
 	private function execute_subtask_with_recovery( string $task, array $options ): array {
-		try {
-			return $this->execute_subtask( $task, $options );
-		} catch ( \Throwable $e ) {
-			$this->log(
-				sprintf(
-					'Exception in subtask %s: %s in %s:%d',
-					$task,
-					$e->getMessage(),
-					$e->getFile(),
-					$e->getLine()
-				),
-				'error'
-			);
-
-			return array(
+		return $this->execute_with_recovery(
+			function () use ( $task, $options ): array {
+				return $this->execute_subtask( $task, $options );
+			},
+			array(
 				'items' => 0,
 				'bytes' => 0,
-				'error' => $e->getMessage(),
-			);
-		}
-	}
-
-	/**
-	 * Load saved progress from a previous interrupted run.
-	 *
-	 * @since 1.5.0
-	 *
-	 * @return array Progress data or empty array.
-	 */
-	private function load_progress(): array {
-		$progress = get_option( self::PROGRESS_OPTION_KEY, array() );
-
-		if ( ! empty( $progress ) && is_array( $progress ) ) {
-			$this->log( 'Resuming from saved progress' );
-		}
-
-		return is_array( $progress ) ? $progress : array();
-	}
-
-	/**
-	 * Save progress for later continuation.
-	 *
-	 * @since 1.5.0
-	 *
-	 * @param array $progress Progress data to save.
-	 * @return bool True on success, false on failure.
-	 */
-	private function save_progress( array $progress ): bool {
-		return update_option( self::PROGRESS_OPTION_KEY, $progress, false );
-	}
-
-	/**
-	 * Clear saved progress.
-	 *
-	 * @since 1.5.0
-	 *
-	 * @return bool True on success, false on failure.
-	 */
-	private function clear_progress(): bool {
-		return delete_option( self::PROGRESS_OPTION_KEY );
-	}
-
-	/**
-	 * Get the current progress for external monitoring.
-	 *
-	 * @since 1.5.0
-	 *
-	 * @return array Current progress data.
-	 */
-	public function get_progress(): array {
-		return $this->load_progress();
-	}
-
-	/**
-	 * Check if a previous run was interrupted and needs resuming.
-	 *
-	 * @since 1.5.0
-	 *
-	 * @return bool True if there's saved progress to resume.
-	 */
-	public function has_pending_progress(): bool {
-		$progress = get_option( self::PROGRESS_OPTION_KEY, array() );
-		return ! empty( $progress );
-	}
-
-	/**
-	 * Force clear any saved progress (useful for admin reset).
-	 *
-	 * @since 1.5.0
-	 *
-	 * @return bool True on success.
-	 */
-	public function reset_progress(): bool {
-		$this->log( 'Progress manually reset' );
-		return $this->clear_progress();
+			),
+			sprintf( 'subtask %s', $task )
+		);
 	}
 
 	/**
