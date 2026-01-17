@@ -51,6 +51,7 @@ class DatabaseSettings extends AbstractDomainSettings {
 				'type'     => 'checkbox',
 				'default'  => false,
 				'sanitize' => 'boolean',
+				'description' => __( 'When enabled, scheduled cleanup will prune post revisions based on the "Revisions to Keep" setting.', 'wp-admin-health-suite' ),
 			),
 			'cleanup_auto_drafts'         => array(
 				'section'  => 'database_cleanup',
@@ -58,6 +59,7 @@ class DatabaseSettings extends AbstractDomainSettings {
 				'type'     => 'checkbox',
 				'default'  => false,
 				'sanitize' => 'boolean',
+				'description' => __( 'When enabled, scheduled cleanup will delete auto-draft posts older than 7 days.', 'wp-admin-health-suite' ),
 			),
 			'cleanup_trashed_posts'       => array(
 				'section'  => 'database_cleanup',
@@ -65,6 +67,7 @@ class DatabaseSettings extends AbstractDomainSettings {
 				'type'     => 'checkbox',
 				'default'  => false,
 				'sanitize' => 'boolean',
+				'description' => __( 'When enabled, scheduled cleanup will delete trashed posts older than the configured retention period.', 'wp-admin-health-suite' ),
 			),
 			'cleanup_spam_comments'       => array(
 				'section'  => 'database_cleanup',
@@ -72,6 +75,7 @@ class DatabaseSettings extends AbstractDomainSettings {
 				'type'     => 'checkbox',
 				'default'  => false,
 				'sanitize' => 'boolean',
+				'description' => __( 'When enabled, scheduled cleanup will delete spam comments older than the configured retention period.', 'wp-admin-health-suite' ),
 			),
 			'cleanup_trashed_comments'    => array(
 				'section'  => 'database_cleanup',
@@ -79,6 +83,7 @@ class DatabaseSettings extends AbstractDomainSettings {
 				'type'     => 'checkbox',
 				'default'  => false,
 				'sanitize' => 'boolean',
+				'description' => __( 'When enabled, scheduled cleanup will delete trashed comments older than the configured retention period.', 'wp-admin-health-suite' ),
 			),
 			'cleanup_expired_transients'  => array(
 				'section'  => 'database_cleanup',
@@ -86,21 +91,23 @@ class DatabaseSettings extends AbstractDomainSettings {
 				'type'     => 'checkbox',
 				'default'  => true,
 				'sanitize' => 'boolean',
+				'description' => __( 'When enabled, scheduled cleanup will remove expired transients (honoring any excluded prefixes).', 'wp-admin-health-suite' ),
 			),
-			'cleanup_orphaned_metadata'   => array(
-				'section'  => 'database_cleanup',
-				'title'    => __( 'Clean Orphaned Metadata', 'wp-admin-health-suite' ),
-				'type'     => 'checkbox',
-				'default'  => false,
-				'sanitize' => 'boolean',
+			'orphaned_cleanup_enabled'    => array(
+				'section'     => 'database_cleanup',
+				'title'       => __( 'Clean Orphaned Metadata', 'wp-admin-health-suite' ),
+				'type'        => 'checkbox',
+				'default'     => false,
+				'sanitize'    => 'boolean',
+				'description' => __( 'Automatically clean orphaned metadata during scheduled tasks.', 'wp-admin-health-suite' ),
 			),
 			'revisions_to_keep'           => array(
 				'section'     => 'database_cleanup',
 				'title'       => __( 'Revisions to Keep', 'wp-admin-health-suite' ),
 				'type'        => 'number',
-				'default'     => 0,
+				'default'     => 5,
 				'sanitize'    => 'integer',
-				'description' => __( 'Number of revisions to keep per post (0-50, 0 = delete all).', 'wp-admin-health-suite' ),
+				'description' => __( 'Number of revisions to keep per post (0-50). Set to 0 to delete all revisions.', 'wp-admin-health-suite' ),
 				'min'         => 0,
 				'max'         => 50,
 			),
@@ -129,7 +136,8 @@ class DatabaseSettings extends AbstractDomainSettings {
 				'title'       => __( 'Excluded Transient Prefixes', 'wp-admin-health-suite' ),
 				'type'        => 'textarea',
 				'default'     => '',
-				'sanitize'    => 'textarea',
+				'sanitize'    => 'newline_list',
+				'max_items'   => 100,
 				'description' => __( 'Transient prefixes to exclude from cleanup (one per line).', 'wp-admin-health-suite' ),
 			),
 			'optimize_tables_weekly'      => array(
@@ -139,14 +147,6 @@ class DatabaseSettings extends AbstractDomainSettings {
 				'default'     => false,
 				'sanitize'    => 'boolean',
 				'description' => __( 'Automatically optimize database tables weekly.', 'wp-admin-health-suite' ),
-			),
-			'orphaned_cleanup_enabled'    => array(
-				'section'     => 'database_cleanup',
-				'title'       => __( 'Enable Orphaned Cleanup', 'wp-admin-health-suite' ),
-				'type'        => 'checkbox',
-				'default'     => false,
-				'sanitize'    => 'boolean',
-				'description' => __( 'Automatically clean orphaned metadata during scheduled tasks.', 'wp-admin-health-suite' ),
 			),
 		);
 	}

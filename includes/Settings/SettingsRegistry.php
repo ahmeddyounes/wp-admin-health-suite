@@ -98,6 +98,8 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 			$settings = array();
 		}
 
+		$settings = $this->migrate_legacy_settings( $settings );
+
 		// Only keep known setting keys to prevent option injection and stale keys.
 		$known_fields = $this->get_all_fields();
 		if ( ! empty( $known_fields ) ) {
@@ -268,6 +270,9 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 			$stored = array();
 		}
 
+		$input  = $this->migrate_legacy_settings( $input );
+		$stored = $this->migrate_legacy_settings( $stored );
+
 		foreach ( $fields as $field_id => $field ) {
 			$has_input_value = array_key_exists( $field_id, $input );
 			$value           = null;
@@ -355,12 +360,16 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 				return null === $bool ? (bool) $default : $bool;
 
 			case 'integer':
-				$int = absint( $value );
+				if ( null === $value || '' === $value ) {
+					$value = $default;
+				}
+
+				$int = is_numeric( $value ) ? (int) $value : (int) $default;
 				if ( isset( $field['min'] ) && $int < $field['min'] ) {
-					$int = $field['min'];
+					$int = (int) $field['min'];
 				}
 				if ( isset( $field['max'] ) && $int > $field['max'] ) {
-					$int = $field['max'];
+					$int = (int) $field['max'];
 				}
 				return $int;
 
@@ -380,6 +389,39 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 			case 'css':
 				return $this->sanitize_css( (string) $value );
 
+			case 'newline_list':
+				if ( null === $value ) {
+					return (string) $default;
+				}
+
+				$raw = wp_strip_all_tags( (string) $value );
+				$raw = str_replace( array( "\r\n", "\r" ), "\n", $raw );
+
+				$items = array_map( 'trim', explode( "\n", $raw ) );
+				$items = array_filter( $items, 'strlen' );
+
+				$sanitized_items = array();
+				foreach ( $items as $item ) {
+					$item = sanitize_text_field( $item );
+					$item = preg_replace( '/\s+/', '', $item );
+					$item = trim( $item );
+
+					if ( '' === $item ) {
+						continue;
+					}
+
+					$sanitized_items[] = $item;
+				}
+
+				$sanitized_items = array_values( array_unique( $sanitized_items ) );
+
+				$max_items = isset( $field['max_items'] ) ? absint( $field['max_items'] ) : 100;
+				if ( $max_items > 0 ) {
+					$sanitized_items = array_slice( $sanitized_items, 0, $max_items );
+				}
+
+				return implode( "\n", $sanitized_items );
+
 			case 'textarea':
 				return sanitize_textarea_field( (string) $value );
 
@@ -387,6 +429,25 @@ class SettingsRegistry implements SettingsRegistryInterface, SettingsInterface {
 			default:
 				return sanitize_text_field( (string) $value );
 		}
+	}
+
+	/**
+	 * Migrate legacy settings keys to current keys.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @param array $settings Raw settings.
+	 * @return array Settings with legacy keys migrated.
+	 */
+	private function migrate_legacy_settings( array $settings ): array {
+		if (
+			! array_key_exists( 'orphaned_cleanup_enabled', $settings )
+			&& array_key_exists( 'cleanup_orphaned_metadata', $settings )
+		) {
+			$settings['orphaned_cleanup_enabled'] = (bool) $settings['cleanup_orphaned_metadata'];
+		}
+
+		return $settings;
 	}
 
 	/**

@@ -140,6 +140,25 @@ if ( ! function_exists( 'sanitize_text_field' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	/**
+	 * Strip all HTML tags from text stub.
+	 *
+	 * @param string $text          Text to strip.
+	 * @param bool   $remove_breaks Whether to remove line breaks.
+	 * @return string
+	 */
+	function wp_strip_all_tags( $text, $remove_breaks = false ) {
+		$text = strip_tags( (string) $text );
+
+		if ( $remove_breaks ) {
+			$text = preg_replace( '/[\r\n\t ]+/', ' ', $text );
+		}
+
+		return trim( $text );
+	}
+}
+
 if ( ! function_exists( 'absint' ) ) {
 	/**
 	 * Absolute integer stub.

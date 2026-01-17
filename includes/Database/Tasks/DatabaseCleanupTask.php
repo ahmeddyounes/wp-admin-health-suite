@@ -75,7 +75,7 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 	 *
 	 * @var string
 	 */
-	protected string $description = 'Clean up revisions, transients, orphaned metadata, and trash items.';
+	protected string $description = 'Clean up revisions, transients, orphaned metadata, trash, spam comments, and auto-drafts.';
 
 	/**
 	 * Default frequency.
@@ -338,11 +338,34 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 		if ( ! empty( $settings['cleanup_expired_transients'] ) || ! empty( $options['clean_transients'] ) ) {
 			$cleanup_tasks[] = 'transients';
 		}
-		if ( ! empty( $settings['cleanup_orphaned_metadata'] ) || ! empty( $options['clean_orphaned'] ) ) {
+		if (
+			! empty( $settings['orphaned_cleanup_enabled'] )
+			|| ! empty( $settings['cleanup_orphaned_metadata'] )
+			|| ! empty( $options['clean_orphaned'] )
+		) {
 			$cleanup_tasks[] = 'orphaned';
 		}
-		if ( ! empty( $settings['cleanup_trashed_posts'] ) || ! empty( $options['clean_trash'] ) ) {
+
+		$trash_retention_days = absint( $settings['auto_clean_trash_days'] ?? 0 );
+		$spam_retention_days  = absint( $settings['auto_clean_spam_days'] ?? 0 );
+
+		$trash_cleanup_enabled = (
+			( ! empty( $settings['cleanup_trashed_posts'] ) || ! empty( $settings['cleanup_trashed_comments'] ) )
+			&& $trash_retention_days > 0
+		);
+
+		$spam_cleanup_enabled = ( ! empty( $settings['cleanup_spam_comments'] ) && $spam_retention_days > 0 );
+
+		if ( $spam_cleanup_enabled || ! empty( $options['clean_spam'] ) ) {
+			$cleanup_tasks[] = 'spam';
+		}
+
+		if ( $trash_cleanup_enabled || ! empty( $options['clean_trash'] ) ) {
 			$cleanup_tasks[] = 'trash';
+		}
+
+		if ( ! empty( $settings['cleanup_auto_drafts'] ) || ! empty( $options['clean_auto_drafts'] ) ) {
+			$cleanup_tasks[] = 'auto_drafts';
 		}
 
 		return $cleanup_tasks;
@@ -540,7 +563,12 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 				break;
 
 			case 'transients':
-				$cleaned = $this->transients_cleaner->delete_expired_transients();
+				$settings = get_option( 'wpha_settings', array() );
+				$excluded = isset( $settings['excluded_transient_prefixes'] ) ? (string) $settings['excluded_transient_prefixes'] : '';
+				$excluded = str_replace( array( "\r\n", "\r" ), "\n", $excluded );
+
+				$exclude_patterns = array_filter( array_map( 'trim', explode( "\n", $excluded ) ) );
+				$cleaned          = $this->transients_cleaner->delete_expired_transients( $exclude_patterns );
 				$result['items'] = $cleaned['deleted'] ?? 0;
 				$result['bytes'] = $cleaned['bytes_freed'] ?? 0;
 				$this->log( sprintf( 'Cleaned %d transients', $result['items'] ) );
@@ -557,11 +585,106 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 				$this->log( sprintf( 'Cleaned %d orphaned items', $result['items'] ) );
 				break;
 
+			case 'spam':
+				$settings        = get_option( 'wpha_settings', array() );
+				$older_than_days = absint( $settings['auto_clean_spam_days'] ?? 0 );
+
+				if ( ! empty( $options['clean_spam'] ) && isset( $options['older_than_days'] ) ) {
+					$older_than_days = absint( $options['older_than_days'] );
+				}
+
+				if ( empty( $options['clean_spam'] ) && $older_than_days <= 0 ) {
+					$this->log( 'Skipping spam cleanup (retention disabled)' );
+					break;
+				}
+
+				$cleaned = $this->trash_cleaner->delete_spam_comments( $older_than_days );
+				$result['items'] = $cleaned['deleted'] ?? 0;
+				$result['bytes'] = 0; // Trash cleaner doesn't track bytes.
+				$this->log( sprintf( 'Cleaned %d spam comments', $result['items'] ) );
+				break;
+
 			case 'trash':
-				$cleaned = $this->trash_cleaner->empty_all_trash();
-				$result['items'] = ( $cleaned['posts_deleted'] ?? 0 ) + ( $cleaned['comments_deleted'] ?? 0 );
+				$settings = get_option( 'wpha_settings', array() );
+
+				$older_than_days = absint( $settings['auto_clean_trash_days'] ?? 0 );
+				$clean_posts     = ! empty( $settings['cleanup_trashed_posts'] );
+				$clean_comments  = ! empty( $settings['cleanup_trashed_comments'] );
+
+				// For manual/task overrides, allow emptying all trash and/or specifying a threshold.
+				if ( ! empty( $options['clean_trash'] ) ) {
+					$older_than_days = isset( $options['older_than_days'] ) ? absint( $options['older_than_days'] ) : 0;
+					$clean_posts     = true;
+					$clean_comments  = true;
+				}
+
+				if ( $older_than_days <= 0 && empty( $options['clean_trash'] ) ) {
+					$this->log( 'Skipping trash cleanup (retention disabled)' );
+					break;
+				}
+
+				$deleted = 0;
+
+				if ( $clean_posts ) {
+					$posts_result = $this->trash_cleaner->delete_trashed_posts( array(), $older_than_days );
+					$deleted     += $posts_result['deleted'] ?? 0;
+				}
+
+				if ( $clean_comments ) {
+					$comments_result = $this->trash_cleaner->delete_trashed_comments( $older_than_days );
+					$deleted        += $comments_result['deleted'] ?? 0;
+				}
+
+				$result['items'] = $deleted;
 				$result['bytes'] = 0; // Trash cleaner doesn't track bytes.
 				$this->log( sprintf( 'Cleaned %d trash items', $result['items'] ) );
+				break;
+
+			case 'auto_drafts':
+				$older_than_days = 7;
+
+				if ( ! empty( $options['clean_auto_drafts'] ) && isset( $options['older_than_days'] ) ) {
+					$older_than_days = absint( $options['older_than_days'] );
+				}
+
+				if ( $older_than_days <= 0 ) {
+					$older_than_days = 0;
+				}
+
+				$before = gmdate( 'Y-m-d H:i:s', strtotime( "-{$older_than_days} days" ) );
+
+				$post_ids = get_posts(
+					array(
+						'post_type'      => 'any',
+						'post_status'    => 'auto-draft',
+						'posts_per_page' => 200,
+						'fields'         => 'ids',
+						'orderby'        => 'ID',
+						'order'          => 'ASC',
+						'date_query'     => array(
+							array(
+								'column' => 'post_modified_gmt',
+								'before' => $before,
+							),
+						),
+					)
+				);
+
+				if ( empty( $post_ids ) ) {
+					$this->log( 'No auto-drafts to clean' );
+					break;
+				}
+
+				$deleted = 0;
+				foreach ( $post_ids as $post_id ) {
+					if ( wp_delete_post( (int) $post_id, true ) ) {
+						++$deleted;
+					}
+				}
+
+				$result['items'] = $deleted;
+				$result['bytes'] = 0;
+				$this->log( sprintf( 'Cleaned %d auto-drafts', $result['items'] ) );
 				break;
 		}
 
@@ -599,6 +722,23 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 				'type'        => 'boolean',
 				'default'     => false,
 				'description' => __( 'Empty trash', 'wp-admin-health-suite' ),
+			),
+			'clean_spam'         => array(
+				'type'        => 'boolean',
+				'default'     => false,
+				'description' => __( 'Delete spam comments', 'wp-admin-health-suite' ),
+			),
+			'clean_auto_drafts'  => array(
+				'type'        => 'boolean',
+				'default'     => false,
+				'description' => __( 'Delete auto-drafts', 'wp-admin-health-suite' ),
+			),
+			'older_than_days'    => array(
+				'type'        => 'integer',
+				'default'     => 0,
+				'min'         => 0,
+				'max'         => 365,
+				'description' => __( 'Age threshold in days for trash/spam/auto-drafts when manually running the task (0 = all).', 'wp-admin-health-suite' ),
 			),
 			'optimize_tables'    => array(
 				'type'        => 'boolean',
