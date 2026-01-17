@@ -1,0 +1,51 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (39f09c9)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 95 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 61 files
+[SKIPPED] *.{js,jsx} — no files
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 61 files
+[COMPLETED] package.json — 95 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+[31mE[0m 1 / 1 (100%)
+
+
+
+[1mFILE: templates/network/network-settings.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 4 ERRORS AFFECTING 4 LINES[0m
+--------------------------------------------------------------------------------
+ 13 | [31mERROR[0m | [1mOverriding WordPress globals is prohibited. Found assignment to[0m
+    |       | [1m$plugin[0m (WordPress.WP.GlobalVariablesOverride.Prohibited)
+ 14 | [31mERROR[0m | [1mGlobal variables defined by a theme/plugin should start with the[0m
+    |       | [1mtheme/plugin prefix. Found: "$multisite".[0m
+    |       | (WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound)
+ 20 | [31mERROR[0m | [1mGlobal variables defined by a theme/plugin should start with the[0m
+    |       | [1mtheme/plugin prefix. Found: "$settings".[0m
+    |       | (WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound)
+ 22 | [31mERROR[0m | [1mGlobal variables defined by a theme/plugin should start with the[0m
+    |       | [1mtheme/plugin prefix. Found: "$updated".[0m
+    |       | (WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound)
+--------------------------------------------------------------------------------
+
+Time: 156ms; Memory: 16MB
+
+husky - pre-commit script failed (code 1)

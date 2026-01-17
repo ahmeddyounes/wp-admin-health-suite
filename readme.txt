@@ -2,7 +2,7 @@
 Contributors: yourname
 Tags: admin, health, performance, database, optimization
 Requires at least: 6.0
-Tested up to: 6.4
+Tested up to: 6.7
 Stable tag: 1.0.0
 Requires PHP: 7.4
 License: GPLv2 or later
@@ -16,13 +16,15 @@ WP Admin Health Suite is a powerful all-in-one solution for maintaining your Wor
 
 = Key Features =
 
-**🎯 Health Score Dashboard**
+**Health Score Dashboard**
+
 * Visual health score (0-100) with A-F grading
 * Real-time metrics and statistics
 * Recent activity timeline
 * Quick action buttons for common tasks
 
-**💾 Database Optimization**
+**Database Optimization**
+
 * Clean post revisions with configurable retention
 * Remove expired transients and spam/trash
 * Find and clean orphaned metadata
@@ -30,15 +32,17 @@ WP Admin Health Suite is a powerful all-in-one solution for maintaining your Wor
 * Detect orphaned tables from deactivated plugins
 * Scheduled automated cleanups
 
-**🖼️ Media Library Audit**
+**Media Library Audit**
+
 * Find unused media files
 * Detect duplicate images
 * Identify large files for optimization
 * Report missing alt text
-* Safe two-step deletion with 30-day recovery
-* Support for ACF, Elementor, WooCommerce, and more
+* Safe two-step deletion with configurable recovery period (7-365 days)
+* Support for ACF, Elementor, WooCommerce, and multilingual plugins
 
-**⚡ Performance Monitoring**
+**Performance Monitoring**
+
 * Profile plugin performance impact
 * Monitor slow database queries
 * Control WordPress Heartbeat API
@@ -46,14 +50,16 @@ WP Admin Health Suite is a powerful all-in-one solution for maintaining your Wor
 * Check object cache status
 * Analyze autoloaded options
 
-**🤖 AI-Powered Recommendations**
+**AI-Powered Recommendations**
+
 * Intelligent issue prioritization
 * Actionable optimization steps
 * One-click fixes for safe operations
 * Impact estimates before changes
 * Category-based organization
 
-**⚙️ Flexible Settings**
+**Flexible Settings**
+
 * Granular control over all features
 * Scheduled maintenance tasks
 * Email notifications
@@ -61,7 +67,8 @@ WP Admin Health Suite is a powerful all-in-one solution for maintaining your Wor
 * Safe mode for testing
 * Debug mode for troubleshooting
 
-**🔧 Developer Friendly**
+**Developer Friendly**
+
 * REST API for external integrations
 * Comprehensive hook system
 * Full documentation
@@ -75,17 +82,25 @@ Unlike other optimization plugins that focus on just one aspect, WP Admin Health
 = Page Builder Support =
 
 WP Admin Health Suite intelligently detects media usage across popular page builders:
+
 * Elementor
-* Beaver Builder
 * Advanced Custom Fields (ACF)
 * WooCommerce
+
+= Multilingual Support =
+
+The plugin integrates with multilingual plugins to ensure media detection works across all languages:
+
+* WPML
+* Polylang
 
 = Safe by Default =
 
 We understand your WordPress site is critical. That's why:
+
 * All destructive actions require confirmation
 * Media files go through a two-step deletion process
-* Deleted media can be recovered for 30 days
+* Deleted media can be recovered for 30 days (configurable: 7-365 days)
 * Safe mode disables all destructive operations
 * All operations are logged for audit trails
 
@@ -140,15 +155,15 @@ Absolutely! Navigate to Settings > Scheduling to configure automated database cl
 
 = What if I accidentally delete something? =
 
-Media files deleted through the plugin go to a special trash folder and can be recovered for 30 days. Database cleanups are permanent, which is why we require confirmation before proceeding.
+Media files deleted through the plugin go to a special trash folder and can be recovered for 30 days (configurable from 7 to 365 days). Database cleanups are permanent, which is why we require confirmation before proceeding.
 
 = Does it work with multisite? =
 
-Currently, WP Admin Health Suite is designed for single-site installations. Multisite support is planned for a future release.
+Yes! WP Admin Health Suite fully supports WordPress multisite installations. Network administrators can configure network-wide settings and run scans across all sites from the network admin dashboard.
 
 = Will it detect media used in page builders? =
 
-Yes! The plugin intelligently scans content from Elementor, Beaver Builder, ACF, WooCommerce, and standard WordPress content. We're always adding support for more builders.
+Yes! The plugin intelligently scans content from Elementor, ACF, WooCommerce, and standard WordPress content. We're always adding support for more builders.
 
 = Can I customize what gets cleaned? =
 
@@ -185,6 +200,7 @@ Yes! The plugin provides extensive hooks and filters, plus a full REST API. Chec
 * Performance monitoring (plugins, queries, heartbeat)
 * AI-powered recommendations engine
 * One-click fixes for safe operations
+* Multisite network support
 * Comprehensive settings with scheduling
 * REST API with rate limiting
 * Full internationalization support
@@ -199,6 +215,7 @@ Initial release of WP Admin Health Suite. Comprehensive WordPress health monitor
 == Privacy Policy ==
 
 WP Admin Health Suite does not:
+
 * Collect or transmit any data to external servers
 * Track user behavior
 * Store personal information
@@ -209,15 +226,17 @@ All operations are performed locally on your WordPress installation. Scan result
 == Support ==
 
 For support, please visit:
+
 * Documentation: https://github.com/yourusername/wp-admin-health-suite/wiki
 * Issue Tracker: https://github.com/yourusername/wp-admin-health-suite/issues
 * Support Forum: https://wordpress.org/support/plugin/wp-admin-health-suite/
 
 == Credits ==
 
-Developed with ❤️ for the WordPress community.
+Developed with care for the WordPress community.
 
 Special thanks to:
+
 * The WordPress core team for an amazing platform
 * The open-source community for inspiration and feedback
 * All contributors who help make this plugin better
@@ -225,10 +244,10 @@ Special thanks to:
 == Roadmap ==
 
 Upcoming features in future versions:
+
 * AI-powered alt text generation
 * Advanced performance profiling
-* Additional page builder integrations (Divi, Oxygen)
-* Multisite network support
+* Additional page builder integrations (Divi, Oxygen, Beaver Builder)
 * White-label capabilities
 * Pro version with premium features
 * WP-CLI commands for automation

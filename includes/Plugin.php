@@ -388,6 +388,20 @@ class Plugin {
 	}
 
 	/**
+	 * Get the Multisite handler.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return Multisite|null Multisite instance, or null if not available.
+	 */
+	public function get_multisite(): ?Multisite {
+		if ( $this->container->has( Multisite::class ) ) {
+			return $this->container->get( Multisite::class );
+		}
+		return null;
+	}
+
+	/**
 	 * Resolve a service from the container.
 	 *
 	 * Convenience method for accessing container services.

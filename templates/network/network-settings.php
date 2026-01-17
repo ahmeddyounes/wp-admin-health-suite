@@ -18,7 +18,8 @@ if ( ! $multisite ) {
 }
 
 $settings = $multisite->get_network_settings();
-$updated  = isset( $_GET['updated'] ) && 'true' === $_GET['updated'];
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only check, no data modification.
+$updated  = isset( $_GET['updated'] ) && 'true' === sanitize_text_field( wp_unslash( $_GET['updated'] ) );
 ?>
 
 <div class="wrap">

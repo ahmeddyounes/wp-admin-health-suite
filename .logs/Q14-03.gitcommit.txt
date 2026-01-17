@@ -1,0 +1,66 @@
+[main 56bc961] Q14-03: implement
+ 35 files changed, 2325 insertions(+), 309 deletions(-)
+ create mode 100644 .logs/Q13-04.claude.impl.last.md
+ create mode 100644 .logs/Q13-04.claude.impl.raw.txt
+ create mode 100644 .logs/Q13-04.gitcommit.txt
+ create mode 100644 .logs/Q13-05.claude.impl.last.md
+ create mode 100644 .logs/Q13-05.claude.impl.raw.txt
+ create mode 100644 .logs/Q13-05.gitcommit.txt
+ create mode 100644 .logs/Q13-06.claude.impl.last.md
+ create mode 100644 .logs/Q13-06.claude.impl.raw.txt
+ create mode 100644 .logs/Q13-06.gitcommit.txt
+ create mode 100644 .logs/Q14-01.claude.impl.last.md
+ create mode 100644 .logs/Q14-01.claude.impl.raw.txt
+ create mode 100644 .logs/Q14-01.gitcommit.txt
+ create mode 100644 .logs/Q14-02.claude.impl.last.md
+ create mode 100644 .logs/Q14-02.claude.impl.raw.txt
+ create mode 100644 .logs/Q14-02.gitcommit.txt
+ create mode 100644 .logs/Q14-03.claude.impl.last.md
+ create mode 100644 .logs/Q14-03.claude.impl.raw.txt
+ create mode 100644 .plans/Q13-05.md
+ create mode 100644 .plans/Q13-06.md
+ create mode 100644 .plans/Q14-01.md
+ create mode 100644 .plans/Q14-02.md
+ create mode 100644 .plans/Q14-03.md
+ create mode 100644 .t2/handoff/Q13-05.md
+ create mode 100644 .t2/handoff/Q13-06.md
+ create mode 100644 .t2/handoff/Q14-01.md
+ create mode 100644 .t2/handoff/Q14-02.md
+ create mode 100644 .t2/handoff/Q14-03.md
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (8aa5ba0)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 35 files
+[STARTED] *.{js,jsx} — 2 files
+[STARTED] *.{json,css,scss,md} — 21 files
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 21 files
+[COMPLETED] eslint --fix
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{js,jsx} — 2 files
+[COMPLETED] package.json — 35 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+. 1 / 1 (100%)
+
+
+Time: 166ms; Memory: 16MB
+
+Pre-commit checks passed!
