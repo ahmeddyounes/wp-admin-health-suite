@@ -597,30 +597,6 @@ class Scanner implements ScannerInterface {
 			return true;
 		}
 
-		// Check for WooCommerce product galleries.
-		$woo_gallery_check = $this->connection->prepare(
-			"SELECT COUNT(*) FROM {$postmeta_table}
-			WHERE meta_key = %s AND meta_value LIKE %s",
-			'_product_image_gallery',
-			'%' . $this->connection->esc_like( (string) $attachment_id ) . '%'
-		);
-
-		if ( null !== $woo_gallery_check && $this->connection->get_var( $woo_gallery_check ) > 0 ) {
-			return true;
-		}
-
-		// Check for Elementor data.
-		$elementor_check = $this->connection->prepare(
-			"SELECT COUNT(*) FROM {$postmeta_table}
-			WHERE meta_key = %s AND meta_value LIKE %s",
-			'_elementor_data',
-			'%' . $this->connection->esc_like( (string) $attachment_id ) . '%'
-		);
-
-		if ( null !== $elementor_check && $this->connection->get_var( $elementor_check ) > 0 ) {
-			return true;
-		}
-
 		// Check if attached to a post (parent post).
 		$post = get_post( $attachment_id );
 		if ( $post && $post->post_parent > 0 ) {
@@ -628,6 +604,25 @@ class Scanner implements ScannerInterface {
 			if ( $parent_post && 'trash' !== $parent_post->post_status ) {
 				return true;
 			}
+		}
+
+		/**
+		 * Filter whether an attachment is used.
+		 *
+		 * Allows plugin integrations (e.g., WooCommerce, ACF, Elementor) to add
+		 * additional usage detection beyond the core checks performed here.
+		 *
+		 * Note: This filter is only applied when the core checks have not found
+		 * a usage reference (i.e., when $is_used would otherwise be false).
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param bool $is_used       Whether the attachment is used.
+		 * @param int  $attachment_id The attachment ID.
+		 */
+		$is_used = (bool) apply_filters( 'wpha_media_is_attachment_used', false, absint( $attachment_id ) );
+		if ( $is_used ) {
+			return true;
 		}
 
 		return false;

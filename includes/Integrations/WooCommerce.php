@@ -102,6 +102,14 @@ class WooCommerce extends AbstractIntegration implements MediaAwareIntegrationIn
 			return WC_VERSION;
 		}
 
+		// Fallback for edge cases where WC_VERSION is not defined.
+		if ( function_exists( 'WC' ) ) {
+			$wc = WC();
+			if ( is_object( $wc ) && isset( $wc->version ) ) {
+				return (string) $wc->version;
+			}
+		}
+
 		return null;
 	}
 
@@ -464,7 +472,120 @@ class WooCommerce extends AbstractIntegration implements MediaAwareIntegrationIn
 			return true;
 		}
 
+		// Check if it's used as a product category thumbnail (term meta).
+		if ( $this->is_product_category_thumbnail( $attachment_id ) ) {
+			return true;
+		}
+
 		return $is_used;
+	}
+
+	/**
+	 * Check whether an attachment is used as a WooCommerce product category thumbnail.
+	 *
+	 * WooCommerce stores product category thumbnails in term meta under the key
+	 * "thumbnail_id". Very old WooCommerce installs may still have a legacy
+	 * "woocommerce_termmeta" table.
+	 *
+	 * @since 1.7.0
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return bool True if used as a product category thumbnail.
+	 */
+	private function is_product_category_thumbnail( int $attachment_id ): bool {
+		$prefix              = $this->connection->get_prefix();
+		$term_taxonomy_table = $prefix . 'term_taxonomy';
+		$termmeta_table      = $this->connection->get_termmeta_table();
+
+		// Prefer core termmeta table.
+		if ( $this->connection->table_exists( $termmeta_table ) ) {
+			$query = $this->connection->prepare(
+				"SELECT COUNT(*) FROM {$termmeta_table} tm
+				INNER JOIN {$term_taxonomy_table} tt ON tm.term_id = tt.term_id
+				WHERE tt.taxonomy = %s
+				AND tm.meta_key = %s
+				AND tm.meta_value = %d",
+				'product_cat',
+				'thumbnail_id',
+				$attachment_id
+			);
+
+			if ( null !== $query && $this->connection->get_var( $query ) > 0 ) {
+				return true;
+			}
+		}
+
+		// Legacy WooCommerce term meta table (pre WordPress termmeta).
+		$legacy_termmeta_table = $prefix . 'woocommerce_termmeta';
+		if ( $this->connection->table_exists( $legacy_termmeta_table ) ) {
+			$query = $this->connection->prepare(
+				"SELECT COUNT(*) FROM {$legacy_termmeta_table} tm
+				INNER JOIN {$term_taxonomy_table} tt ON tm.woocommerce_term_id = tt.term_id
+				WHERE tt.taxonomy = %s
+				AND tm.meta_key = %s
+				AND tm.meta_value = %d",
+				'product_cat',
+				'thumbnail_id',
+				$attachment_id
+			);
+
+			if ( null !== $query && $this->connection->get_var( $query ) > 0 ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get all attachment IDs used as WooCommerce product category thumbnails.
+	 *
+	 * @since 1.7.0
+	 *
+	 * @return array<int> Attachment IDs.
+	 */
+	private function get_product_category_thumbnail_ids(): array {
+		$ids                 = array();
+		$prefix              = $this->connection->get_prefix();
+		$term_taxonomy_table = $prefix . 'term_taxonomy';
+		$termmeta_table      = $this->connection->get_termmeta_table();
+
+		if ( $this->connection->table_exists( $termmeta_table ) ) {
+			$query = $this->connection->prepare(
+				"SELECT DISTINCT CAST(tm.meta_value AS UNSIGNED) FROM {$termmeta_table} tm
+				INNER JOIN {$term_taxonomy_table} tt ON tm.term_id = tt.term_id
+				WHERE tt.taxonomy = %s
+				AND tm.meta_key = %s
+				AND tm.meta_value != ''
+				AND tm.meta_value != '0'",
+				'product_cat',
+				'thumbnail_id'
+			);
+
+			if ( null !== $query ) {
+				$ids = array_merge( $ids, $this->connection->get_col( $query ) );
+			}
+		}
+
+		$legacy_termmeta_table = $prefix . 'woocommerce_termmeta';
+		if ( $this->connection->table_exists( $legacy_termmeta_table ) ) {
+			$query = $this->connection->prepare(
+				"SELECT DISTINCT CAST(tm.meta_value AS UNSIGNED) FROM {$legacy_termmeta_table} tm
+				INNER JOIN {$term_taxonomy_table} tt ON tm.woocommerce_term_id = tt.term_id
+				WHERE tt.taxonomy = %s
+				AND tm.meta_key = %s
+				AND tm.meta_value != ''
+				AND tm.meta_value != '0'",
+				'product_cat',
+				'thumbnail_id'
+			);
+
+			if ( null !== $query ) {
+				$ids = array_merge( $ids, $this->connection->get_col( $query ) );
+			}
+		}
+
+		return array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
 	}
 
 	/**
@@ -710,7 +831,8 @@ class WooCommerce extends AbstractIntegration implements MediaAwareIntegrationIn
 		// Combine and deduplicate.
 		$all_ids = array_merge(
 			array_map( 'absint', $thumbnails ),
-			$gallery_ids
+			$gallery_ids,
+			$this->get_product_category_thumbnail_ids()
 		);
 
 		return array_values( array_unique( array_filter( $all_ids ) ) );
@@ -792,6 +914,41 @@ class WooCommerce extends AbstractIntegration implements MediaAwareIntegrationIn
 					$variation->post_title
 				),
 			);
+		}
+
+		// Check product category thumbnails.
+		$termmeta_table      = $this->connection->get_termmeta_table();
+		$term_taxonomy_table = $prefix . 'term_taxonomy';
+		$terms_table         = $this->connection->get_terms_table();
+
+		if ( $this->connection->table_exists( $termmeta_table ) ) {
+			$query = $this->connection->prepare(
+				"SELECT t.name FROM {$termmeta_table} tm
+				INNER JOIN {$term_taxonomy_table} tt ON tm.term_id = tt.term_id
+				INNER JOIN {$terms_table} t ON tm.term_id = t.term_id
+				WHERE tt.taxonomy = %s
+				AND tm.meta_key = %s
+				AND tm.meta_value = %d",
+				'product_cat',
+				'thumbnail_id',
+				$attachment_id
+			);
+
+			if ( null !== $query ) {
+				$category_terms = $this->connection->get_results( $query );
+
+				foreach ( $category_terms as $term ) {
+					$usage[] = array(
+						'post_id'    => 0,
+						'post_title' => $term->name,
+						'context'    => sprintf(
+							/* translators: %s: product category name */
+							__( 'Product category thumbnail: %s', 'wp-admin-health-suite' ),
+							$term->name
+						),
+					);
+				}
+			}
 		}
 
 		return $usage;
