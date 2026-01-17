@@ -62,26 +62,32 @@ class IntegrationManager {
 	private array $builtin_integrations = array(
 		'woocommerce'   => 'WPAdminHealth\\Integrations\\WooCommerce',
 		'elementor'     => 'WPAdminHealth\\Integrations\\Elementor',
-		'acf'           => 'WPAdminHealth\\Integrations\\ACF',
+		'acf'           => 'WPAdminHealth\\Integrations\\Acf',
 		'multilingual'  => 'WPAdminHealth\\Integrations\\Multilingual',
 	);
 
 	/**
 	 * Register an integration.
 	 *
+	 * If an integration with the same ID is already registered, it will be replaced.
+	 *
 	 * @since 1.1.0
 	 *
 	 * @param IntegrationInterface $integration Integration instance.
 	 * @return self
-	 * @throws \InvalidArgumentException If integration ID is already registered.
 	 */
 	public function register( IntegrationInterface $integration ): self {
 		$id = $integration->get_id();
 
 		if ( isset( $this->integrations[ $id ] ) ) {
-			throw new \InvalidArgumentException(
-				sprintf( 'Integration with ID "%s" is already registered.', $id )
-			);
+			// Deactivate and deindex existing integration before replacing.
+			$existing = $this->integrations[ $id ];
+
+			if ( $existing->is_initialized() ) {
+				$existing->deactivate();
+			}
+
+			$this->remove_capability_index_entries( $id );
 		}
 
 		$this->integrations[ $id ] = $integration;
@@ -117,7 +123,7 @@ class IntegrationManager {
 					if ( $integration instanceof IntegrationInterface ) {
 						$this->register( $integration );
 					}
-				} catch ( \Exception $e ) {
+				} catch ( \Throwable $e ) {
 					$this->log_error( $id, $e->getMessage() );
 				}
 			}
@@ -165,13 +171,22 @@ class IntegrationManager {
 		}
 
 		// Sort by priority and resolve dependencies.
-		$sorted = $this->resolve_dependencies();
+		try {
+			$sorted = $this->resolve_dependencies();
+		} catch ( \RuntimeException $e ) {
+			$this->log_error( 'dependency_resolution', $e->getMessage() );
+			$sorted = $this->sort_by_priority( array_values( $this->integrations ) );
+		}
 
 		foreach ( $sorted as $integration ) {
 			if ( $integration->is_available() ) {
+				if ( ! $this->dependencies_met( $integration ) ) {
+					continue;
+				}
+
 				try {
 					$integration->init();
-				} catch ( \Exception $e ) {
+				} catch ( \Throwable $e ) {
 					$this->log_error( $integration->get_id(), $e->getMessage() );
 				}
 			}
@@ -270,9 +285,13 @@ class IntegrationManager {
 	 * @since 1.1.0
 	 *
 	 * @param string $capability Capability identifier.
-	 * @return array<IntegrationInterface> Integrations with the capability.
+	 * @return array<string, IntegrationInterface> Integrations with the capability.
 	 */
 	public function get_by_capability( string $capability ): array {
+		if ( ! $this->loaded ) {
+			$this->discover();
+		}
+
 		if ( ! isset( $this->capability_index[ $capability ] ) ) {
 			return array();
 		}
@@ -281,7 +300,14 @@ class IntegrationManager {
 
 		foreach ( $this->capability_index[ $capability ] as $id ) {
 			if ( isset( $this->integrations[ $id ] ) ) {
-				$integrations[] = $this->integrations[ $id ];
+				$integration = $this->integrations[ $id ];
+
+				// Only return integrations that can actually service the capability.
+				if ( ! $integration->is_available() || ! $integration->is_compatible() ) {
+					continue;
+				}
+
+				$integrations[ $id ] = $integration;
 			}
 		}
 
@@ -294,10 +320,10 @@ class IntegrationManager {
 	 * @since 1.1.0
 	 *
 	 * @param string $capability Capability identifier.
-	 * @return bool True if any integration has the capability.
+	 * @return bool True if any available, compatible integration has the capability.
 	 */
 	public function has_capability( string $capability ): bool {
-		return ! empty( $this->capability_index[ $capability ] );
+		return ! empty( $this->get_by_capability( $capability ) );
 	}
 
 	/**
@@ -495,6 +521,76 @@ class IntegrationManager {
 				$this->capability_index[ $capability ][] = $id;
 			}
 		}
+	}
+
+	/**
+	 * Remove any capability index entries for an integration ID.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $integration_id Integration ID.
+	 * @return void
+	 */
+	private function remove_capability_index_entries( string $integration_id ): void {
+		foreach ( $this->capability_index as $capability => $integration_ids ) {
+			$this->capability_index[ $capability ] = array_values(
+				array_filter(
+					$integration_ids,
+					fn( string $id ) => $id !== $integration_id
+				)
+			);
+
+			if ( empty( $this->capability_index[ $capability ] ) ) {
+				unset( $this->capability_index[ $capability ] );
+			}
+		}
+	}
+
+	/**
+	 * Sort integrations by priority.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array<IntegrationInterface> $integrations Integrations to sort.
+	 * @return array<IntegrationInterface> Sorted integrations.
+	 */
+	private function sort_by_priority( array $integrations ): array {
+		usort(
+			$integrations,
+			fn( IntegrationInterface $a, IntegrationInterface $b ) => $a->get_priority() <=> $b->get_priority()
+		);
+
+		return $integrations;
+	}
+
+	/**
+	 * Check if an integration's dependencies are met.
+	 *
+	 * Ensures dependency integrations exist, are available, compatible, and initialized.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param IntegrationInterface $integration Integration instance.
+	 * @return bool True if dependencies are met.
+	 */
+	private function dependencies_met( IntegrationInterface $integration ): bool {
+		foreach ( $integration->get_dependencies() as $dependency_id ) {
+			$dependency = $this->integrations[ $dependency_id ] ?? null;
+
+			if ( null === $dependency ) {
+				$this->log_error(
+					$integration->get_id(),
+					sprintf( 'Missing integration dependency "%s".', $dependency_id )
+				);
+				return false;
+			}
+
+			if ( ! $dependency->is_available() || ! $dependency->is_compatible() || ! $dependency->is_initialized() ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
