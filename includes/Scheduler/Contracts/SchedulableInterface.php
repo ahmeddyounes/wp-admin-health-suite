@@ -20,8 +20,46 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Defines the contract for tasks that can be scheduled.
  *
  * @since 1.2.0
+ *
+ * @phpstan-type TaskSettingSchema array{
+ *   type: string,
+ *   default: mixed,
+ *   description?: string,
+ *   min?: int|float,
+ *   max?: int|float
+ * }
+ * @phpstan-type TaskSettingsSchema array<string, TaskSettingSchema>
+ *
+ * @phpstan-type TaskExecutionResult array<string, mixed>
  */
 interface SchedulableInterface {
+
+	/**
+	 * Daily frequency slug.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @var string
+	 */
+	public const FREQUENCY_DAILY = 'daily';
+
+	/**
+	 * Weekly frequency slug.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @var string
+	 */
+	public const FREQUENCY_WEEKLY = 'weekly';
+
+	/**
+	 * Monthly frequency slug.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @var string
+	 */
+	public const FREQUENCY_MONTHLY = 'monthly';
 
 	/**
 	 * Get the unique task identifier.
@@ -47,7 +85,10 @@ interface SchedulableInterface {
 	/**
 	 * Get the default frequency for this task.
 	 *
-	 * @return string Default frequency (daily, weekly, monthly, custom_days).
+	 * Returned values should be a schedule slug compatible with the scheduler
+	 * implementation (e.g. "daily", "weekly", "monthly").
+	 *
+	 * @return string Default frequency slug.
 	 */
 	public function get_default_frequency(): string;
 
@@ -55,7 +96,10 @@ interface SchedulableInterface {
 	 * Execute the scheduled task.
 	 *
 	 * @param array $options Task options/settings.
-	 * @return array Result with 'items_cleaned', 'bytes_freed', and 'success' keys.
+	 * @return TaskExecutionResult Result data. For consistency across logging/UI,
+	 *                              implementations should include a boolean 'success'
+	 *                              key and may include 'items_cleaned', 'bytes_freed',
+	 *                              'task_id', 'executed_at', and 'error'.
 	 */
 	public function execute( array $options = array() ): array;
 
@@ -69,7 +113,7 @@ interface SchedulableInterface {
 	/**
 	 * Get the task settings schema.
 	 *
-	 * @return array Array of setting definitions.
+	 * @return TaskSettingsSchema Array of setting definitions.
 	 */
 	public function get_settings_schema(): array;
 }
