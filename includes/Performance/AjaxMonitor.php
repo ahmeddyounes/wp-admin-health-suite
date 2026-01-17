@@ -12,6 +12,7 @@
 namespace WPAdminHealth\Performance;
 
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -33,6 +34,13 @@ class AjaxMonitor {
 	private ConnectionInterface $connection;
 
 	/**
+	 * Settings instance.
+	 *
+	 * @var SettingsInterface|null
+	 */
+	private ?SettingsInterface $settings;
+
+	/**
 	 * Table name for AJAX logs.
 	 *
 	 * @var string
@@ -45,6 +53,13 @@ class AjaxMonitor {
 	 * @var int
 	 */
 	const LOG_TTL = 604800;
+
+	/**
+	 * Transient key for tracking last prune time.
+	 *
+	 * @var string
+	 */
+	const PRUNE_TRANSIENT = 'wpha_ajax_log_last_prune';
 
 	/**
 	 * Request start time in microseconds.
@@ -65,11 +80,13 @@ class AjaxMonitor {
 	 *
 	 * @since 1.0.0
 	 * @since 1.3.0 Added ConnectionInterface parameter.
+	 * @param SettingsInterface|null $settings Optional settings instance.
 	 *
 	 * @param ConnectionInterface $connection Database connection.
 	 */
-	public function __construct( ConnectionInterface $connection ) {
+	public function __construct( ConnectionInterface $connection, ?SettingsInterface $settings = null ) {
 		$this->connection = $connection;
+		$this->settings   = $settings;
 		$this->table_name = $this->connection->get_prefix() . 'wpha_ajax_log';
 		$this->init_hooks();
 	}
@@ -80,6 +97,11 @@ class AjaxMonitor {
 	 * @return void
 	 */
 	private function init_hooks() {
+		// Allow disabling monitoring via settings when injected.
+		if ( null !== $this->settings && ! (bool) $this->settings->get_setting( 'enable_ajax_monitoring', false ) ) {
+			return;
+		}
+
 		// Hook early to capture all admin AJAX requests.
 		add_action( 'admin_init', array( $this, 'start_ajax_monitoring' ), 1 );
 		add_action( 'shutdown', array( $this, 'finish_ajax_monitoring' ), 999 );
@@ -170,6 +192,25 @@ class AjaxMonitor {
 	 */
 	public function handle_log_cleanup(): void {
 		$this->prune_old_logs();
+		$this->enforce_max_rows();
+	}
+
+	/**
+	 * Automatically prune old logs if needed.
+	 *
+	 * Runs at most once per day to prevent excessive database operations.
+	 *
+	 * @return void
+	 */
+	private function maybe_auto_prune(): void {
+		if ( false !== get_transient( self::PRUNE_TRANSIENT ) ) {
+			return;
+		}
+
+		set_transient( self::PRUNE_TRANSIENT, time(), DAY_IN_SECONDS );
+
+		$this->prune_old_logs();
+		$this->enforce_max_rows();
 	}
 
 	/**
@@ -196,7 +237,13 @@ class AjaxMonitor {
 			array( '%s', '%f', '%d', '%s', '%s' )
 		);
 
-		return (bool) $result;
+		$success = (bool) $result;
+
+		if ( $success ) {
+			$this->maybe_auto_prune();
+		}
+
+		return $success;
 	}
 
 	/**
@@ -539,11 +586,45 @@ class AjaxMonitor {
 	 * @return int Number of rows deleted.
 	 */
 	public function prune_old_logs(): int {
-		$cutoff = gmdate( 'Y-m-d H:i:s', time() - self::LOG_TTL );
+		$ttl_seconds = $this->get_log_ttl_seconds();
+		$cutoff      = gmdate( 'Y-m-d H:i:s', time() - $ttl_seconds );
 
 		$query = $this->connection->prepare(
 			"DELETE FROM {$this->table_name} WHERE created_at < %s",
 			$cutoff
+		);
+
+		if ( null === $query ) {
+			return 0;
+		}
+
+		$deleted = $this->connection->query( $query );
+
+		return is_int( $deleted ) ? $deleted : 0;
+	}
+
+	/**
+	 * Enforce maximum row limit by deleting oldest entries.
+	 *
+	 * @return int Number of rows deleted.
+	 */
+	private function enforce_max_rows(): int {
+		$max_rows = $this->get_max_log_rows();
+
+		$count = $this->connection->get_var( "SELECT COUNT(*) FROM {$this->table_name}" );
+		$count = absint( $count );
+
+		if ( $count <= $max_rows ) {
+			return 0;
+		}
+
+		$excess = $count - $max_rows;
+
+		$query = $this->connection->prepare(
+			"DELETE FROM {$this->table_name}
+			ORDER BY created_at ASC
+			LIMIT %d",
+			$excess
 		);
 
 		if ( null === $query ) {
@@ -575,7 +656,39 @@ class AjaxMonitor {
 			'monitoring_enabled'    => true,
 			'total_requests_logged' => absint( $total_logged ),
 			'oldest_log'            => $oldest_log,
-			'log_ttl_days'          => self::LOG_TTL / DAY_IN_SECONDS,
+			'log_ttl_days'          => $this->get_log_ttl_seconds() / DAY_IN_SECONDS,
+			'max_rows'              => $this->get_max_log_rows(),
 		);
+	}
+
+	/**
+	 * Get AJAX log TTL in seconds from settings.
+	 *
+	 * @return int TTL in seconds.
+	 */
+	private function get_log_ttl_seconds(): int {
+		$days = self::LOG_TTL / DAY_IN_SECONDS;
+
+		if ( null !== $this->settings ) {
+			$days = absint( $this->settings->get_setting( 'ajax_log_retention_days', $days ) );
+		}
+
+		$days = max( 1, min( 90, $days ) );
+		return $days * DAY_IN_SECONDS;
+	}
+
+	/**
+	 * Get maximum AJAX log rows from settings.
+	 *
+	 * @return int Maximum rows to retain.
+	 */
+	private function get_max_log_rows(): int {
+		$max_rows = 10000;
+
+		if ( null !== $this->settings ) {
+			$max_rows = absint( $this->settings->get_setting( 'ajax_log_max_rows', $max_rows ) );
+		}
+
+		return max( 1000, min( 100000, $max_rows ) );
 	}
 }

@@ -15,6 +15,7 @@ use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
 use WPAdminHealth\Contracts\QueryMonitorInterface;
 use WPAdminHealth\Contracts\PluginProfilerInterface;
+use WPAdminHealth\Settings\SettingsRegistry;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -414,11 +415,20 @@ class PerformanceController extends RestController {
 		$slow_queries = array();
 		$query_count  = $connection->get_num_queries();
 
+		$settings = $this->get_settings();
+
+		$threshold_ms  = (float) absint( $settings->get_setting( 'slow_query_threshold_ms', 50 ) );
+		$threshold_ms  = (float) max( 10, min( 500, $threshold_ms ) );
+		$threshold_sec = $threshold_ms / 1000;
+
+		$monitoring_enabled_in_settings = ! empty( $settings->get_setting( 'enable_query_monitoring', false ) )
+			|| ! empty( $settings->get_setting( 'query_logging_enabled', false ) );
+
 		// Get slow query log if available.
 		$query_log = $connection->get_query_log();
-		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES && ! empty( $query_log ) ) {
+		if ( $monitoring_enabled_in_settings && defined( 'SAVEQUERIES' ) && SAVEQUERIES && ! empty( $query_log ) ) {
 			foreach ( $query_log as $query_data ) {
-				if ( $query_data[1] > 0.05 ) { // Queries slower than 50ms.
+				if ( $query_data[1] > $threshold_sec ) {
 					$slow_queries[] = array(
 						'query'    => $query_data[0],
 						'time'     => (float) $query_data[1],
@@ -439,7 +449,8 @@ class PerformanceController extends RestController {
 		$response_data = array(
 			'total_queries' => $query_count,
 			'slow_queries'  => array_slice( $slow_queries, 0, 20 ), // Top 20 slow queries.
-			'savequeries'   => defined( 'SAVEQUERIES' ) && SAVEQUERIES,
+			'savequeries'   => $monitoring_enabled_in_settings && defined( 'SAVEQUERIES' ) && SAVEQUERIES,
+			'threshold_ms'  => $threshold_ms,
 		);
 
 		return $this->format_response(
@@ -458,23 +469,8 @@ class PerformanceController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_heartbeat_settings( $request ) {
-		$settings = get_option(
-			'wpha_heartbeat_settings',
-			array(
-				'dashboard' => array(
-					'enabled' => true,
-					'interval' => 60,
-				),
-				'editor'    => array(
-					'enabled' => true,
-					'interval' => 15,
-				),
-				'frontend'  => array(
-					'enabled' => true,
-					'interval' => 60,
-				),
-			)
-		);
+		$all_settings = $this->get_settings()->get_settings();
+		$settings     = $this->build_heartbeat_settings_from_settings( $all_settings );
 
 		return $this->format_response(
 			true,
@@ -496,35 +492,79 @@ class PerformanceController extends RestController {
 		$enabled  = $request->get_param( 'enabled' );
 		$interval = $request->get_param( 'interval' );
 
-		$settings = get_option(
-			'wpha_heartbeat_settings',
-			array(
-				'dashboard' => array(
-					'enabled' => true,
-					'interval' => 60,
-				),
-				'editor'    => array(
-					'enabled' => true,
-					'interval' => 15,
-				),
-				'frontend'  => array(
-					'enabled' => true,
-					'interval' => 60,
-				),
-			)
-		);
+		$settings_service = $this->get_settings();
+		$all_settings     = $settings_service->get_settings();
 
-		$settings[ $location ] = array(
-			'enabled'  => (bool) $enabled,
-			'interval' => $interval ? absint( $interval ) : $settings[ $location ]['interval'],
-		);
+		$enabled_bool = (bool) $enabled;
+		$interval_int = null === $interval ? null : absint( $interval );
+		if ( null !== $interval_int ) {
+			$interval_int = max( 15, min( 120, $interval_int ) );
+		}
 
-		update_option( 'wpha_heartbeat_settings', $settings );
+		switch ( $location ) {
+			case 'dashboard':
+				$all_settings['heartbeat_admin_enabled'] = $enabled_bool;
+				if ( null !== $interval_int ) {
+					$all_settings['heartbeat_admin_frequency'] = $interval_int;
+				}
+				break;
+			case 'editor':
+				$all_settings['heartbeat_editor_enabled'] = $enabled_bool;
+				if ( null !== $interval_int ) {
+					$all_settings['heartbeat_editor_frequency'] = $interval_int;
+				}
+				break;
+			case 'frontend':
+				$all_settings['heartbeat_frontend'] = $enabled_bool;
+				if ( null !== $interval_int ) {
+					$all_settings['heartbeat_frontend_frequency'] = $interval_int;
+				}
+				break;
+		}
+
+		update_option( SettingsRegistry::OPTION_NAME, $all_settings );
+
+		if ( $settings_service instanceof SettingsRegistry ) {
+			$settings_service->clear_cache();
+		}
+
+		$settings = $this->build_heartbeat_settings_from_settings( $all_settings );
 
 		return $this->format_response(
 			true,
 			$settings,
 			__( 'Heartbeat settings updated successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Build heartbeat settings response from the main settings array.
+	 *
+	 * @param array $settings Main settings array (wpha_settings).
+	 * @return array<string, array{enabled: bool, interval: int}>
+	 */
+	private function build_heartbeat_settings_from_settings( array $settings ): array {
+		$dashboard_interval = isset( $settings['heartbeat_admin_frequency'] ) ? absint( $settings['heartbeat_admin_frequency'] ) : 60;
+		$editor_interval    = isset( $settings['heartbeat_editor_frequency'] ) ? absint( $settings['heartbeat_editor_frequency'] ) : 15;
+		$frontend_interval  = isset( $settings['heartbeat_frontend_frequency'] ) ? absint( $settings['heartbeat_frontend_frequency'] ) : 60;
+
+		$dashboard_interval = max( 15, min( 120, $dashboard_interval ) );
+		$editor_interval    = max( 15, min( 120, $editor_interval ) );
+		$frontend_interval  = max( 15, min( 120, $frontend_interval ) );
+
+		return array(
+			'dashboard' => array(
+				'enabled'  => ! empty( $settings['heartbeat_admin_enabled'] ),
+				'interval' => $dashboard_interval,
+			),
+			'editor'    => array(
+				'enabled'  => ! empty( $settings['heartbeat_editor_enabled'] ),
+				'interval' => $editor_interval,
+			),
+			'frontend'  => array(
+				'enabled'  => ! empty( $settings['heartbeat_frontend'] ),
+				'interval' => $frontend_interval,
+			),
 		);
 	}
 

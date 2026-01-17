@@ -13,6 +13,7 @@ namespace WPAdminHealth\Performance;
 
 use WPAdminHealth\Contracts\QueryMonitorInterface;
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -33,6 +34,13 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @var ConnectionInterface
 	 */
 	private ConnectionInterface $connection;
+
+	/**
+	 * Settings instance.
+	 *
+	 * @var SettingsInterface|null
+	 */
+	private ?SettingsInterface $settings;
 
 	/**
 	 * Table name for query logs.
@@ -83,9 +91,11 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @since 1.3.0 Added ConnectionInterface parameter.
 	 *
 	 * @param ConnectionInterface $connection Database connection.
+	 * @param SettingsInterface|null $settings Optional settings instance.
 	 */
-	public function __construct( ConnectionInterface $connection ) {
+	public function __construct( ConnectionInterface $connection, ?SettingsInterface $settings = null ) {
 		$this->connection = $connection;
+		$this->settings   = $settings;
 		$this->table_name = $this->connection->get_prefix() . 'wpha_query_log';
 		$this->init_hooks();
 	}
@@ -96,8 +106,12 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return void
 	 */
 	private function init_hooks() {
-		// Only hook if SAVEQUERIES is enabled or Query Monitor is active.
-		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
+		if ( $this->is_query_monitoring_setting_enabled() ) {
+			$this->maybe_enable_save_queries();
+		}
+
+		// Only auto-log queries on shutdown when explicitly enabled.
+		if ( $this->is_query_monitoring_setting_enabled() && $this->is_query_logging_enabled() ) {
 			add_action( 'shutdown', array( $this, 'analyze_queries_on_shutdown' ), 999 );
 		}
 	}
@@ -110,8 +124,8 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return void
 	 */
 	public function analyze_queries_on_shutdown() {
-		// Capture slow queries with default threshold.
-		$this->capture_slow_queries( self::DEFAULT_THRESHOLD );
+		// Capture slow queries with the configured threshold.
+		$this->capture_slow_queries( $this->get_slow_query_threshold_ms() );
 	}
 
 	/**
@@ -134,7 +148,7 @@ class QueryMonitor implements QueryMonitorInterface {
 		}
 
 		// Log slow queries to database.
-		if ( ! empty( $slow_queries ) ) {
+		if ( ! empty( $slow_queries ) && $this->is_query_logging_enabled() ) {
 			$this->log_queries( $slow_queries );
 		}
 
@@ -754,8 +768,14 @@ class QueryMonitor implements QueryMonitorInterface {
 	public function get_monitoring_status(): array {
 		return array(
 			'query_monitor_active' => $this->is_query_monitor_active(),
-			'savequeries_enabled'  => defined( 'SAVEQUERIES' ) && SAVEQUERIES,
+			'savequeries_enabled'  => $this->is_save_queries_enabled(),
 			'monitoring_enabled'   => $this->is_monitoring_enabled(),
+			'settings'             => array(
+				'enable_query_monitoring' => $this->is_enable_query_monitoring_setting_checked(),
+				'query_logging_enabled'   => $this->is_query_logging_enabled(),
+				'monitoring_effective'    => $this->is_query_monitoring_setting_enabled(),
+				'slow_query_threshold_ms' => $this->get_slow_query_threshold_ms(),
+			),
 			'default_threshold'    => self::DEFAULT_THRESHOLD,
 			'log_ttl_days'         => self::LOG_TTL / DAY_IN_SECONDS,
 		);
@@ -767,6 +787,96 @@ class QueryMonitor implements QueryMonitorInterface {
 	 * @return bool True if monitoring is enabled.
 	 */
 	private function is_monitoring_enabled() {
-		return $this->is_query_monitor_active() || ( defined( 'SAVEQUERIES' ) && SAVEQUERIES );
+		return $this->is_query_monitor_active() || $this->is_save_queries_enabled();
+	}
+
+	/**
+	 * Check if the query monitoring toggle is enabled in settings.
+	 *
+	 * @return bool True if query monitoring is enabled in settings.
+	 */
+	private function is_enable_query_monitoring_setting_checked(): bool {
+		if ( null === $this->settings ) {
+			return defined( 'SAVEQUERIES' ) && SAVEQUERIES;
+		}
+
+		return (bool) $this->settings->get_setting( 'enable_query_monitoring', false );
+	}
+
+	/**
+	 * Check if query monitoring is enabled in settings.
+	 *
+	 * @return bool True if query monitoring is enabled.
+	 */
+	private function is_query_monitoring_setting_enabled(): bool {
+		if ( null === $this->settings ) {
+			return defined( 'SAVEQUERIES' ) && SAVEQUERIES;
+		}
+
+		$monitoring_enabled = (bool) $this->settings->get_setting( 'enable_query_monitoring', false );
+		$logging_enabled    = (bool) $this->settings->get_setting( 'query_logging_enabled', false );
+
+		// Treat enabling logging as enabling monitoring.
+		return $monitoring_enabled || $logging_enabled;
+	}
+
+	/**
+	 * Check if query logging is enabled in settings.
+	 *
+	 * @return bool True if query logging is enabled.
+	 */
+	private function is_query_logging_enabled(): bool {
+		if ( null === $this->settings ) {
+			return true;
+		}
+
+		return (bool) $this->settings->get_setting( 'query_logging_enabled', false );
+	}
+
+	/**
+	 * Get the configured slow query threshold in milliseconds.
+	 *
+	 * @return float Threshold in milliseconds.
+	 */
+	private function get_slow_query_threshold_ms(): float {
+		if ( null === $this->settings ) {
+			return self::DEFAULT_THRESHOLD;
+		}
+
+		$threshold = $this->settings->get_setting( 'slow_query_threshold_ms', (int) self::DEFAULT_THRESHOLD );
+		return (float) absint( $threshold );
+	}
+
+	/**
+	 * Check whether query logging (SAVEQUERIES or equivalent) is enabled.
+	 *
+	 * @return bool True if query logging is enabled.
+	 */
+	private function is_save_queries_enabled(): bool {
+		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
+			return true;
+		}
+
+		global $wpdb;
+		return isset( $wpdb ) && isset( $wpdb->save_queries ) && $wpdb->save_queries;
+	}
+
+	/**
+	 * Attempt to enable query logging for the current request.
+	 *
+	 * This allows query monitoring without requiring wp-config.php changes.
+	 *
+	 * @return void
+	 */
+	private function maybe_enable_save_queries(): void {
+		// If SAVEQUERIES is enabled, nothing to do.
+		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
+			return;
+		}
+
+		global $wpdb;
+		if ( isset( $wpdb ) && isset( $wpdb->save_queries ) ) {
+			$wpdb->save_queries = true;
+		}
 	}
 }

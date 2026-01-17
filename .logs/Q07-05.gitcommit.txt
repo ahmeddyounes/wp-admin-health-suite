@@ -1,0 +1,53 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (ba6b0cd)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 15 files
+[STARTED] *.{js,jsx} — 1 file
+[STARTED] *.{json,css,scss,md} — 3 files
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 3 files
+[COMPLETED] eslint --fix
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{js,jsx} — 1 file
+[COMPLETED] package.json — 15 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+....[31mE[0m 5 / 5 (100%)
+
+
+
+[1mFILE: includes/Performance/AjaxMonitor.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 3 ERRORS AFFECTING 3 LINES[0m
+--------------------------------------------------------------------------------
+ 83 | [31mERROR[0m | [1mDoc comment for parameter $settings does not match actual[0m
+    |       | [1mvariable name $connection[0m
+    |       | (Squiz.Commenting.FunctionComment.ParamNameNoMatch)
+ 85 | [31mERROR[0m | [1mDoc comment for parameter $connection does not match actual[0m
+    |       | [1mvariable name $settings[0m
+    |       | (Squiz.Commenting.FunctionComment.ParamNameNoMatch)
+ 87 | [31mERROR[0m | [1mExpected type hint "ConnectionInterface"; found[0m
+    |       | [1m"?SettingsInterface" for $connection[0m
+    |       | (Squiz.Commenting.FunctionComment.IncorrectTypeHint)
+--------------------------------------------------------------------------------
+
+Time: 335ms; Memory: 16MB
+
+husky - pre-commit script failed (code 1)

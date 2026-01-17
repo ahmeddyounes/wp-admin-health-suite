@@ -95,6 +95,18 @@ class PluginProfilerController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_plugin_impact( $request ) {
+		$settings = $this->get_settings();
+		if ( empty( $settings->get_setting( 'plugin_profiling_enabled', false ) ) ) {
+			return $this->format_response(
+				true,
+				array(
+					'plugins' => array(),
+					'note'    => __( 'Plugin profiling is disabled in settings.', 'wp-admin-health-suite' ),
+				),
+				__( 'Plugin impact data retrieved successfully.', 'wp-admin-health-suite' )
+			);
+		}
+
 		if ( ! function_exists( 'get_plugins' ) || ! function_exists( 'get_plugin_data' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}

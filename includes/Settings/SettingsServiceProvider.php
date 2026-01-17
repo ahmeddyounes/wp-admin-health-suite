@@ -787,6 +787,14 @@ class SettingsServiceProvider extends ServiceProvider {
 	 * @return void
 	 */
 	public function handle_scheduling_update( $old_value, $new_value ): void {
+		if ( ! is_array( $old_value ) ) {
+			$old_value = array();
+		}
+
+		if ( ! is_array( $new_value ) ) {
+			$new_value = array();
+		}
+
 		// Handle scheduler being disabled.
 		if ( empty( $new_value['scheduler_enabled'] ) ) {
 			$this->unschedule_all_tasks();
@@ -802,26 +810,48 @@ class SettingsServiceProvider extends ServiceProvider {
 
 		$next_run = $this->calculate_next_run_time( $new_time );
 
-		// Task frequency settings with old and new values.
+		// Task scheduling configuration.
 		$tasks = array(
 			'wpha_database_cleanup'  => array(
-				'old' => $old_value['database_cleanup_frequency'] ?? 'weekly',
-				'new' => $new_value['database_cleanup_frequency'] ?? 'weekly',
+				'enabled_key'   => 'enable_scheduled_db_cleanup',
+				'frequency_key' => 'database_cleanup_frequency',
+				'default_freq'  => 'weekly',
 			),
 			'wpha_media_scan'        => array(
-				'old' => $old_value['media_scan_frequency'] ?? 'weekly',
-				'new' => $new_value['media_scan_frequency'] ?? 'weekly',
+				'enabled_key'   => 'enable_scheduled_media_scan',
+				'frequency_key' => 'media_scan_frequency',
+				'default_freq'  => 'weekly',
 			),
 			'wpha_performance_check' => array(
-				'old' => $old_value['performance_check_frequency'] ?? 'daily',
-				'new' => $new_value['performance_check_frequency'] ?? 'daily',
+				'enabled_key'   => 'enable_scheduled_performance_check',
+				'frequency_key' => 'performance_check_frequency',
+				'default_freq'  => 'daily',
 			),
 		);
 
-		// Only reschedule tasks when necessary.
-		foreach ( $tasks as $hook => $frequencies ) {
-			if ( $reschedule_all || $frequencies['old'] !== $frequencies['new'] ) {
-				$this->schedule_task( $hook, $frequencies['new'], $next_run );
+		// Reschedule tasks only when necessary.
+		foreach ( $tasks as $hook => $config ) {
+			$enabled_key = $config['enabled_key'];
+
+			$old_enabled = array_key_exists( $enabled_key, $old_value ) ? ! empty( $old_value[ $enabled_key ] ) : true;
+			$new_enabled = array_key_exists( $enabled_key, $new_value ) ? ! empty( $new_value[ $enabled_key ] ) : true;
+
+			$frequency_key = $config['frequency_key'];
+			$default_freq  = $config['default_freq'];
+			$old_frequency = $old_value[ $frequency_key ] ?? $default_freq;
+			$new_frequency = $new_value[ $frequency_key ] ?? $default_freq;
+
+			$enabled_changed   = $old_enabled !== $new_enabled;
+			$frequency_changed = $old_frequency !== $new_frequency;
+
+			// Disabled tasks should not remain scheduled.
+			if ( ! $new_enabled ) {
+				$this->unschedule_task( $hook );
+				continue;
+			}
+
+			if ( $reschedule_all || $enabled_changed || $frequency_changed ) {
+				$this->schedule_task( $hook, (string) $new_frequency, $next_run );
 			}
 		}
 	}
@@ -925,10 +955,8 @@ class SettingsServiceProvider extends ServiceProvider {
 			as_unschedule_all_actions( $hook, array(), 'wpha_scheduling' );
 			as_schedule_recurring_action( $next_run, $interval, $hook, array(), 'wpha_scheduling' );
 		} else {
-			$timestamp = wp_next_scheduled( $hook );
-			if ( $timestamp ) {
-				wp_unschedule_event( $timestamp, $hook );
-			}
+			// Ensure we don't accidentally leave multiple schedules behind.
+			wp_clear_scheduled_hook( $hook );
 			wp_schedule_event( $next_run, $this->get_cron_schedule_name( $frequency ), $hook );
 		}
 	}
@@ -944,10 +972,8 @@ class SettingsServiceProvider extends ServiceProvider {
 			as_unschedule_all_actions( $hook, array(), 'wpha_scheduling' );
 		}
 
-		$timestamp = wp_next_scheduled( $hook );
-		if ( $timestamp ) {
-			wp_unschedule_event( $timestamp, $hook );
-		}
+		// Clear all scheduled events for this hook (covers duplicates).
+		wp_clear_scheduled_hook( $hook );
 	}
 
 	/**
@@ -969,15 +995,17 @@ class SettingsServiceProvider extends ServiceProvider {
 	 * @return int Timestamp.
 	 */
 	private function calculate_next_run_time( int $preferred_hour ): int {
-		$now       = current_time( 'timestamp' );
-		$today     = strtotime( 'today', $now );
-		$preferred = $today + ( $preferred_hour * HOUR_IN_SECONDS );
+		$preferred_hour = min( 23, max( 0, $preferred_hour ) );
 
-		if ( $preferred <= $now ) {
-			$preferred = strtotime( '+1 day', $preferred );
+		$timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new \DateTimeZone( 'UTC' );
+		$now      = new \DateTimeImmutable( 'now', $timezone );
+
+		$preferred = $now->setTime( $preferred_hour, 0, 0 );
+		if ( $preferred->getTimestamp() <= $now->getTimestamp() ) {
+			$preferred = $preferred->modify( '+1 day' );
 		}
 
-		return $preferred;
+		return $preferred->getTimestamp();
 	}
 
 	/**

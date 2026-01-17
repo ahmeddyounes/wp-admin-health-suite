@@ -44,6 +44,11 @@ class SchedulingSettings extends AbstractDomainSettings {
 	 * {@inheritdoc}
 	 */
 	protected function define_fields(): array {
+		$timezone_label = function_exists( 'wp_timezone_string' ) ? wp_timezone_string() : 'UTC';
+		if ( '' === $timezone_label ) {
+			$timezone_label = 'UTC';
+		}
+
 		return array(
 			'scheduler_enabled'             => array(
 				'section'     => 'scheduling',
@@ -122,7 +127,13 @@ class SchedulingSettings extends AbstractDomainSettings {
 				'type'        => 'select',
 				'default'     => 2,
 				'sanitize'    => 'integer',
-				'description' => __( 'Preferred hour (0-23) to run scheduled tasks.', 'wp-admin-health-suite' ),
+				'min'         => 0,
+				'max'         => 23,
+				'description' => sprintf(
+					/* translators: %s: Site timezone string (e.g., "America/New_York" or "+02:00"). */
+					__( 'Preferred hour (0-23) to run scheduled tasks in the site timezone (%s).', 'wp-admin-health-suite' ),
+					$timezone_label
+				),
 				'options'     => array(
 					0  => __( '12:00 AM', 'wp-admin-health-suite' ),
 					1  => __( '1:00 AM', 'wp-admin-health-suite' ),

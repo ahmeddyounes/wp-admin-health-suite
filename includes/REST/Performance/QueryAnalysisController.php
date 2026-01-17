@@ -99,9 +99,16 @@ class QueryAnalysisController extends RestController {
 
 		$query_count = $connection->get_num_queries();
 
-		$threshold_ms = 50.0;
+		$settings = $this->get_settings();
+
+		$threshold_ms = (float) absint( $settings->get_setting( 'slow_query_threshold_ms', 50 ) );
+		$threshold_ms = (float) max( 10, min( 500, $threshold_ms ) );
+
+		$monitoring_enabled_in_settings = ! empty( $settings->get_setting( 'enable_query_monitoring', false ) )
+			|| ! empty( $settings->get_setting( 'query_logging_enabled', false ) );
+
 		$status       = $this->query_monitor->get_monitoring_status();
-		$can_capture  = isset( $status['monitoring_enabled'] ) ? (bool) $status['monitoring_enabled'] : ( defined( 'SAVEQUERIES' ) && SAVEQUERIES );
+		$can_capture  = $monitoring_enabled_in_settings && ( isset( $status['monitoring_enabled'] ) ? (bool) $status['monitoring_enabled'] : ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) );
 
 		// Only show raw SQL when explicitly enabled (WPHA_DEBUG) and debug mode is on.
 		// Otherwise, return a redacted query string to reduce accidental data exposure.

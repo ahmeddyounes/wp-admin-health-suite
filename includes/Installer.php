@@ -265,6 +265,28 @@ class Installer {
 	private static function schedule_initial_tasks(): void {
 		$settings = get_option( SettingsRegistry::OPTION_NAME, array() );
 
+		// Ensure our custom schedules are available during activation/fresh install.
+		add_filter(
+			'cron_schedules',
+			function ( array $schedules ): array {
+				if ( ! isset( $schedules['weekly'] ) ) {
+					$schedules['weekly'] = array(
+						'interval' => WEEK_IN_SECONDS,
+						'display'  => __( 'Once Weekly', 'wp-admin-health-suite' ),
+					);
+				}
+
+				if ( ! isset( $schedules['monthly'] ) ) {
+					$schedules['monthly'] = array(
+						'interval' => 30 * DAY_IN_SECONDS,
+						'display'  => __( 'Once Monthly', 'wp-admin-health-suite' ),
+					);
+				}
+
+				return $schedules;
+			}
+		);
+
 		// Only schedule if scheduler is enabled (default is true).
 		if ( empty( $settings['scheduler_enabled'] ) ) {
 			return;
@@ -343,16 +365,19 @@ class Installer {
 	 * @return int Unix timestamp for next run.
 	 */
 	private static function calculate_next_run_time( int $preferred_hour ): int {
-		$now       = current_time( 'timestamp' );
-		$today     = strtotime( 'today', $now );
-		$preferred = $today + ( $preferred_hour * HOUR_IN_SECONDS );
+		$preferred_hour = min( 23, max( 0, $preferred_hour ) );
+
+		$timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new \DateTimeZone( 'UTC' );
+		$now      = new \DateTimeImmutable( 'now', $timezone );
+
+		$preferred = $now->setTime( $preferred_hour, 0, 0 );
 
 		// If preferred time has passed today, schedule for tomorrow.
-		if ( $preferred <= $now ) {
-			$preferred = strtotime( '+1 day', $preferred );
+		if ( $preferred->getTimestamp() <= $now->getTimestamp() ) {
+			$preferred = $preferred->modify( '+1 day' );
 		}
 
-		return $preferred;
+		return $preferred->getTimestamp();
 	}
 
 	/**

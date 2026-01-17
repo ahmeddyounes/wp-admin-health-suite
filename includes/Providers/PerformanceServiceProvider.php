@@ -12,6 +12,7 @@ namespace WPAdminHealth\Providers;
 use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\CacheInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
 use WPAdminHealth\Contracts\QueryMonitorInterface;
 use WPAdminHealth\Contracts\PluginProfilerInterface;
@@ -64,7 +65,8 @@ class PerformanceServiceProvider extends ServiceProvider {
 			QueryMonitorInterface::class,
 			function ( $container ) {
 				return new QueryMonitor(
-					$container->get( ConnectionInterface::class )
+					$container->get( ConnectionInterface::class ),
+					$container->get( SettingsInterface::class )
 				);
 			}
 		);

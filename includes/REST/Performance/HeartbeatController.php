@@ -15,6 +15,7 @@ use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\REST\RestController;
+use WPAdminHealth\Settings\SettingsRegistry;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -114,23 +115,8 @@ class HeartbeatController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_heartbeat_settings( $request ) {
-		$settings = get_option(
-			'wpha_heartbeat_settings',
-			array(
-				'dashboard' => array(
-					'enabled'  => true,
-					'interval' => 60,
-				),
-				'editor'    => array(
-					'enabled'  => true,
-					'interval' => 15,
-				),
-				'frontend'  => array(
-					'enabled'  => true,
-					'interval' => 60,
-				),
-			)
-		);
+		$all_settings = $this->get_settings()->get_settings();
+		$settings     = $this->build_heartbeat_settings_from_settings( $all_settings );
 
 		return $this->format_response(
 			true,
@@ -153,35 +139,79 @@ class HeartbeatController extends RestController {
 		$enabled  = $request->get_param( 'enabled' );
 		$interval = $request->get_param( 'interval' );
 
-		$settings = get_option(
-			'wpha_heartbeat_settings',
-			array(
-				'dashboard' => array(
-					'enabled'  => true,
-					'interval' => 60,
-				),
-				'editor'    => array(
-					'enabled'  => true,
-					'interval' => 15,
-				),
-				'frontend'  => array(
-					'enabled'  => true,
-					'interval' => 60,
-				),
-			)
-		);
+		$settings_service = $this->get_settings();
+		$all_settings     = $settings_service->get_settings();
 
-		$settings[ $location ] = array(
-			'enabled'  => (bool) $enabled,
-			'interval' => $interval ? absint( $interval ) : $settings[ $location ]['interval'],
-		);
+		$enabled_bool = (bool) $enabled;
+		$interval_int = null === $interval ? null : absint( $interval );
+		if ( null !== $interval_int ) {
+			$interval_int = max( 15, min( 120, $interval_int ) );
+		}
 
-		update_option( 'wpha_heartbeat_settings', $settings );
+		switch ( $location ) {
+			case 'dashboard':
+				$all_settings['heartbeat_admin_enabled'] = $enabled_bool;
+				if ( null !== $interval_int ) {
+					$all_settings['heartbeat_admin_frequency'] = $interval_int;
+				}
+				break;
+			case 'editor':
+				$all_settings['heartbeat_editor_enabled'] = $enabled_bool;
+				if ( null !== $interval_int ) {
+					$all_settings['heartbeat_editor_frequency'] = $interval_int;
+				}
+				break;
+			case 'frontend':
+				$all_settings['heartbeat_frontend'] = $enabled_bool;
+				if ( null !== $interval_int ) {
+					$all_settings['heartbeat_frontend_frequency'] = $interval_int;
+				}
+				break;
+		}
+
+		update_option( SettingsRegistry::OPTION_NAME, $all_settings );
+
+		if ( $settings_service instanceof SettingsRegistry ) {
+			$settings_service->clear_cache();
+		}
+
+		$settings = $this->build_heartbeat_settings_from_settings( $all_settings );
 
 		return $this->format_response(
 			true,
 			$settings,
 			__( 'Heartbeat settings updated successfully.', 'wp-admin-health-suite' )
+		);
+	}
+
+	/**
+	 * Build heartbeat settings response from the main settings array.
+	 *
+	 * @param array $settings Main settings array (wpha_settings).
+	 * @return array<string, array{enabled: bool, interval: int}>
+	 */
+	private function build_heartbeat_settings_from_settings( array $settings ): array {
+		$dashboard_interval = isset( $settings['heartbeat_admin_frequency'] ) ? absint( $settings['heartbeat_admin_frequency'] ) : 60;
+		$editor_interval    = isset( $settings['heartbeat_editor_frequency'] ) ? absint( $settings['heartbeat_editor_frequency'] ) : 15;
+		$frontend_interval  = isset( $settings['heartbeat_frontend_frequency'] ) ? absint( $settings['heartbeat_frontend_frequency'] ) : 60;
+
+		$dashboard_interval = max( 15, min( 120, $dashboard_interval ) );
+		$editor_interval    = max( 15, min( 120, $editor_interval ) );
+		$frontend_interval  = max( 15, min( 120, $frontend_interval ) );
+
+		return array(
+			'dashboard' => array(
+				'enabled'  => ! empty( $settings['heartbeat_admin_enabled'] ),
+				'interval' => $dashboard_interval,
+			),
+			'editor'    => array(
+				'enabled'  => ! empty( $settings['heartbeat_editor_enabled'] ),
+				'interval' => $editor_interval,
+			),
+			'frontend'  => array(
+				'enabled'  => ! empty( $settings['heartbeat_frontend'] ),
+				'interval' => $frontend_interval,
+			),
 		);
 	}
 }

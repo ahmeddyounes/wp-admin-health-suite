@@ -190,6 +190,9 @@
 			);
 		}
 
+		const thresholdMs =
+			typeof data.threshold_ms === 'number' ? data.threshold_ms : 50;
+
 		return wp.element.createElement(
 			'div',
 			{ className: 'wpha-query-stats' },
@@ -214,7 +217,7 @@
 						wp.element.createElement(
 							'h3',
 							null,
-							'Slow Queries (>50ms)'
+							`Slow Queries (>${thresholdMs}ms)`
 						),
 						data.slow_queries && data.slow_queries.length > 0
 							? wp.element.createElement(

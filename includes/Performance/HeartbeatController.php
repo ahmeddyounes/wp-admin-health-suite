@@ -11,6 +11,9 @@
 
 namespace WPAdminHealth\Performance;
 
+use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Settings\SettingsRegistry;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -22,6 +25,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.0.0
  */
 class HeartbeatController {
+
+	/**
+	 * Settings instance.
+	 *
+	 * @var SettingsInterface
+	 */
+	private SettingsInterface $settings;
 
 	/**
 	 * Option name for storing heartbeat settings.
@@ -62,8 +72,17 @@ class HeartbeatController {
 	 * Constructor.
 	 *
 	 * @since 1.0.0
+	 *
+	 * @param SettingsInterface|null $settings Optional settings instance.
 	 */
-	public function __construct() {
+	public function __construct( ?SettingsInterface $settings = null ) {
+		if ( null === $settings ) {
+			/** @var SettingsInterface $settings */
+			$settings = \WPAdminHealth\Plugin::get_instance()->get_container()->get( SettingsInterface::class );
+		}
+
+		$this->settings = $settings;
+		$this->maybe_migrate_legacy_settings();
 		$this->init_hooks();
 	}
 
@@ -102,6 +121,80 @@ class HeartbeatController {
 	}
 
 	/**
+	 * Clamp and sanitize a heartbeat interval.
+	 *
+	 * @param mixed $interval Raw interval value.
+	 * @param int   $default  Default interval if the value is invalid.
+	 * @return int Interval in seconds.
+	 */
+	private function sanitize_interval( $interval, int $default ): int {
+		$int = is_numeric( $interval ) ? (int) $interval : $default;
+		return max( 15, min( 120, $int ) );
+	}
+
+	/**
+	 * Migrate legacy wpha_heartbeat_settings option into wpha_settings keys.
+	 *
+	 * @return void
+	 */
+	private function maybe_migrate_legacy_settings(): void {
+		$stored = get_option( SettingsRegistry::OPTION_NAME, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+
+		$heartbeat_keys = array(
+			'heartbeat_admin_enabled',
+			'heartbeat_admin_frequency',
+			'heartbeat_editor_enabled',
+			'heartbeat_editor_frequency',
+			'heartbeat_frontend',
+			'heartbeat_frontend_frequency',
+		);
+
+		foreach ( $heartbeat_keys as $key ) {
+			if ( array_key_exists( $key, $stored ) ) {
+				return;
+			}
+		}
+
+		$default_settings = $this->get_default_settings();
+		$legacy_settings  = get_option( self::OPTION_NAME, array() );
+
+		if ( ! is_array( $legacy_settings ) ) {
+			return;
+		}
+
+		// Migrate old format if needed.
+		if ( isset( $legacy_settings['admin'] ) || isset( $legacy_settings['post-editor'] ) ) {
+			$legacy_settings = $this->migrate_settings( $legacy_settings );
+		}
+
+		$dashboard = isset( $legacy_settings['dashboard'] ) && is_array( $legacy_settings['dashboard'] )
+			? $legacy_settings['dashboard']
+			: $default_settings['dashboard'];
+		$editor    = isset( $legacy_settings['editor'] ) && is_array( $legacy_settings['editor'] )
+			? $legacy_settings['editor']
+			: $default_settings['editor'];
+		$frontend  = isset( $legacy_settings['frontend'] ) && is_array( $legacy_settings['frontend'] )
+			? $legacy_settings['frontend']
+			: $default_settings['frontend'];
+
+		$stored['heartbeat_admin_enabled']      = ! empty( $dashboard['enabled'] );
+		$stored['heartbeat_admin_frequency']    = $this->sanitize_interval( $dashboard['interval'] ?? null, $default_settings['dashboard']['interval'] );
+		$stored['heartbeat_editor_enabled']     = ! empty( $editor['enabled'] );
+		$stored['heartbeat_editor_frequency']   = $this->sanitize_interval( $editor['interval'] ?? null, $default_settings['editor']['interval'] );
+		$stored['heartbeat_frontend']           = ! empty( $frontend['enabled'] );
+		$stored['heartbeat_frontend_frequency'] = $this->sanitize_interval( $frontend['interval'] ?? null, $default_settings['frontend']['interval'] );
+
+		update_option( SettingsRegistry::OPTION_NAME, $stored );
+
+		if ( $this->settings instanceof SettingsRegistry ) {
+			$this->settings->clear_cache();
+		}
+	}
+
+	/**
 	 * Get current heartbeat settings.
 	 *
 	 * @since 1.0.0
@@ -109,30 +202,42 @@ class HeartbeatController {
 	 * @return array<string, array{enabled: bool, interval: int}> Current settings for all locations.
 	 */
 	public function get_current_settings(): array {
+		$this->maybe_migrate_legacy_settings();
+
 		$default_settings = $this->get_default_settings();
-		$settings         = get_option( self::OPTION_NAME, $default_settings );
 
-		// Migrate old format if needed.
-		if ( isset( $settings['admin'] ) || isset( $settings['post-editor'] ) ) {
-			$settings = $this->migrate_settings( $settings );
-		}
+		$dashboard_enabled  = (bool) $this->settings->get_setting( 'heartbeat_admin_enabled', $default_settings['dashboard']['enabled'] );
+		$dashboard_interval = $this->sanitize_interval(
+			$this->settings->get_setting( 'heartbeat_admin_frequency', $default_settings['dashboard']['interval'] ),
+			$default_settings['dashboard']['interval']
+		);
 
-		// Ensure all locations are present with proper structure.
-		foreach ( self::VALID_LOCATIONS as $location ) {
-			if ( ! isset( $settings[ $location ] ) || ! is_array( $settings[ $location ] ) ) {
-				$settings[ $location ] = $default_settings[ $location ];
-			} else {
-				// Ensure both enabled and interval keys exist.
-				if ( ! isset( $settings[ $location ]['enabled'] ) ) {
-					$settings[ $location ]['enabled'] = true;
-				}
-				if ( ! isset( $settings[ $location ]['interval'] ) ) {
-					$settings[ $location ]['interval'] = $default_settings[ $location ]['interval'];
-				}
-			}
-		}
+		$editor_enabled  = (bool) $this->settings->get_setting( 'heartbeat_editor_enabled', $default_settings['editor']['enabled'] );
+		$editor_interval = $this->sanitize_interval(
+			$this->settings->get_setting( 'heartbeat_editor_frequency', $default_settings['editor']['interval'] ),
+			$default_settings['editor']['interval']
+		);
 
-		return $settings;
+		$frontend_enabled  = (bool) $this->settings->get_setting( 'heartbeat_frontend', $default_settings['frontend']['enabled'] );
+		$frontend_interval = $this->sanitize_interval(
+			$this->settings->get_setting( 'heartbeat_frontend_frequency', $default_settings['frontend']['interval'] ),
+			$default_settings['frontend']['interval']
+		);
+
+		return array(
+			'dashboard' => array(
+				'enabled'  => $dashboard_enabled,
+				'interval' => $dashboard_interval,
+			),
+			'editor'    => array(
+				'enabled'  => $editor_enabled,
+				'interval' => $editor_interval,
+			),
+			'frontend'  => array(
+				'enabled'  => $frontend_enabled,
+				'interval' => $frontend_interval,
+			),
+		);
 	}
 
 	/**
@@ -190,18 +295,42 @@ class HeartbeatController {
 			return false;
 		}
 
-		// Validate interval.
-		if ( ! in_array( $interval, self::VALID_FREQUENCIES, true ) ) {
-			return false;
+		$current  = $this->get_current_settings();
+		$defaults = $this->get_default_settings();
+
+		$default_interval = isset( $current[ $location ]['interval'] )
+			? (int) $current[ $location ]['interval']
+			: (int) $defaults[ $location ]['interval'];
+
+		$interval = $this->sanitize_interval( $interval, $default_interval );
+
+		$stored = get_option( SettingsRegistry::OPTION_NAME, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
 		}
 
-		$settings              = $this->get_current_settings();
-		$settings[ $location ] = array(
-			'enabled'  => $enabled,
-			'interval' => $interval,
-		);
+		switch ( $location ) {
+			case 'dashboard':
+				$stored['heartbeat_admin_enabled']   = (bool) $enabled;
+				$stored['heartbeat_admin_frequency'] = $interval;
+				break;
+			case 'editor':
+				$stored['heartbeat_editor_enabled']   = (bool) $enabled;
+				$stored['heartbeat_editor_frequency'] = $interval;
+				break;
+			case 'frontend':
+				$stored['heartbeat_frontend']           = (bool) $enabled;
+				$stored['heartbeat_frontend_frequency'] = $interval;
+				break;
+		}
 
-		return update_option( self::OPTION_NAME, $settings );
+		$updated = update_option( SettingsRegistry::OPTION_NAME, $stored );
+
+		if ( $this->settings instanceof SettingsRegistry ) {
+			$this->settings->clear_cache();
+		}
+
+		return (bool) $updated;
 	}
 
 	/**
@@ -231,13 +360,10 @@ class HeartbeatController {
 			return false;
 		}
 
-		$settings              = $this->get_current_settings();
-		$settings[ $location ] = array(
-			'enabled'  => false,
-			'interval' => $settings[ $location ]['interval'],
-		);
+		$settings = $this->get_current_settings();
+		$interval = isset( $settings[ $location ]['interval'] ) ? (int) $settings[ $location ]['interval'] : self::DEFAULT_FREQUENCY;
 
-		return update_option( self::OPTION_NAME, $settings );
+		return $this->update_location_settings( $location, false, $interval );
 	}
 
 	/**
@@ -253,13 +379,10 @@ class HeartbeatController {
 			return false;
 		}
 
-		$settings              = $this->get_current_settings();
-		$settings[ $location ] = array(
-			'enabled'  => true,
-			'interval' => $settings[ $location ]['interval'],
-		);
+		$settings = $this->get_current_settings();
+		$interval = isset( $settings[ $location ]['interval'] ) ? (int) $settings[ $location ]['interval'] : self::DEFAULT_FREQUENCY;
 
-		return update_option( self::OPTION_NAME, $settings );
+		return $this->update_location_settings( $location, true, $interval );
 	}
 
 	/**
@@ -423,7 +546,38 @@ class HeartbeatController {
 
 		$preset_settings = $presets[ $preset_name ]['settings'];
 
-		return update_option( self::OPTION_NAME, $preset_settings );
+		$stored = get_option( SettingsRegistry::OPTION_NAME, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+
+		$defaults = $this->get_default_settings();
+
+		$stored['heartbeat_admin_enabled']   = ! empty( $preset_settings['dashboard']['enabled'] );
+		$stored['heartbeat_admin_frequency'] = $this->sanitize_interval(
+			$preset_settings['dashboard']['interval'] ?? null,
+			$defaults['dashboard']['interval']
+		);
+
+		$stored['heartbeat_editor_enabled']   = ! empty( $preset_settings['editor']['enabled'] );
+		$stored['heartbeat_editor_frequency'] = $this->sanitize_interval(
+			$preset_settings['editor']['interval'] ?? null,
+			$defaults['editor']['interval']
+		);
+
+		$stored['heartbeat_frontend']           = ! empty( $preset_settings['frontend']['enabled'] );
+		$stored['heartbeat_frontend_frequency'] = $this->sanitize_interval(
+			$preset_settings['frontend']['interval'] ?? null,
+			$defaults['frontend']['interval']
+		);
+
+		$updated = update_option( SettingsRegistry::OPTION_NAME, $stored );
+
+		if ( $this->settings instanceof SettingsRegistry ) {
+			$this->settings->clear_cache();
+		}
+
+		return (bool) $updated;
 	}
 
 	/**
@@ -558,7 +712,32 @@ class HeartbeatController {
 	 * @return bool True on success.
 	 */
 	public function reset_to_defaults(): bool {
-		return delete_option( self::OPTION_NAME );
+		$stored = get_option( SettingsRegistry::OPTION_NAME, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+
+		$keys = array(
+			'heartbeat_admin_enabled',
+			'heartbeat_admin_frequency',
+			'heartbeat_editor_enabled',
+			'heartbeat_editor_frequency',
+			'heartbeat_frontend',
+			'heartbeat_frontend_frequency',
+		);
+
+		foreach ( $keys as $key ) {
+			unset( $stored[ $key ] );
+		}
+
+		update_option( SettingsRegistry::OPTION_NAME, $stored );
+		delete_option( self::OPTION_NAME ); // Cleanup legacy option if present.
+
+		if ( $this->settings instanceof SettingsRegistry ) {
+			$this->settings->clear_cache();
+		}
+
+		return true;
 	}
 
 	/**
@@ -581,7 +760,11 @@ class HeartbeatController {
 				return false;
 			}
 
-			if ( ! isset( $location_setting['interval'] ) || ! in_array( $location_setting['interval'], self::VALID_FREQUENCIES, true ) ) {
+			if ( ! isset( $location_setting['interval'] ) || ! is_int( $location_setting['interval'] ) ) {
+				return false;
+			}
+
+			if ( $location_setting['interval'] < 15 || $location_setting['interval'] > 120 ) {
 				return false;
 			}
 		}
