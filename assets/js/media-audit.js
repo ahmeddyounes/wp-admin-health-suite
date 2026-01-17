@@ -454,25 +454,27 @@
 			const isChecked = this.selectedItems[tab].has(item.id);
 			const previewUrl =
 				item.thumbnail || item.thumbnail_url || item.url || '';
+			const sanitizedPreviewUrl = this.sanitizeUrl(previewUrl);
 			const mimeType = item.mime_type || '';
 			const isImage =
 				item.type === 'image' || mimeType.startsWith('image/');
 
-			let html = '<tr data-id="' + item.id + '">';
+			let html =
+				'<tr data-id="' + this.escapeHtml(String(item.id)) + '">';
 			html += '<td class="wpha-col-checkbox">';
 			html +=
 				'<input type="checkbox" class="wpha-item-checkbox" data-id="' +
-				item.id +
+				this.escapeHtml(String(item.id)) +
 				'" ' +
 				(isChecked ? 'checked' : '') +
 				' />';
 			html += '</td>';
 
 			html += '<td class="wpha-col-preview">';
-			if (isImage && previewUrl) {
+			if (isImage && sanitizedPreviewUrl) {
 				html +=
 					'<img class="wpha-lazy-preview" data-src="' +
-					previewUrl +
+					sanitizedPreviewUrl +
 					'" alt="" width="50" height="50" />';
 			} else {
 				html +=
@@ -492,27 +494,29 @@
 			if (tab === 'large-files') {
 				html +=
 					'<td class="wpha-col-size">' +
-					this.formatBytes(sizeBytes) +
+					this.escapeHtml(this.formatBytes(sizeBytes)) +
 					'</td>';
 				html +=
 					'<td class="wpha-col-dimensions">' +
 					(item.width && item.height
-						? item.width + ' × ' + item.height
+						? this.escapeHtml(String(item.width)) +
+							' × ' +
+							this.escapeHtml(String(item.height))
 						: '--') +
 					'</td>';
 			} else if (tab !== 'missing-alt') {
 				html +=
 					'<td class="wpha-col-size">' +
-					this.formatBytes(sizeBytes) +
+					this.escapeHtml(this.formatBytes(sizeBytes)) +
 					'</td>';
 				html +=
 					'<td class="wpha-col-date">' +
-					this.formatDate(item.date) +
+					this.escapeHtml(this.formatDate(item.date)) +
 					'</td>';
 			} else {
 				html +=
 					'<td class="wpha-col-date">' +
-					this.formatDate(item.date) +
+					this.escapeHtml(this.formatDate(item.date)) +
 					'</td>';
 			}
 
@@ -520,14 +524,14 @@
 			if (tab !== 'missing-alt') {
 				html +=
 					'<button class="button button-small wpha-delete-btn" data-id="' +
-					item.id +
+					this.escapeHtml(String(item.id)) +
 					'" title="Delete">';
 				html += '<span class="dashicons dashicons-trash"></span>';
 				html += '</button> ';
 			}
 			html +=
 				'<button class="button button-small wpha-ignore-btn" data-id="' +
-				item.id +
+				this.escapeHtml(String(item.id)) +
 				'" title="Ignore">';
 			html += '<span class="dashicons dashicons-hidden"></span>';
 			html += '</button>';
@@ -593,16 +597,17 @@
 				const isOriginal = index === 0;
 				const previewUrl =
 					item.thumbnail || item.thumbnail_url || item.url || '';
+				const sanitizedPreviewUrl = this.sanitizeUrl(previewUrl);
 
 				html +=
 					'<div class="wpha-duplicate-item" data-id="' +
-					item.id +
+					this.escapeHtml(String(item.id)) +
 					'">';
 				html += '<div class="wpha-duplicate-item-preview">';
-				if (previewUrl) {
+				if (sanitizedPreviewUrl) {
 					html +=
 						'<img class="wpha-lazy-preview" data-src="' +
-						previewUrl +
+						sanitizedPreviewUrl +
 						'" alt="" width="100" height="100" />';
 				} else {
 					html +=
@@ -616,16 +621,21 @@
 					'</p>';
 				html +=
 					'<p class="wpha-duplicate-meta">' +
-					this.formatBytes(
-						item.size || item.file_size || item.current_size || 0
+					this.escapeHtml(
+						this.formatBytes(
+							item.size ||
+								item.file_size ||
+								item.current_size ||
+								0
+						)
 					) +
 					' • ' +
-					this.formatDate(item.date) +
+					this.escapeHtml(this.formatDate(item.date)) +
 					'</p>';
 				html += '<div class="wpha-duplicate-actions">';
 				html +=
 					'<input type="checkbox" class="wpha-item-checkbox" data-id="' +
-					item.id +
+					this.escapeHtml(String(item.id)) +
 					'" ' +
 					(isChecked ? 'checked' : '') +
 					' /> ';
@@ -1112,11 +1122,14 @@
 		 * @param message
 		 */
 		showNotice(type, message) {
+			// Sanitize type to only allow known values
+			const allowedTypes = ['success', 'error', 'warning', 'info'];
+			const safeType = allowedTypes.includes(type) ? type : 'info';
 			const $notice = $(
 				'<div class="notice notice-' +
-					type +
+					safeType +
 					' is-dismissible"><p>' +
-					message +
+					this.escapeHtml(message) +
 					'</p></div>'
 			);
 			$('.wpha-media-audit-wrap h1').after($notice);
@@ -1158,6 +1171,9 @@
 		 * @param text
 		 */
 		escapeHtml(text) {
+			if (typeof text !== 'string') {
+				return String(text);
+			}
 			const map = {
 				'&': '&amp;',
 				'<': '&lt;',
@@ -1166,6 +1182,28 @@
 				"'": '&#039;',
 			};
 			return text.replace(/[&<>"']/g, (m) => map[m]);
+		},
+
+		/**
+		 * Sanitize URL to prevent XSS via javascript: protocol.
+		 * Only allows http, https, and data URIs for images.
+		 * @param url
+		 */
+		sanitizeUrl(url) {
+			if (!url || typeof url !== 'string') {
+				return '';
+			}
+			const trimmed = url.trim().toLowerCase();
+			// Allow only safe protocols
+			if (
+				trimmed.startsWith('http://') ||
+				trimmed.startsWith('https://') ||
+				trimmed.startsWith('data:image/')
+			) {
+				return this.escapeHtml(url);
+			}
+			// Block javascript:, vbscript:, data: (non-image), and other dangerous protocols
+			return '';
 		},
 
 		/**

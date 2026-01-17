@@ -232,7 +232,6 @@ class Assets {
 			'wpAdminHealthData',
 			array(
 				'ajax_url'   => admin_url( 'admin-ajax.php' ),
-				'nonce'      => wp_create_nonce( 'wpha_nonce' ),
 				'rest_url'   => rest_url(),
 				'plugin_url' => $this->plugin_url,
 				'i18n'       => array(

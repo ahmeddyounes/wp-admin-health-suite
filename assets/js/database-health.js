@@ -326,9 +326,9 @@
 			// Format results based on data structure
 			Object.keys(data).forEach((key) => {
 				if (typeof data[key] === 'number') {
-					html += `<li><strong>${this.formatKey(key)}:</strong> ${data[key]}</li>`;
+					html += `<li><strong>${this.escapeHtml(this.formatKey(key))}:</strong> ${this.escapeHtml(String(data[key]))}</li>`;
 				} else if (typeof data[key] === 'string') {
-					html += `<li><strong>${this.formatKey(key)}:</strong> ${data[key]}</li>`;
+					html += `<li><strong>${this.escapeHtml(this.formatKey(key))}:</strong> ${this.escapeHtml(data[key])}</li>`;
 				}
 			});
 
@@ -533,16 +533,34 @@
 
 			tables.forEach((table) => {
 				html += '<tr>';
-				html += `<td><strong>${table.name}</strong></td>`;
-				html += `<td>${table.rows || 0}</td>`;
-				html += `<td>${this.formatBytes(table.data_size || 0)}</td>`;
-				html += `<td>${this.formatBytes(table.index_size || 0)}</td>`;
-				html += `<td><strong>${this.formatBytes(table.total_size || 0)}</strong></td>`;
+				html += `<td><strong>${this.escapeHtml(table.name)}</strong></td>`;
+				html += `<td>${this.escapeHtml(String(table.rows || 0))}</td>`;
+				html += `<td>${this.escapeHtml(this.formatBytes(table.data_size || 0))}</td>`;
+				html += `<td>${this.escapeHtml(this.formatBytes(table.index_size || 0))}</td>`;
+				html += `<td><strong>${this.escapeHtml(this.formatBytes(table.total_size || 0))}</strong></td>`;
 				html += '</tr>';
 			});
 
 			html += '</tbody></table>';
 			this.$tableList.html(html);
+		},
+
+		/**
+		 * Escape HTML to prevent XSS.
+		 * @param text
+		 */
+		escapeHtml(text) {
+			if (typeof text !== 'string') {
+				return String(text);
+			}
+			const map = {
+				'&': '&amp;',
+				'<': '&lt;',
+				'>': '&gt;',
+				'"': '&quot;',
+				"'": '&#039;',
+			};
+			return text.replace(/[&<>"']/g, (m) => map[m]);
 		},
 
 		/**

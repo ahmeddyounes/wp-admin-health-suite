@@ -84,12 +84,12 @@
 	color: var(--wp-admin-theme-color, #2271b1);
 }
 
-.wpha-data-table th.sortable:focus {
+.wpha-data-table th.sortable:focus-visible {
 	outline: 2px solid var(--wp-admin-theme-color, #2271b1);
 	outline-offset: -2px;
 }
 
-/* Sort indicator container */
+/* Sort indicator (neutral state - shows down arrow) */
 .wpha-data-table th.sortable::after {
 	content: '';
 	position: absolute;
@@ -100,16 +100,11 @@
 	height: 0;
 	border-left: 4px solid transparent;
 	border-right: 4px solid transparent;
+	border-top: 5px solid currentColor;
 	opacity: 0.3;
 	transition:
 		opacity 0.2s ease,
-		transform 0.2s ease;
-}
-
-/* Default sort indicator (neutral) */
-.wpha-data-table th.sortable::after {
-	border-top: 5px solid currentColor;
-	border-bottom: 5px solid currentColor;
+		border-color 0.2s ease;
 }
 
 /* Hover effect on sortable headers */
@@ -208,6 +203,12 @@
 	color: var(--wp-admin-theme-color, #2271b1);
 }
 
+.wpha-expand-toggle:focus-visible {
+	outline: 2px solid var(--wp-admin-theme-color, #2271b1);
+	outline-offset: 2px;
+	border-radius: var(--wpha-radius-sm, 3px);
+}
+
 .wpha-expand-toggle .dashicons {
 	font-size: 16px;
 	width: 16px;
@@ -235,6 +236,11 @@ tr.expanded .wpha-expand-toggle {
 	cursor: pointer;
 	width: 16px;
 	height: 16px;
+}
+
+.wpha-data-table .row-checkbox:focus-visible {
+	outline: 2px solid var(--wp-admin-theme-color, #2271b1);
+	outline-offset: 2px;
 }
 
 /* ========================================
@@ -340,6 +346,11 @@ tr.expanded .wpha-expand-toggle {
 	color: #fff;
 }
 
+.wpha-bulk-actions-close:focus-visible {
+	outline: 2px solid #fff;
+	outline-offset: 2px;
+}
+
 .wpha-bulk-actions-close .dashicons {
 	font-size: 20px;
 	width: 20px;
@@ -391,6 +402,13 @@ tr.expanded .wpha-expand-toggle {
 	border-radius: var(--wpha-radius, 4px);
 	background: var(--wpha-color-bg-primary, #fff);
 	cursor: pointer;
+	transition: border-color 0.2s ease;
+}
+
+.wpha-items-per-page select:focus-visible {
+	outline: 2px solid var(--wp-admin-theme-color, #2271b1);
+	outline-offset: 2px;
+	border-color: var(--wp-admin-theme-color, #2271b1);
 }
 
 /* Page numbers */
@@ -424,6 +442,12 @@ tr.expanded .wpha-expand-toggle {
 	background: var(--wpha-color-bg-secondary, #f6f7f7);
 	border-color: var(--wp-admin-theme-color, #2271b1);
 	color: var(--wp-admin-theme-color, #2271b1);
+}
+
+.wpha-pagination-btn:focus-visible,
+.wpha-pagination-page:focus-visible {
+	outline: 2px solid var(--wp-admin-theme-color, #2271b1);
+	outline-offset: 2px;
 }
 
 .wpha-pagination-btn:disabled {
@@ -782,11 +806,14 @@ tr.expanded .wpha-expand-toggle {
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
 	.wpha-data-table tbody tr,
+	.wpha-data-table th.sortable,
+	.wpha-data-table th.sortable::after,
 	.wpha-pagination-btn,
 	.wpha-pagination-page,
 	.wpha-bulk-actions-bar,
 	.wpha-expand-toggle,
-	.wpha-bulk-action-btn {
+	.wpha-bulk-action-btn,
+	.wpha-items-per-page select {
 		transition: none;
 	}
 
