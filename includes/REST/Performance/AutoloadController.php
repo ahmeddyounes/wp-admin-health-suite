@@ -15,6 +15,8 @@ use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
+use WPAdminHealth\Application\Performance\GetAutoloadAnalysis;
+use WPAdminHealth\Application\Performance\UpdateAutoloadOption;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -46,21 +48,43 @@ class AutoloadController extends RestController {
 	private AutoloadAnalyzerInterface $autoload_analyzer;
 
 	/**
+	 * Get autoload analysis use-case.
+	 *
+	 * @since 1.7.0
+	 * @var GetAutoloadAnalysis
+	 */
+	private GetAutoloadAnalysis $get_autoload_analysis;
+
+	/**
+	 * Update autoload option use-case.
+	 *
+	 * @since 1.7.0
+	 * @var UpdateAutoloadOption
+	 */
+	private UpdateAutoloadOption $update_autoload_option;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param SettingsInterface          $settings          Settings instance.
-	 * @param ConnectionInterface        $connection        Database connection instance.
-	 * @param AutoloadAnalyzerInterface  $autoload_analyzer Autoload analyzer instance.
+	 * @param SettingsInterface          $settings               Settings instance.
+	 * @param ConnectionInterface        $connection             Database connection instance.
+	 * @param AutoloadAnalyzerInterface  $autoload_analyzer      Autoload analyzer instance.
+	 * @param GetAutoloadAnalysis        $get_autoload_analysis  Autoload analysis use-case.
+	 * @param UpdateAutoloadOption       $update_autoload_option Update autoload option use-case.
 	 */
 	public function __construct(
 		SettingsInterface $settings,
 		ConnectionInterface $connection,
-		AutoloadAnalyzerInterface $autoload_analyzer
+		AutoloadAnalyzerInterface $autoload_analyzer,
+		GetAutoloadAnalysis $get_autoload_analysis,
+		UpdateAutoloadOption $update_autoload_option
 	) {
 		parent::__construct( $settings, $connection );
-		$this->autoload_analyzer = $autoload_analyzer;
+		$this->autoload_analyzer      = $autoload_analyzer;
+		$this->get_autoload_analysis  = $get_autoload_analysis;
+		$this->update_autoload_option = $update_autoload_option;
 	}
 
 	/**
@@ -116,36 +140,7 @@ class AutoloadController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_autoload_analysis( $request ) {
-		$connection    = $this->get_connection();
-		$options_table = $connection->get_options_table();
-
-		$size_stats  = $this->autoload_analyzer->get_autoload_size();
-		$total_size  = isset( $size_stats['total_size'] ) ? (int) $size_stats['total_size'] : 0;
-		$total_count = isset( $size_stats['count'] ) ? (int) $size_stats['count'] : 0;
-
-		$autoload_options = $connection->get_results(
-			"SELECT option_name, LENGTH(option_value) as size
-			FROM {$options_table}
-			WHERE autoload = 'yes'
-			ORDER BY size DESC
-			LIMIT 50"
-		);
-
-		$options    = array();
-
-		foreach ( $autoload_options as $option ) {
-			$options[] = array(
-				'name' => $option->option_name,
-				'size' => (int) $option->size,
-			);
-		}
-
-		$response_data = array(
-			'total_size'    => $total_size,
-			'total_size_mb' => isset( $size_stats['total_size_mb'] ) ? (float) $size_stats['total_size_mb'] : round( $total_size / 1024 / 1024, 2 ),
-			'options'       => $options,
-			'count'         => $total_count,
-		);
+		$response_data = $this->get_autoload_analysis->execute();
 
 		return $this->format_response(
 			true,
@@ -168,94 +163,27 @@ class AutoloadController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function update_autoload( $request ) {
-		$connection    = $this->get_connection();
-		$options_table = $connection->get_options_table();
-
-		$option_name = $request->get_param( 'option_name' );
+		$option_name = (string) $request->get_param( 'option_name' );
 		$autoload    = (bool) $request->get_param( 'autoload' );
 
-		// Security: Check if the option is protected from modification.
-		if ( $this->is_protected_option( $option_name ) ) {
-			return $this->format_error_response(
-				new \WP_Error(
-					'protected_option',
-					__( 'This option is protected and cannot be modified for security reasons.', 'wp-admin-health-suite' )
-				),
-				403
-			);
+		$result = $this->update_autoload_option->execute( $option_name, $autoload );
+		if ( is_wp_error( $result ) ) {
+			$status = 500;
+			$data   = $result->get_error_data();
+			if ( is_array( $data ) && isset( $data['status'] ) ) {
+				$status = (int) $data['status'];
+			}
+
+			return $this->format_error_response( $result, $status );
 		}
-
-		// Check if option exists.
-		$query = $connection->prepare(
-			"SELECT COUNT(*) FROM {$options_table} WHERE option_name = %s",
-			$option_name
-		);
-		$option_exists = $query ? $connection->get_var( $query ) : 0;
-
-		if ( ! $option_exists ) {
-			return $this->format_error_response(
-				new \WP_Error(
-					'option_not_found',
-					__( 'The specified option does not exist.', 'wp-admin-health-suite' )
-				),
-				404
-			);
-		}
-
-		// Update the autoload setting.
-		$autoload_value = $autoload ? 'yes' : 'no';
-		$result = $connection->update(
-			$options_table,
-			array( 'autoload' => $autoload_value ),
-			array( 'option_name' => $option_name ),
-			array( '%s' ),
-			array( '%s' )
-		);
-
-		if ( false === $result ) {
-			return $this->format_error_response(
-				new \WP_Error(
-					'update_failed',
-					__( 'Failed to update autoload setting.', 'wp-admin-health-suite' )
-				),
-				500
-			);
-		}
-
-			// Clear the alloptions cache to ensure changes take effect.
-			wp_cache_delete( $option_name, 'options' );
-			wp_cache_delete( 'alloptions', 'options' );
 
 		return $this->format_response(
 			true,
-			array(
-				'option_name' => $option_name,
-				'autoload'    => $autoload,
-			),
+			$result,
 			__( 'Autoload setting updated successfully.', 'wp-admin-health-suite' )
 		);
 	}
 
-	/**
-	 * Get total autoload size.
-	 *
-	 * @since 1.0.0
-	 * @since 1.3.0 Moved to AutoloadController.
-	 *
-	 * @return int Autoload size in bytes.
-	 */
-	private function get_autoload_size(): int {
-		$connection    = $this->get_connection();
-		$options_table = $connection->get_options_table();
-
-		$result = $connection->get_var(
-			"SELECT SUM(LENGTH(option_value))
-			FROM {$options_table}
-			WHERE autoload = 'yes'"
-		);
-
-		return $result ? (int) $result : 0;
-	}
 
 	/**
 	 * Check if an option is protected from autoload modification.

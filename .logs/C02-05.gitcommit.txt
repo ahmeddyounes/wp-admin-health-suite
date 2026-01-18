@@ -9,37 +9,61 @@ Please remove the following two lines from .husky/pre-commit:
 They WILL FAIL in v10.0.0
 
 [STARTED] Backing up original state...
-[COMPLETED] Backed up original state in git stash (11bfb5f)
+[COMPLETED] Backed up original state in git stash (16b5f97)
 [STARTED] Running tasks for staged files...
-[STARTED] package.json — 129 files
-[STARTED] *.{js,jsx} — 4 files
-[STARTED] *.{json,css,scss,md} — 64 files
-[STARTED] eslint --fix
+[STARTED] package.json — 8 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 3 files
+[SKIPPED] *.{js,jsx} — no files
 [STARTED] prettier --write
 [COMPLETED] prettier --write
-[COMPLETED] *.{json,css,scss,md} — 64 files
-[FAILED] eslint --fix [FAILED]
-[FAILED] eslint --fix [FAILED]
+[COMPLETED] *.{json,css,scss,md} — 3 files
+[COMPLETED] package.json — 8 files
 [COMPLETED] Running tasks for staged files...
 [STARTED] Applying modifications from tasks...
-[SKIPPED] Skipped because of errors from tasks.
-[STARTED] Reverting to original state because of errors...
-[COMPLETED] Reverting to original state because of errors...
+[COMPLETED] Applying modifications from tasks...
 [STARTED] Cleaning up temporary files...
 [COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+[32mE[0m[31mE[0m 2 / 2 (100%)
 
-✖ eslint --fix:
 
-/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/admin.js
-    7:1  warning  Missing JSDoc @param "window" type    jsdoc/require-param-type
-    8:1  warning  Missing JSDoc @param "$" type         jsdoc/require-param-type
-  291:1  warning  Missing JSDoc @param "message" type   jsdoc/require-param-type
-  292:1  warning  Missing JSDoc @param "duration" type  jsdoc/require-param-type
 
-/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/jest.setup.js
-   9:12  error  'jest' is not defined  no-undef
-  16:18  error  'jest' is not defined  no-undef
+[1mFILE: includes/Application/Performance/CollectMetrics.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 2 ERRORS AFFECTING 2 LINES[0m
+--------------------------------------------------------------------------------
+ 220 | [31mERROR[0m | [x] [1mExpected 1 space before "=>"; 0 found[0m
+     |       |     (WordPress.WhiteSpace.OperatorSpacing.NoSpaceBefore)
+ 256 | [31mERROR[0m | [x] [1mExpected 1 space before "=>"; 0 found[0m
+     |       |     (WordPress.WhiteSpace.OperatorSpacing.NoSpaceBefore)
+--------------------------------------------------------------------------------
+[1mPHPCBF CAN FIX THE 2 MARKED SNIFF VIOLATIONS AUTOMATICALLY[0m
+--------------------------------------------------------------------------------
 
-✖ 6 problems (2 errors, 4 warnings)
 
-husky - pre-commit script failed (code 1)
+[1mFILE: includes/Providers/RESTServiceProvider.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 8 ERRORS AFFECTING 8 LINES[0m
+--------------------------------------------------------------------------------
+ 185 | [31mERROR[0m | [1mEmpty CATCH statement detected[0m
+     |       | (Generic.CodeAnalysis.EmptyStatement.DetectedCatch)
+ 209 | [31mERROR[0m | [1mEmpty CATCH statement detected[0m
+     |       | (Generic.CodeAnalysis.EmptyStatement.DetectedCatch)
+ 313 | [31mERROR[0m | [1mEmpty CATCH statement detected[0m
+     |       | (Generic.CodeAnalysis.EmptyStatement.DetectedCatch)
+ 341 | [31mERROR[0m | [1mEmpty CATCH statement detected[0m
+     |       | (Generic.CodeAnalysis.EmptyStatement.DetectedCatch)
+ 368 | [31mERROR[0m | [1mEmpty CATCH statement detected[0m
+     |       | (Generic.CodeAnalysis.EmptyStatement.DetectedCatch)
+ 394 | [31mERROR[0m | [1mEmpty CATCH statement detected[0m
+     |       | (Generic.CodeAnalysis.EmptyStatement.DetectedCatch)
+ 421 | [31mERROR[0m | [1mEmpty CATCH statement detected[0m
+     |       | (Generic.CodeAnalysis.EmptyStatement.DetectedCatch)
+ 486 | [31mERROR[0m | [1mEmpty CATCH statement detected[0m
+     |       | (Generic.CodeAnalysis.EmptyStatement.DetectedCatch)
+--------------------------------------------------------------------------------
+
+Time: 312ms; Memory: 16MB
+
+husky - pre-commit script failed (code 2)

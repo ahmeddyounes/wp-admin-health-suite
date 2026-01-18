@@ -15,6 +15,7 @@ use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Application\Performance\RunHealthCheck;
+use WPAdminHealth\Application\Performance\GetRecommendations;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -50,22 +51,33 @@ class PerformanceStatsController extends RestController {
 	protected RunHealthCheck $health_check;
 
 	/**
+	 * Recommendations use-case.
+	 *
+	 * @since 1.7.0
+	 * @var GetRecommendations
+	 */
+	protected GetRecommendations $get_recommendations;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
 	 * @since 1.4.0 Added RunHealthCheck dependency.
 	 *
-	 * @param SettingsInterface   $settings     Settings instance.
-	 * @param ConnectionInterface $connection   Database connection instance.
-	 * @param RunHealthCheck      $health_check Health check application service.
+	 * @param SettingsInterface   $settings            Settings instance.
+	 * @param ConnectionInterface $connection          Database connection instance.
+	 * @param RunHealthCheck      $health_check        Health check application service.
+	 * @param GetRecommendations  $get_recommendations Recommendations use-case.
 	 */
 	public function __construct(
 		SettingsInterface $settings,
 		ConnectionInterface $connection,
-		RunHealthCheck $health_check
+		RunHealthCheck $health_check,
+		GetRecommendations $get_recommendations
 	) {
 		parent::__construct( $settings, $connection );
-		$this->health_check = $health_check;
+		$this->health_check        = $health_check;
+		$this->get_recommendations = $get_recommendations;
 	}
 
 	/**
@@ -158,79 +170,11 @@ class PerformanceStatsController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_recommendations( $request ) {
-		// Run checks to get recommendations from the application service.
-		$autoload_results = $this->health_check->check_autoload();
-		$cache_results    = $this->health_check->check_cache();
-
-		$recommendations = array();
-
-		// Check plugin count.
-		$plugin_count = count( get_option( 'active_plugins', array() ) );
-		if ( $plugin_count > 20 ) {
-			$recommendations[] = array(
-				'type'        => 'warning',
-				'title'       => __( 'Too Many Plugins', 'wp-admin-health-suite' ),
-				'description' => sprintf(
-					/* translators: %d: number of active plugins */
-					__( 'You have %d active plugins. Consider deactivating unused plugins to improve performance.', 'wp-admin-health-suite' ),
-					$plugin_count
-				),
-				'action'      => 'review_plugins',
-			);
-		}
-
-		// Check autoload size using results from application service.
-		$autoload_size = $autoload_results['total_size'] ?? 0;
-		$autoload_mb   = $autoload_size / 1024 / 1024;
-		if ( $autoload_mb > 0.8 ) {
-			$recommendations[] = array(
-				'type'        => 'warning',
-				'title'       => __( 'Large Autoload Data', 'wp-admin-health-suite' ),
-				'description' => sprintf(
-					/* translators: %s: autoload size in MB */
-					__( 'Your autoload data is %.2f MB. Consider cleaning up unused options.', 'wp-admin-health-suite' ),
-					$autoload_mb
-				),
-				'action'      => 'optimize_autoload',
-			);
-		}
-
-		// Check object cache using results from application service.
-		if ( empty( $cache_results['object_cache_enabled'] ) ) {
-			$recommendations[] = array(
-				'type'        => 'info',
-				'title'       => __( 'Enable Object Caching', 'wp-admin-health-suite' ),
-				'description' => __( 'Consider implementing an object cache (Redis, Memcached) to improve database performance.', 'wp-admin-health-suite' ),
-				'action'      => 'enable_object_cache',
-			);
-		}
-
-		// Check OPcache using results from application service.
-		if ( empty( $cache_results['opcache_enabled'] ) ) {
-			$recommendations[] = array(
-				'type'        => 'info',
-				'title'       => __( 'Enable OPcache', 'wp-admin-health-suite' ),
-				'description' => __( 'OPcache can significantly improve PHP performance by caching compiled scripts.', 'wp-admin-health-suite' ),
-				'action'      => 'enable_opcache',
-			);
-		}
-
-		// Add cache recommendations from the application service.
-		if ( ! empty( $cache_results['recommendations'] ) ) {
-			foreach ( $cache_results['recommendations'] as $rec ) {
-				$recommendations[] = array(
-					'type'        => $rec['type'] ?? 'info',
-					'title'       => $rec['title'] ?? '',
-					'description' => $rec['message'] ?? '',
-					'action'      => $rec['action'] ?? '',
-					'priority'    => $rec['priority'] ?? 'medium',
-				);
-			}
-		}
+		$data = $this->get_recommendations->execute();
 
 		return $this->format_response(
 			true,
-			array( 'recommendations' => $recommendations ),
+			$data,
 			__( 'Recommendations retrieved successfully.', 'wp-admin-health-suite' )
 		);
 	}

@@ -32,6 +32,14 @@ use WPAdminHealth\Contracts\ActivityLoggerInterface;
 use WPAdminHealth\Contracts\TableCheckerInterface;
 use WPAdminHealth\Application\Media\RunScan;
 use WPAdminHealth\Application\Performance\RunHealthCheck;
+use WPAdminHealth\Application\Performance\CollectMetrics;
+use WPAdminHealth\Application\Performance\GetQueryAnalysis;
+use WPAdminHealth\Application\Performance\GetPluginImpact;
+use WPAdminHealth\Application\Performance\GetAutoloadAnalysis;
+use WPAdminHealth\Application\Performance\UpdateAutoloadOption;
+use WPAdminHealth\Application\Performance\GetCacheStatus;
+use WPAdminHealth\Application\Performance\GetRecommendations;
+use WPAdminHealth\Application\Dashboard\GetHealthScore;
 use WPAdminHealth\Application\Database\RunCleanup;
 use WPAdminHealth\Application\Database\RunOptimization;
 use WPAdminHealth\Performance\CacheChecker;
@@ -98,6 +106,14 @@ class RESTServiceProvider extends ServiceProvider {
 		// Application layer services.
 		RunScan::class,
 		RunHealthCheck::class,
+		CollectMetrics::class,
+		GetQueryAnalysis::class,
+		GetPluginImpact::class,
+		GetAutoloadAnalysis::class,
+		UpdateAutoloadOption::class,
+		GetCacheStatus::class,
+		GetRecommendations::class,
+		GetHealthScore::class,
 		RunCleanup::class,
 		RunOptimization::class,
 		// String aliases (backward compatibility).
@@ -118,6 +134,7 @@ class RESTServiceProvider extends ServiceProvider {
 		'rest.media.cleanup_controller',
 		'application.media.run_scan',
 		'application.performance.run_health_check',
+		'application.performance.collect_metrics',
 		'application.database.run_cleanup',
 		'application.database.run_optimization',
 	);
@@ -134,7 +151,8 @@ class RESTServiceProvider extends ServiceProvider {
 					$container->get( SettingsInterface::class ),
 					$container->get( ConnectionInterface::class ),
 					$container->get( HealthCalculator::class ),
-					$container->get( TableCheckerInterface::class )
+					$container->get( TableCheckerInterface::class ),
+					$container->get( GetHealthScore::class )
 				);
 			}
 		);
@@ -228,7 +246,8 @@ class RESTServiceProvider extends ServiceProvider {
 				return new PerformanceStatsController(
 					$container->get( SettingsInterface::class ),
 					$container->get( ConnectionInterface::class ),
-					$container->get( RunHealthCheck::class )
+					$container->get( RunHealthCheck::class ),
+					$container->get( GetRecommendations::class )
 				);
 			}
 		);
@@ -241,7 +260,7 @@ class RESTServiceProvider extends ServiceProvider {
 				return new QueryAnalysisController(
 					$container->get( SettingsInterface::class ),
 					$container->get( ConnectionInterface::class ),
-					$container->get( QueryMonitorInterface::class )
+					$container->get( GetQueryAnalysis::class )
 				);
 			}
 		);
@@ -254,7 +273,7 @@ class RESTServiceProvider extends ServiceProvider {
 				return new PluginProfilerController(
 					$container->get( SettingsInterface::class ),
 					$container->get( ConnectionInterface::class ),
-					$container->get( PluginProfilerInterface::class )
+					$container->get( GetPluginImpact::class )
 				);
 			}
 		);
@@ -266,7 +285,8 @@ class RESTServiceProvider extends ServiceProvider {
 			function ( $container ) {
 				return new CacheController(
 					$container->get( SettingsInterface::class ),
-					$container->get( ConnectionInterface::class )
+					$container->get( ConnectionInterface::class ),
+					$container->get( GetCacheStatus::class )
 				);
 			}
 		);
@@ -279,7 +299,9 @@ class RESTServiceProvider extends ServiceProvider {
 				return new AutoloadController(
 					$container->get( SettingsInterface::class ),
 					$container->get( ConnectionInterface::class ),
-					$container->get( AutoloadAnalyzerInterface::class )
+					$container->get( AutoloadAnalyzerInterface::class ),
+					$container->get( GetAutoloadAnalysis::class ),
+					$container->get( UpdateAutoloadOption::class )
 				);
 			}
 		);
@@ -352,6 +374,32 @@ class RESTServiceProvider extends ServiceProvider {
 		);
 		$this->container->alias( 'application.performance.run_health_check', RunHealthCheck::class );
 
+		// Register CollectMetrics Application Service.
+		$this->container->bind(
+			CollectMetrics::class,
+			function ( $container ) {
+				// Try to get ActivityLoggerInterface, but don't fail if not available.
+				$activity_logger = null;
+				try {
+					if ( $container->has( ActivityLoggerInterface::class ) ) {
+						$activity_logger = $container->get( ActivityLoggerInterface::class );
+					}
+				} catch ( \Exception $e ) {
+					// Activity logger is optional.
+				}
+
+				return new CollectMetrics(
+					$container->get( SettingsInterface::class ),
+					$container->get( AutoloadAnalyzerInterface::class ),
+					$container->get( QueryMonitorInterface::class ),
+					$container->get( PluginProfilerInterface::class ),
+					$container->get( CacheChecker::class ),
+					$activity_logger
+				);
+			}
+		);
+		$this->container->alias( 'application.performance.collect_metrics', CollectMetrics::class );
+
 		// Register RunCleanup Application Service.
 		$this->container->bind(
 			RunCleanup::class,
@@ -378,6 +426,72 @@ class RESTServiceProvider extends ServiceProvider {
 			}
 		);
 		$this->container->alias( 'application.database.run_cleanup', RunCleanup::class );
+
+		// Register GetQueryAnalysis Application Service.
+		$this->container->bind(
+			GetQueryAnalysis::class,
+			function ( $container ) {
+				return new GetQueryAnalysis(
+					$container->get( SettingsInterface::class ),
+					$container->get( ConnectionInterface::class ),
+					$container->get( QueryMonitorInterface::class )
+				);
+			}
+		);
+
+		// Register GetPluginImpact Application Service.
+		$this->container->bind(
+			GetPluginImpact::class,
+			function ( $container ) {
+				return new GetPluginImpact(
+					$container->get( SettingsInterface::class ),
+					$container->get( PluginProfilerInterface::class )
+				);
+			}
+		);
+
+		// Register GetAutoloadAnalysis Application Service.
+		$this->container->bind(
+			GetAutoloadAnalysis::class,
+			function ( $container ) {
+				return new GetAutoloadAnalysis(
+					$container->get( ConnectionInterface::class ),
+					$container->get( AutoloadAnalyzerInterface::class )
+				);
+			}
+		);
+
+		// Register UpdateAutoloadOption Application Service.
+		$this->container->bind(
+			UpdateAutoloadOption::class,
+			function ( $container ) {
+				return new UpdateAutoloadOption( $container->get( ConnectionInterface::class ) );
+			}
+		);
+
+		// Register GetCacheStatus Application Service.
+		$this->container->bind(
+			GetCacheStatus::class,
+			function ( $container ) {
+				return new GetCacheStatus();
+			}
+		);
+
+		// Register GetRecommendations Application Service.
+		$this->container->bind(
+			GetRecommendations::class,
+			function ( $container ) {
+				return new GetRecommendations( $container->get( RunHealthCheck::class ) );
+			}
+		);
+
+		// Register GetHealthScore Application Service.
+		$this->container->bind(
+			GetHealthScore::class,
+			function ( $container ) {
+				return new GetHealthScore( $container->get( HealthCalculator::class ) );
+			}
+		);
 
 		// Register RunOptimization Application Service.
 		$this->container->bind(

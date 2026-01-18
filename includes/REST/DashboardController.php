@@ -14,6 +14,7 @@ use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\TableCheckerInterface;
 use WPAdminHealth\HealthCalculator;
+use WPAdminHealth\Application\Dashboard\GetHealthScore;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -64,6 +65,14 @@ class DashboardController extends RestController {
 	protected HealthCalculator $health_calculator;
 
 	/**
+	 * Health score use-case.
+	 *
+	 * @since 1.7.0
+	 * @var GetHealthScore
+	 */
+	protected GetHealthScore $get_health_score;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.1.0
@@ -80,10 +89,12 @@ class DashboardController extends RestController {
 		SettingsInterface $settings,
 		ConnectionInterface $connection,
 		HealthCalculator $health_calculator,
-		?TableCheckerInterface $table_checker = null
+		?TableCheckerInterface $table_checker = null,
+		?GetHealthScore $get_health_score = null
 	) {
 		parent::__construct( $settings, $connection, $table_checker );
 		$this->health_calculator = $health_calculator;
+		$this->get_health_score  = $get_health_score ?: new GetHealthScore( $health_calculator );
 	}
 
 	/**
@@ -243,22 +254,9 @@ class DashboardController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_health_score( $request ) {
-		$health_calculator = $this->get_health_calculator();
+		$force_refresh = (bool) $request->get_param( 'force_refresh' );
 
-		// Get overall score and factors.
-		$health_data = $health_calculator->calculate_overall_score();
-
-		// Get recommendations.
-		$recommendations = $health_calculator->get_recommendations();
-
-		// Build response data.
-		$response_data = array(
-			'score'           => $health_data['score'],
-			'grade'           => $health_data['grade'],
-			'factors'         => $health_data['factor_scores'],
-			'recommendations' => $recommendations,
-			'timestamp'       => $health_data['timestamp'],
-		);
+		$response_data = $this->get_health_score->execute( $force_refresh );
 
 		return $this->format_response(
 			true,

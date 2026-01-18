@@ -14,6 +14,7 @@ use WP_REST_Response;
 use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Application\Performance\GetCacheStatus;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -38,18 +39,29 @@ class CacheController extends RestController {
 	protected $rest_base = 'performance/cache';
 
 	/**
+	 * Cache status use-case.
+	 *
+	 * @since 1.7.0
+	 * @var GetCacheStatus
+	 */
+	private GetCacheStatus $get_cache_status;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param SettingsInterface   $settings   Settings instance.
-	 * @param ConnectionInterface $connection Database connection instance.
+	 * @param SettingsInterface   $settings         Settings instance.
+	 * @param ConnectionInterface $connection       Database connection instance.
+	 * @param GetCacheStatus      $get_cache_status Cache status use-case.
 	 */
 	public function __construct(
 		SettingsInterface $settings,
-		ConnectionInterface $connection
+		ConnectionInterface $connection,
+		GetCacheStatus $get_cache_status
 	) {
 		parent::__construct( $settings, $connection );
+		$this->get_cache_status = $get_cache_status;
 	}
 
 	/**
@@ -84,23 +96,7 @@ class CacheController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_cache_status( $request ) {
-		$object_cache = wp_using_ext_object_cache();
-
-		$opcache_status = function_exists( 'opcache_get_status' ) ? opcache_get_status( false ) : false;
-
-		$cache_info = array(
-			'object_cache_enabled' => $object_cache,
-			'cache_type'           => $object_cache ? $this->get_cache_type() : 'none',
-			'opcache_enabled'      => (bool) $opcache_status,
-		);
-
-		if ( $opcache_status ) {
-			$cache_info['opcache_stats'] = array(
-				'hit_rate'       => $opcache_status['opcache_statistics']['opcache_hit_rate'],
-				'memory_usage'   => $opcache_status['memory_usage']['used_memory'],
-				'cached_scripts' => $opcache_status['opcache_statistics']['num_cached_scripts'],
-			);
-		}
+		$cache_info = $this->get_cache_status->execute();
 
 		return $this->format_response(
 			true,
@@ -109,29 +105,4 @@ class CacheController extends RestController {
 		);
 	}
 
-	/**
-	 * Get cache type.
-	 *
-	 * @since 1.0.0
-	 * @since 1.3.0 Moved to CacheController.
-	 *
-	 * @return string Cache type.
-	 */
-	private function get_cache_type(): string {
-		global $wp_object_cache;
-
-		if ( isset( $wp_object_cache ) && is_object( $wp_object_cache ) ) {
-			$class = get_class( $wp_object_cache );
-
-			if ( strpos( $class, 'Redis' ) !== false ) {
-				return 'Redis';
-			} elseif ( strpos( $class, 'Memcached' ) !== false ) {
-				return 'Memcached';
-			} elseif ( strpos( $class, 'APCu' ) !== false ) {
-				return 'APCu';
-			}
-		}
-
-		return 'Unknown';
-	}
 }

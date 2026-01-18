@@ -14,7 +14,7 @@ use WP_REST_Response;
 use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
-use WPAdminHealth\Contracts\QueryMonitorInterface;
+use WPAdminHealth\Application\Performance\GetQueryAnalysis;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -39,28 +39,29 @@ class QueryAnalysisController extends RestController {
 	protected $rest_base = 'performance/queries';
 
 	/**
-	 * Query monitor instance.
+	 * Query analysis use-case.
 	 *
-	 * @var QueryMonitorInterface
+	 * @since 1.7.0
+	 * @var GetQueryAnalysis
 	 */
-	private QueryMonitorInterface $query_monitor;
+	private GetQueryAnalysis $get_query_analysis;
 
 	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param SettingsInterface      $settings      Settings instance.
-	 * @param ConnectionInterface    $connection    Database connection instance.
-	 * @param QueryMonitorInterface  $query_monitor Query monitor instance.
+	 * @param SettingsInterface  $settings            Settings instance.
+	 * @param ConnectionInterface $connection         Database connection instance.
+	 * @param GetQueryAnalysis   $get_query_analysis  Query analysis use-case.
 	 */
 	public function __construct(
 		SettingsInterface $settings,
 		ConnectionInterface $connection,
-		QueryMonitorInterface $query_monitor
+		GetQueryAnalysis $get_query_analysis
 	) {
 		parent::__construct( $settings, $connection );
-		$this->query_monitor = $query_monitor;
+		$this->get_query_analysis = $get_query_analysis;
 	}
 
 	/**
@@ -95,57 +96,39 @@ class QueryAnalysisController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_query_analysis( $request ) {
-		$connection = $this->get_connection();
-
-		$query_count = $connection->get_num_queries();
-
-		$settings = $this->get_settings();
-
-		$threshold_ms = (float) absint( $settings->get_setting( 'slow_query_threshold_ms', 50 ) );
-		$threshold_ms = (float) max( 10, min( 500, $threshold_ms ) );
-
-		$monitoring_enabled_in_settings = ! empty( $settings->get_setting( 'enable_query_monitoring', false ) )
-			|| ! empty( $settings->get_setting( 'query_logging_enabled', false ) );
-
-		$status       = $this->query_monitor->get_monitoring_status();
-		$can_capture  = $monitoring_enabled_in_settings && ( isset( $status['monitoring_enabled'] ) ? (bool) $status['monitoring_enabled'] : ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) );
-
-		// Only show raw SQL when explicitly enabled (WPHA_DEBUG) and debug mode is on.
-		// Otherwise, return a redacted query string to reduce accidental data exposure.
 		$include_raw_sql = $this->is_debug_mode_enabled() && $this->can_view_detailed_debug();
 
+		$result = $this->get_query_analysis->execute();
+
 		$slow_queries = array();
-		if ( $can_capture ) {
-			$captured = $this->query_monitor->capture_slow_queries( $threshold_ms );
-			foreach ( $captured as $query ) {
-				$sql     = isset( $query['sql'] ) ? $query['sql'] : ( $query['query'] ?? '' );
-				$time_ms = isset( $query['time'] ) ? (float) $query['time'] : 0.0;
+		foreach ( (array) ( $result['captured'] ?? array() ) as $query ) {
+			$sql     = isset( $query['sql'] ) ? $query['sql'] : ( $query['query'] ?? '' );
+			$time_ms = isset( $query['time'] ) ? (float) $query['time'] : 0.0;
 
-				$sql_string = is_string( $sql ) ? $sql : '';
-				$query_hash = '' !== $sql_string ? substr( md5( $sql_string ), 0, 12 ) : '';
+			$sql_string = is_string( $sql ) ? $sql : '';
+			$query_hash = '' !== $sql_string ? substr( md5( $sql_string ), 0, 12 ) : '';
 
-				$item = array(
-					'query'      => $this->sanitize_sql_for_output( $sql_string, ! $include_raw_sql ),
-					'query_hash' => $query_hash,
-					'query_type' => $this->get_query_type( $sql_string ),
-					'time'       => round( $time_ms / 1000, 5 ),
-					'caller'     => $this->sanitize_caller_for_output( isset( $query['caller'] ) ? (string) $query['caller'] : '' ),
-				);
+			$item = array(
+				'query'      => $this->sanitize_sql_for_output( $sql_string, ! $include_raw_sql ),
+				'query_hash' => $query_hash,
+				'query_type' => $this->get_query_type( $sql_string ),
+				'time'       => round( $time_ms / 1000, 5 ),
+				'caller'     => $this->sanitize_caller_for_output( isset( $query['caller'] ) ? (string) $query['caller'] : '' ),
+			);
 
-				if ( isset( $query['component'] ) ) {
-					$item['component'] = sanitize_text_field( (string) $query['component'] );
-				}
-
-				if ( isset( $query['is_duplicate'] ) ) {
-					$item['is_duplicate'] = (bool) $query['is_duplicate'];
-				}
-
-				if ( isset( $query['needs_index'] ) ) {
-					$item['needs_index'] = (bool) $query['needs_index'];
-				}
-
-				$slow_queries[] = $item;
+			if ( isset( $query['component'] ) ) {
+				$item['component'] = sanitize_text_field( (string) $query['component'] );
 			}
+
+			if ( isset( $query['is_duplicate'] ) ) {
+				$item['is_duplicate'] = (bool) $query['is_duplicate'];
+			}
+
+			if ( isset( $query['needs_index'] ) ) {
+				$item['needs_index'] = (bool) $query['needs_index'];
+			}
+
+			$slow_queries[] = $item;
 		}
 
 		// Sort by time descending.
@@ -157,11 +140,11 @@ class QueryAnalysisController extends RestController {
 		);
 
 		$response_data = array(
-			'total_queries' => $query_count,
-			'slow_queries'  => array_slice( $slow_queries, 0, 20 ), // Top 20 slow queries.
-			'savequeries'   => $can_capture,
-			'threshold_ms'  => $threshold_ms,
-			'monitoring'    => $status,
+			'total_queries' => (int) ( $result['total_queries'] ?? 0 ),
+			'slow_queries'  => array_slice( $slow_queries, 0, 20 ),
+			'savequeries'   => (bool) ( $result['savequeries'] ?? false ),
+			'threshold_ms'  => (float) ( $result['threshold_ms'] ?? 0 ),
+			'monitoring'    => (array) ( $result['monitoring'] ?? array() ),
 		);
 
 		return $this->format_response(

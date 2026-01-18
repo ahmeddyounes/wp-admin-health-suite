@@ -14,7 +14,7 @@ use WP_REST_Response;
 use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
-use WPAdminHealth\Contracts\PluginProfilerInterface;
+use WPAdminHealth\Application\Performance\GetPluginImpact;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -39,28 +39,29 @@ class PluginProfilerController extends RestController {
 	protected $rest_base = 'performance/plugins';
 
 	/**
-	 * Plugin profiler instance.
+	 * Plugin impact use-case.
 	 *
-	 * @var PluginProfilerInterface
+	 * @since 1.7.0
+	 * @var GetPluginImpact
 	 */
-	private PluginProfilerInterface $plugin_profiler;
+	private GetPluginImpact $get_plugin_impact;
 
 	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param SettingsInterface       $settings       Settings instance.
-	 * @param ConnectionInterface     $connection     Database connection instance.
-	 * @param PluginProfilerInterface $plugin_profiler Plugin profiler instance.
+	 * @param SettingsInterface   $settings          Settings instance.
+	 * @param ConnectionInterface $connection        Database connection instance.
+	 * @param GetPluginImpact     $get_plugin_impact Plugin impact use-case.
 	 */
 	public function __construct(
 		SettingsInterface $settings,
 		ConnectionInterface $connection,
-		PluginProfilerInterface $plugin_profiler
+		GetPluginImpact $get_plugin_impact
 	) {
 		parent::__construct( $settings, $connection );
-		$this->plugin_profiler = $plugin_profiler;
+		$this->get_plugin_impact = $get_plugin_impact;
 	}
 
 	/**
@@ -95,167 +96,13 @@ class PluginProfilerController extends RestController {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_plugin_impact( $request ) {
-		$settings = $this->get_settings();
-		if ( empty( $settings->get_setting( 'plugin_profiling_enabled', false ) ) ) {
-			return $this->format_response(
-				true,
-				array(
-					'plugins' => array(),
-					'note'    => __( 'Plugin profiling is disabled in settings.', 'wp-admin-health-suite' ),
-				),
-				__( 'Plugin impact data retrieved successfully.', 'wp-admin-health-suite' )
-			);
-		}
-
-		if ( ! function_exists( 'get_plugins' ) || ! function_exists( 'get_plugin_data' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		}
-
-		$all_plugins = function_exists( 'get_plugins' ) ? get_plugins() : array();
-
-		$results      = $this->plugin_profiler->measure_plugin_impact();
-		$measurements = array();
-		$meta         = array();
-
-		if ( isset( $results['status'] ) && 'success' === $results['status'] ) {
-			$measurements = isset( $results['measurements'] ) && is_array( $results['measurements'] ) ? $results['measurements'] : array();
-
-			if ( isset( $results['measured_at'] ) ) {
-				$meta['measured_at'] = (string) $results['measured_at'];
-			}
-
-			if ( isset( $results['note'] ) ) {
-				$meta['note'] = (string) $results['note'];
-			}
-		} elseif ( isset( $results['message'] ) ) {
-			$meta['error'] = (string) $results['message'];
-		}
-		$plugin_data  = array();
-
-		foreach ( $measurements as $measurement ) {
-			$plugin_file = isset( $measurement['file'] ) ? (string) $measurement['file'] : '';
-			$name        = isset( $measurement['name'] ) ? (string) $measurement['name'] : '';
-
-			$version = '';
-			if ( $plugin_file && isset( $all_plugins[ $plugin_file ]['Version'] ) ) {
-				$version = (string) $all_plugins[ $plugin_file ]['Version'];
-			}
-
-			$load_time_ms = isset( $measurement['time'] ) ? round( (float) $measurement['time'] * 1000, 1 ) : 0.0;
-			$memory_kb    = isset( $measurement['memory'] ) ? (int) round( (float) $measurement['memory'] / 1024 ) : 0;
-			$queries      = isset( $measurement['queries'] ) ? absint( $measurement['queries'] ) : 0;
-
-			$plugin_data[] = array(
-				'name'         => $name,
-				'file'         => $plugin_file,
-				'version'      => $version,
-				'load_time'    => $load_time_ms,
-				'memory'       => $memory_kb,
-				'queries'      => $queries,
-				'impact_score' => isset( $measurement['impact_score'] ) ? (float) $measurement['impact_score'] : 0.0,
-			);
-		}
-
-		// Sort by load time impact.
-		usort(
-			$plugin_data,
-			function ( $a, $b ): int {
-				return $b['load_time'] <=> $a['load_time'];
-			}
-		);
+		$data = $this->get_plugin_impact->execute();
 
 		return $this->format_response(
 			true,
-			array_merge(
-				array( 'plugins' => $plugin_data ),
-				$meta
-			),
+			$data,
 			__( 'Plugin impact data retrieved successfully.', 'wp-admin-health-suite' )
 		);
 	}
 
-	/**
-	 * Estimate plugin load time.
-	 *
-	 * @since 1.0.0
-	 * @since 1.3.0 Moved to PluginProfilerController.
-	 *
-	 * @param string $plugin_file Plugin file.
-	 * @return float Estimated load time in milliseconds.
-	 */
-	private function estimate_plugin_load_time( string $plugin_file ): float {
-		$plugin_path = WP_PLUGIN_DIR . '/' . dirname( $plugin_file );
-		$file_count  = 0;
-
-		if ( is_dir( $plugin_path ) ) {
-			$iterator   = new \RecursiveIteratorIterator(
-				new \RecursiveDirectoryIterator( $plugin_path, \RecursiveDirectoryIterator::SKIP_DOTS )
-			);
-			$file_count = iterator_count( $iterator );
-		}
-
-		// Estimate: more files = potentially more load time.
-		return min( 100, max( 5, $file_count * 0.5 ) );
-	}
-
-	/**
-	 * Estimate plugin memory usage.
-	 *
-	 * @since 1.0.0
-	 * @since 1.3.0 Moved to PluginProfilerController.
-	 *
-	 * @param string $plugin_file Plugin file.
-	 * @return int Estimated memory in KB.
-	 */
-	private function estimate_plugin_memory( string $plugin_file ): int {
-		$plugin_path = WP_PLUGIN_DIR . '/' . dirname( $plugin_file );
-		$total_size  = 0;
-
-		if ( is_dir( $plugin_path ) ) {
-			$iterator = new \RecursiveIteratorIterator(
-				new \RecursiveDirectoryIterator( $plugin_path, \RecursiveDirectoryIterator::SKIP_DOTS )
-			);
-
-			foreach ( $iterator as $file ) {
-				if ( $file->isFile() && $file->getExtension() === 'php' ) {
-					$total_size += $file->getSize();
-				}
-			}
-		}
-
-		// Convert to KB.
-		return (int) ( $total_size / 1024 );
-	}
-
-	/**
-	 * Estimate plugin query count.
-	 *
-	 * Estimates based on plugin-specific options in the database.
-	 * This is a heuristic approach - actual profiling would be more accurate.
-	 *
-	 * @since 1.0.0
-	 * @since 1.3.0 Moved to PluginProfilerController.
-	 *
-	 * @param string $plugin_file Plugin file.
-	 * @return int Estimated query count.
-	 */
-	private function estimate_plugin_queries( string $plugin_file ): int {
-		$connection    = $this->get_connection();
-		$options_table = $connection->get_options_table();
-
-		$plugin_slug = dirname( $plugin_file );
-		if ( '.' === $plugin_slug ) {
-			$plugin_slug = basename( $plugin_file, '.php' );
-		}
-
-		// Count plugin-specific options (indicates database usage).
-		$query = $connection->prepare(
-			"SELECT COUNT(*) FROM {$options_table} WHERE option_name LIKE %s",
-			$connection->esc_like( $plugin_slug ) . '%'
-		);
-		$option_count = $query ? $connection->get_var( $query ) : 0;
-
-		// Rough estimate: each option might mean 1-2 queries on load.
-		return absint( $option_count ) * 2;
-	}
 }
