@@ -83,7 +83,7 @@ class ApplicationLayerTest extends StandaloneTestCase {
 	 * Test that AI\GenerateRecommendations can be instantiated.
 	 */
 	public function test_generate_recommendations_can_be_instantiated(): void {
-		$use_case = new GenerateRecommendations();
+		$use_case = new GenerateRecommendations( new \WPAdminHealth\AI\Recommendations() );
 
 		$this->assertInstanceOf( GenerateRecommendations::class, $use_case );
 	}
@@ -167,7 +167,7 @@ class ApplicationLayerTest extends StandaloneTestCase {
 	 * Test that GenerateRecommendations execute returns expected structure.
 	 */
 	public function test_generate_recommendations_execute_returns_array(): void {
-		$use_case = new GenerateRecommendations();
+		$use_case = new GenerateRecommendations( new \WPAdminHealth\AI\Recommendations() );
 		$result   = $use_case->execute();
 
 		$this->assertIsArray( $result );
