@@ -56,6 +56,72 @@ Before installing WP Admin Health Suite, ensure your WordPress site meets these 
 5. Navigate to **Plugins > Installed Plugins**
 6. Find "WP Admin Health Suite" and click **Activate**
 
+#### Method 4: Developer Installation (Composer)
+
+For developers who want to contribute or run tests:
+
+1. Clone the repository into `/wp-content/plugins/`:
+    ```bash
+    cd /path/to/wordpress/wp-content/plugins
+    git clone https://github.com/yourusername/wp-admin-health-suite.git
+    cd wp-admin-health-suite
+    ```
+2. Install PHP and JavaScript dependencies:
+    ```bash
+    composer install
+    npm install
+    ```
+3. Activate the plugin from **Plugins > Installed Plugins**
+
+### Bootstrap and Autoloading
+
+The plugin supports two runtime environments:
+
+| Setup | Autoloader Used | When |
+| ----- | --------------- | ---- |
+| **Development** (with `vendor/`) | Composer's `vendor/autoload.php` | After running `composer install` |
+| **Production** (without `vendor/`) | Built-in `includes/autoload.php` | Distributed plugin ZIP from WordPress.org |
+
+On plugin load, the bootstrap logic automatically detects which autoloader to use:
+
+```php
+if ( file_exists( WP_ADMIN_HEALTH_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
+    require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'vendor/autoload.php';
+} else {
+    require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/autoload.php';
+}
+```
+
+This means:
+- **With `vendor/`**: Composer's autoloader handles all class loading (preferred for development)
+- **Without `vendor/`**: The built-in PSR-4 autoloader in `includes/autoload.php` takes over
+
+Both autoloaders are case-sensitive and map namespaces to directories exactly (e.g., `WPAdminHealth\Database\` → `includes/Database/`).
+
+### Running Tests and Linting
+
+After installing dependencies, you can run the test and linting commands:
+
+```bash
+# PHP unit tests (standalone, no WordPress required)
+composer test:standalone
+
+# JavaScript tests
+npm test
+
+# PHP linting (WordPress Coding Standards)
+composer phpcs
+
+# JavaScript linting
+npm run lint
+
+# Fix linting issues automatically
+npm run lint:fix
+composer phpcbf
+```
+
+**Note**: Running tests and linting requires `vendor/` to be present (`composer install`).
+
 ### What Happens During Installation
 
 When you activate WP Admin Health Suite, the plugin automatically:

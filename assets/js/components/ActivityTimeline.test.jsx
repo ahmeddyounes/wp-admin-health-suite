@@ -16,6 +16,10 @@ import ActivityTimeline, {
 	formatBytes,
 	getRelativeTime,
 } from './ActivityTimeline';
+import apiClient from '../utils/api.js';
+
+// Mock the API client
+jest.mock('../utils/api.js');
 
 describe('ActivityTimeline', () => {
 	const mockActivities = [
@@ -43,11 +47,13 @@ describe('ActivityTimeline', () => {
 	];
 
 	beforeEach(() => {
-		// Mock wp.apiFetch
+		// Reset mocks
+		jest.clearAllMocks();
+		jest.useFakeTimers();
+		// Mock global wp for any remaining usages
 		global.wp = {
 			apiFetch: jest.fn(),
 		};
-		jest.useFakeTimers();
 	});
 
 	afterEach(() => {
@@ -56,31 +62,37 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('renders without crashing', () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: [] });
+		apiClient.get.mockResolvedValue({ success: true, data: [] });
 		render(<ActivityTimeline />);
 		expect(screen.getByText('Recent Activity')).toBeInTheDocument();
 	});
 
 	it('displays loading state initially', () => {
-		wp.apiFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
+		apiClient.get.mockImplementation(() => new Promise(() => {})); // Never resolves
 		render(<ActivityTimeline />);
 		expect(screen.getByText('Loading activities...')).toBeInTheDocument();
 	});
 
 	it('fetches activities on mount', async () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: mockActivities });
+		apiClient.get.mockResolvedValue({
+			success: true,
+			data: mockActivities,
+		});
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
-			expect(wp.apiFetch).toHaveBeenCalledWith({
-				path: '/wpha/v1/activity?page=1&per_page=10',
-				method: 'GET',
+			expect(apiClient.get).toHaveBeenCalledWith('activity', {
+				page: 1,
+				per_page: 10,
 			});
 		});
 	});
 
 	it('displays activities after successful fetch', async () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: mockActivities });
+		apiClient.get.mockResolvedValue({
+			success: true,
+			data: mockActivities,
+		});
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -91,7 +103,10 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('displays items cleaned count', async () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: mockActivities });
+		apiClient.get.mockResolvedValue({
+			success: true,
+			data: mockActivities,
+		});
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -101,7 +116,10 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('displays bytes freed formatted correctly', async () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: mockActivities });
+		apiClient.get.mockResolvedValue({
+			success: true,
+			data: mockActivities,
+		});
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -113,7 +131,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('does not display items cleaned when count is 0', async () => {
-		wp.apiFetch.mockResolvedValue({
+		apiClient.get.mockResolvedValue({
 			success: true,
 			data: [mockActivities[2]], // optimization with 0 items cleaned
 		});
@@ -127,7 +145,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('does not display bytes freed when count is 0', async () => {
-		wp.apiFetch.mockResolvedValue({
+		apiClient.get.mockResolvedValue({
 			success: true,
 			data: [mockActivities[2]], // optimization with 0 bytes freed
 		});
@@ -141,7 +159,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('displays error state when fetch fails', async () => {
-		wp.apiFetch.mockRejectedValue(new Error('Network error'));
+		apiClient.get.mockRejectedValue(new Error('Network error'));
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -150,7 +168,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('shows Try Again button on error', async () => {
-		wp.apiFetch.mockRejectedValue(new Error('Network error'));
+		apiClient.get.mockRejectedValue(new Error('Network error'));
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -159,8 +177,8 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('retries fetch when Try Again is clicked', async () => {
-		wp.apiFetch.mockRejectedValueOnce(new Error('Network error'));
-		wp.apiFetch.mockResolvedValueOnce({
+		apiClient.get.mockRejectedValueOnce(new Error('Network error'));
+		apiClient.get.mockResolvedValueOnce({
 			success: true,
 			data: mockActivities,
 		});
@@ -177,11 +195,11 @@ describe('ActivityTimeline', () => {
 			expect(screen.getByText('Database Cleanup')).toBeInTheDocument();
 		});
 
-		expect(wp.apiFetch).toHaveBeenCalledTimes(2);
+		expect(apiClient.get).toHaveBeenCalledTimes(2);
 	});
 
 	it('displays empty state when no activities', async () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: [] });
+		apiClient.get.mockResolvedValue({ success: true, data: [] });
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -193,7 +211,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('shows Run Your First Scan button in empty state', async () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: [] });
+		apiClient.get.mockResolvedValue({ success: true, data: [] });
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -202,7 +220,10 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('uses correct icons for activity types', async () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: mockActivities });
+		apiClient.get.mockResolvedValue({
+			success: true,
+			data: mockActivities,
+		});
 		const { container } = render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -219,7 +240,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('uses default icon for unknown activity type', async () => {
-		wp.apiFetch.mockResolvedValue({
+		apiClient.get.mockResolvedValue({
 			success: true,
 			data: [
 				{
@@ -241,7 +262,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('uses fallback description for unknown activity type', async () => {
-		wp.apiFetch.mockResolvedValue({
+		apiClient.get.mockResolvedValue({
 			success: true,
 			data: [
 				{
@@ -261,7 +282,10 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('displays activities as a list', async () => {
-		wp.apiFetch.mockResolvedValue({ success: true, data: mockActivities });
+		apiClient.get.mockResolvedValue({
+			success: true,
+			data: mockActivities,
+		});
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -271,7 +295,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('handles API response without success flag', async () => {
-		wp.apiFetch.mockResolvedValue({ message: 'Bad response' });
+		apiClient.get.mockResolvedValue({ message: 'Bad response' });
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {
@@ -281,7 +305,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('uses singular form for 1 item', async () => {
-		wp.apiFetch.mockResolvedValue({
+		apiClient.get.mockResolvedValue({
 			success: true,
 			data: [
 				{
@@ -301,7 +325,7 @@ describe('ActivityTimeline', () => {
 	});
 
 	it('uses plural form for multiple items', async () => {
-		wp.apiFetch.mockResolvedValue({
+		apiClient.get.mockResolvedValue({
 			success: true,
 			data: [
 				{
@@ -322,7 +346,7 @@ describe('ActivityTimeline', () => {
 
 	describe('Pagination', () => {
 		it('shows pagination when totalPages > 1', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -337,7 +361,7 @@ describe('ActivityTimeline', () => {
 		});
 
 		it('hides pagination when totalPages <= 1', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: mockActivities,
 			});
@@ -355,7 +379,7 @@ describe('ActivityTimeline', () => {
 		});
 
 		it('navigates to next page', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -372,15 +396,15 @@ describe('ActivityTimeline', () => {
 			fireEvent.click(nextButton);
 
 			await waitFor(() => {
-				expect(wp.apiFetch).toHaveBeenCalledWith({
-					path: '/wpha/v1/activity?page=2&per_page=10',
-					method: 'GET',
+				expect(apiClient.get).toHaveBeenCalledWith('activity', {
+					page: 2,
+					per_page: 10,
 				});
 			});
 		});
 
 		it('navigates to previous page', async () => {
-			wp.apiFetch.mockResolvedValueOnce({
+			apiClient.get.mockResolvedValueOnce({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -395,7 +419,7 @@ describe('ActivityTimeline', () => {
 			});
 
 			// Go to page 2 first
-			wp.apiFetch.mockResolvedValueOnce({
+			apiClient.get.mockResolvedValueOnce({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -409,7 +433,7 @@ describe('ActivityTimeline', () => {
 			});
 
 			// Go back to page 1
-			wp.apiFetch.mockResolvedValueOnce({
+			apiClient.get.mockResolvedValueOnce({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -419,15 +443,15 @@ describe('ActivityTimeline', () => {
 			fireEvent.click(screen.getByLabelText('Previous page'));
 
 			await waitFor(() => {
-				expect(wp.apiFetch).toHaveBeenLastCalledWith({
-					path: '/wpha/v1/activity?page=1&per_page=10',
-					method: 'GET',
+				expect(apiClient.get).toHaveBeenLastCalledWith('activity', {
+					page: 1,
+					per_page: 10,
 				});
 			});
 		});
 
 		it('disables previous button on first page', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -443,7 +467,7 @@ describe('ActivityTimeline', () => {
 		});
 
 		it('disables next button on last page', async () => {
-			wp.apiFetch.mockResolvedValueOnce({
+			apiClient.get.mockResolvedValueOnce({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -457,7 +481,7 @@ describe('ActivityTimeline', () => {
 			});
 
 			// Go to page 3
-			wp.apiFetch.mockResolvedValueOnce({
+			apiClient.get.mockResolvedValueOnce({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -470,7 +494,7 @@ describe('ActivityTimeline', () => {
 				expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
 			});
 
-			wp.apiFetch.mockResolvedValueOnce({
+			apiClient.get.mockResolvedValueOnce({
 				success: true,
 				data: {
 					items: mockActivities,
@@ -489,7 +513,7 @@ describe('ActivityTimeline', () => {
 
 	describe('Auto-refresh', () => {
 		it('auto-refreshes at the specified interval', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: mockActivities,
 			});
@@ -503,7 +527,7 @@ describe('ActivityTimeline', () => {
 				).toBeInTheDocument();
 			});
 
-			expect(wp.apiFetch).toHaveBeenCalledTimes(1);
+			expect(apiClient.get).toHaveBeenCalledTimes(1);
 
 			// Advance timer
 			act(() => {
@@ -511,12 +535,12 @@ describe('ActivityTimeline', () => {
 			});
 
 			await waitFor(() => {
-				expect(wp.apiFetch).toHaveBeenCalledTimes(2);
+				expect(apiClient.get).toHaveBeenCalledTimes(2);
 			});
 		});
 
 		it('does not auto-refresh when autoRefresh is false', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: mockActivities,
 			});
@@ -530,18 +554,18 @@ describe('ActivityTimeline', () => {
 				).toBeInTheDocument();
 			});
 
-			expect(wp.apiFetch).toHaveBeenCalledTimes(1);
+			expect(apiClient.get).toHaveBeenCalledTimes(1);
 
 			act(() => {
 				jest.advanceTimersByTime(10000);
 			});
 
 			// Should still be 1 call
-			expect(wp.apiFetch).toHaveBeenCalledTimes(1);
+			expect(apiClient.get).toHaveBeenCalledTimes(1);
 		});
 
 		it('shows refresh button in header when activities exist', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: mockActivities,
 			});
@@ -555,7 +579,7 @@ describe('ActivityTimeline', () => {
 		});
 
 		it('manual refresh works', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: mockActivities,
 			});
@@ -567,28 +591,28 @@ describe('ActivityTimeline', () => {
 				).toBeInTheDocument();
 			});
 
-			expect(wp.apiFetch).toHaveBeenCalledTimes(1);
+			expect(apiClient.get).toHaveBeenCalledTimes(1);
 
 			fireEvent.click(screen.getByLabelText('Refresh activities'));
 
 			await waitFor(() => {
-				expect(wp.apiFetch).toHaveBeenCalledTimes(2);
+				expect(apiClient.get).toHaveBeenCalledTimes(2);
 			});
 		});
 	});
 
 	describe('Custom pageSize', () => {
 		it('uses custom pageSize in API call', async () => {
-			wp.apiFetch.mockResolvedValue({
+			apiClient.get.mockResolvedValue({
 				success: true,
 				data: mockActivities,
 			});
 			render(<ActivityTimeline pageSize={5} />);
 
 			await waitFor(() => {
-				expect(wp.apiFetch).toHaveBeenCalledWith({
-					path: '/wpha/v1/activity?page=1&per_page=5',
-					method: 'GET',
+				expect(apiClient.get).toHaveBeenCalledWith('activity', {
+					page: 1,
+					per_page: 5,
 				});
 			});
 		});
@@ -694,9 +718,7 @@ describe('getRelativeTime', () => {
 
 describe('Accessibility', () => {
 	beforeEach(() => {
-		global.wp = {
-			apiFetch: jest.fn(),
-		};
+		jest.clearAllMocks();
 	});
 
 	afterEach(() => {
@@ -704,7 +726,7 @@ describe('Accessibility', () => {
 	});
 
 	it('has proper ARIA labels on timeline list', async () => {
-		wp.apiFetch.mockResolvedValue({
+		apiClient.get.mockResolvedValue({
 			success: true,
 			data: [
 				{
@@ -727,7 +749,7 @@ describe('Accessibility', () => {
 	});
 
 	it('has proper ARIA labels on pagination', async () => {
-		wp.apiFetch.mockResolvedValue({
+		apiClient.get.mockResolvedValue({
 			success: true,
 			data: {
 				items: [
@@ -753,14 +775,14 @@ describe('Accessibility', () => {
 	});
 
 	it('has role="status" on loading state', async () => {
-		wp.apiFetch.mockImplementation(() => new Promise(() => {}));
+		apiClient.get.mockImplementation(() => new Promise(() => {}));
 		render(<ActivityTimeline />);
 
 		expect(screen.getByRole('status')).toBeInTheDocument();
 	});
 
 	it('has role="alert" on error state', async () => {
-		wp.apiFetch.mockRejectedValue(new Error('Network error'));
+		apiClient.get.mockRejectedValue(new Error('Network error'));
 		render(<ActivityTimeline />);
 
 		await waitFor(() => {

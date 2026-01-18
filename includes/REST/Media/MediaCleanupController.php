@@ -16,6 +16,7 @@ use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\SafeDeleteInterface;
 use WPAdminHealth\Contracts\ExclusionsInterface;
+use WPAdminHealth\Contracts\ActivityLoggerInterface;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -54,24 +55,35 @@ class MediaCleanupController extends RestController {
 	private ExclusionsInterface $exclusions;
 
 	/**
+	 * Activity logger instance.
+	 *
+	 * @var ActivityLoggerInterface|null
+	 */
+	private ?ActivityLoggerInterface $activity_logger;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
+	 * @since 1.4.0 Added ActivityLoggerInterface dependency.
 	 *
-	 * @param SettingsInterface   $settings   Settings instance.
-	 * @param ConnectionInterface $connection Database connection instance.
-	 * @param SafeDeleteInterface $safe_delete Safe delete instance.
-	 * @param ExclusionsInterface $exclusions Exclusions manager instance.
+	 * @param SettingsInterface            $settings        Settings instance.
+	 * @param ConnectionInterface          $connection      Database connection instance.
+	 * @param SafeDeleteInterface          $safe_delete     Safe delete instance.
+	 * @param ExclusionsInterface          $exclusions      Exclusions manager instance.
+	 * @param ActivityLoggerInterface|null $activity_logger Activity logger instance (optional).
 	 */
 	public function __construct(
 		SettingsInterface $settings,
 		ConnectionInterface $connection,
 		SafeDeleteInterface $safe_delete,
-		ExclusionsInterface $exclusions
+		ExclusionsInterface $exclusions,
+		?ActivityLoggerInterface $activity_logger = null
 	) {
 		parent::__construct( $settings, $connection );
-		$this->safe_delete = $safe_delete;
-		$this->exclusions  = $exclusions;
+		$this->safe_delete     = $safe_delete;
+		$this->exclusions      = $exclusions;
+		$this->activity_logger = $activity_logger;
 	}
 
 	/**
@@ -296,7 +308,9 @@ class MediaCleanupController extends RestController {
 				);
 			}
 
-			$this->log_activity( 'media_delete', $preview );
+			if ( null !== $this->activity_logger ) {
+				$this->activity_logger->log_media_operation( 'delete', $preview );
+			}
 
 			return $this->format_response(
 				true,
@@ -348,7 +362,9 @@ class MediaCleanupController extends RestController {
 		}
 
 		// Log to activity.
-		$this->log_activity( 'media_delete', $result );
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_media_operation( 'delete', $result );
+		}
 
 		return $this->format_response(
 			true,
@@ -379,7 +395,9 @@ class MediaCleanupController extends RestController {
 				'message'      => __( 'Safe mode enabled. No files were restored from trash.', 'wp-admin-health-suite' ),
 			);
 
-			$this->log_activity( 'media_restore', $preview );
+			if ( null !== $this->activity_logger ) {
+				$this->activity_logger->log_media_operation( 'restore', $preview );
+			}
 
 			return $this->format_response(
 				true,
@@ -401,7 +419,9 @@ class MediaCleanupController extends RestController {
 		}
 
 		// Log to activity.
-		$this->log_activity( 'media_restore', $result );
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_media_operation( 'restore', $result );
+		}
 
 		return $this->format_response(
 			true,
@@ -583,52 +603,4 @@ class MediaCleanupController extends RestController {
 		return $ids;
 	}
 
-	/**
-	 * Log activity to scan history.
-	 *
-	 * @since 1.0.0
-	 * @since 1.3.0 Moved to MediaCleanupController. Uses ConnectionInterface instead of global $wpdb.
-	 *
-	 * @param string $type   The operation type.
-	 * @param array  $result The result data.
-	 * @return void
-	 */
-	private function log_activity( string $type, array $result ): void {
-		$connection = $this->get_connection();
-		$table_name = $connection->get_prefix() . 'wpha_scan_history';
-
-		// Check if table exists.
-		if ( ! $connection->table_exists( $table_name ) ) {
-			return;
-		}
-
-		$items_found   = 0;
-		$items_cleaned = 0;
-
-		switch ( $type ) {
-			case 'media_delete':
-				$items_found   = isset( $result['prepared_items'] ) ? count( $result['prepared_items'] ) : 0;
-				$items_cleaned = $items_found;
-				break;
-
-			case 'media_restore':
-				$items_found   = 1;
-				$items_cleaned = 1;
-				break;
-		}
-
-		$scan_type = 'media_' . str_replace( 'media_', '', $type );
-
-		$connection->insert(
-			$table_name,
-			array(
-				'scan_type'     => sanitize_text_field( $scan_type ),
-				'items_found'   => absint( $items_found ),
-				'items_cleaned' => absint( $items_cleaned ),
-				'bytes_freed'   => 0,
-				'created_at'    => current_time( 'mysql' ),
-			),
-			array( '%s', '%d', '%d', '%d', '%s' )
-		);
-	}
 }

@@ -15,6 +15,7 @@ use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\OptimizerInterface;
+use WPAdminHealth\Contracts\ActivityLoggerInterface;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -46,21 +47,32 @@ class OptimizationController extends RestController {
 	private OptimizerInterface $optimizer;
 
 	/**
+	 * Activity logger instance.
+	 *
+	 * @var ActivityLoggerInterface|null
+	 */
+	private ?ActivityLoggerInterface $activity_logger;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
+	 * @since 1.4.0 Added ActivityLoggerInterface dependency.
 	 *
-	 * @param SettingsInterface    $settings Settings instance.
-	 * @param ConnectionInterface  $connection Database connection instance.
-	 * @param OptimizerInterface   $optimizer Optimizer instance.
+	 * @param SettingsInterface            $settings        Settings instance.
+	 * @param ConnectionInterface          $connection      Database connection instance.
+	 * @param OptimizerInterface           $optimizer       Optimizer instance.
+	 * @param ActivityLoggerInterface|null $activity_logger Activity logger instance (optional).
 	 */
 	public function __construct(
 		SettingsInterface $settings,
 		ConnectionInterface $connection,
-		OptimizerInterface $optimizer
+		OptimizerInterface $optimizer,
+		?ActivityLoggerInterface $activity_logger = null
 	) {
 		parent::__construct( $settings, $connection );
-		$this->optimizer = $optimizer;
+		$this->optimizer       = $optimizer;
+		$this->activity_logger = $activity_logger;
 	}
 
 	/**
@@ -275,13 +287,15 @@ class OptimizationController extends RestController {
 		}
 
 		// Log to activity.
-		$this->log_activity(
-			'optimization',
-			array(
-				'tables_optimized' => count( $results ),
-				'bytes_freed'      => $total_bytes_freed,
-			)
-		);
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_database_cleanup(
+				'optimization',
+				array(
+					'tables_optimized' => count( $results ),
+					'bytes_freed'      => $total_bytes_freed,
+				)
+			);
+		}
 
 		return $this->format_response(
 			true,
@@ -357,13 +371,15 @@ class OptimizationController extends RestController {
 		}
 
 		// Log to activity.
-		$this->log_activity(
-			'table_repair',
-			array(
-				'tables_repaired' => $success_count,
-				'total_tables'    => count( $tables ),
-			)
-		);
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_database_cleanup(
+				'table_repair',
+				array(
+					'tables_repaired' => $success_count,
+					'total_tables'    => count( $tables ),
+				)
+			);
+		}
 
 		return $this->format_response(
 			true,
@@ -373,58 +389,6 @@ class OptimizationController extends RestController {
 				'total_tables'   => count( $tables ),
 			),
 			__( 'Table repair completed successfully.', 'wp-admin-health-suite' )
-		);
-	}
-
-	/**
-	 * Log activity to scan history.
-	 *
-	 * @since 1.3.0
-	 *
-	 * @param string $type   The operation type.
-	 * @param array  $result The result data.
-	 * @return void
-	 */
-	private function log_activity( string $type, array $result ): void {
-		$connection = $this->get_connection();
-
-		$table_name = $connection->get_prefix() . 'wpha_scan_history';
-
-		// Check if table exists.
-		if ( ! $connection->table_exists( $table_name ) ) {
-			return;
-		}
-
-		// Determine items found and cleaned.
-		$items_found   = 0;
-		$items_cleaned = 0;
-		$bytes_freed   = 0;
-
-		switch ( $type ) {
-			case 'optimization':
-				$items_found   = isset( $result['tables_optimized'] ) ? $result['tables_optimized'] : 0;
-				$items_cleaned = $items_found;
-				$bytes_freed   = isset( $result['bytes_freed'] ) ? $result['bytes_freed'] : 0;
-				break;
-
-			case 'table_repair':
-				$items_found   = isset( $result['tables_repaired'] ) ? $result['tables_repaired'] : 0;
-				$items_cleaned = $items_found;
-				break;
-		}
-
-		$scan_type = 'database_' . $type;
-
-		$connection->insert(
-			$table_name,
-			array(
-				'scan_type'     => sanitize_text_field( $scan_type ),
-				'items_found'   => absint( $items_found ),
-				'items_cleaned' => absint( $items_cleaned ),
-				'bytes_freed'   => absint( $bytes_freed ),
-				'created_at'    => current_time( 'mysql' ),
-			),
-			array( '%s', '%d', '%d', '%d', '%s' )
 		);
 	}
 

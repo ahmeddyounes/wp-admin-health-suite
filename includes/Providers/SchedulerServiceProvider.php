@@ -11,12 +11,18 @@ namespace WPAdminHealth\Providers;
 
 use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Scheduler\SchedulerRegistry;
+use WPAdminHealth\Scheduler\SchedulingService;
+use WPAdminHealth\Scheduler\ProgressStore;
+use WPAdminHealth\Scheduler\TaskObservabilityService;
 use WPAdminHealth\Scheduler\Contracts\SchedulerRegistryInterface;
+use WPAdminHealth\Scheduler\Contracts\SchedulingServiceInterface;
 use WPAdminHealth\Scheduler\Traits\HasScheduledTasks;
 use WPAdminHealth\Database\Tasks\DatabaseCleanupTask;
 use WPAdminHealth\Media\Tasks\MediaScanTask;
 use WPAdminHealth\Performance\Tasks\PerformanceCheckTask;
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Contracts\ActivityLoggerInterface;
 use WPAdminHealth\Contracts\RevisionsManagerInterface;
 use WPAdminHealth\Contracts\TransientsCleanerInterface;
 use WPAdminHealth\Contracts\OrphanedCleanerInterface;
@@ -26,9 +32,7 @@ use WPAdminHealth\Contracts\ScannerInterface;
 use WPAdminHealth\Contracts\DuplicateDetectorInterface;
 use WPAdminHealth\Contracts\LargeFilesInterface;
 use WPAdminHealth\Contracts\AltTextCheckerInterface;
-use WPAdminHealth\Contracts\AutoloadAnalyzerInterface;
-use WPAdminHealth\Contracts\QueryMonitorInterface;
-use WPAdminHealth\Contracts\PluginProfilerInterface;
+use WPAdminHealth\Application\Performance\RunHealthCheck;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -53,7 +57,13 @@ class SchedulerServiceProvider extends ServiceProvider {
 	 */
 	protected array $provides = array(
 		SchedulerRegistryInterface::class,
+		SchedulingServiceInterface::class,
+		TaskObservabilityService::class,
+		ProgressStore::class,
 		'scheduler.registry',
+		'scheduler.service',
+		'scheduler.observability',
+		'scheduler.progress_store',
 		DatabaseCleanupTask::class,
 		MediaScanTask::class,
 		PerformanceCheckTask::class,
@@ -78,6 +88,40 @@ class SchedulerServiceProvider extends ServiceProvider {
 			}
 		);
 		$this->container->alias( 'scheduler.registry', SchedulerRegistryInterface::class );
+
+		// Register the SchedulingService as a singleton.
+		$this->container->singleton(
+			SchedulingServiceInterface::class,
+			function ( $container ) {
+				return new SchedulingService(
+					$container->get( SettingsInterface::class ),
+					$container->get( SchedulerRegistryInterface::class )
+				);
+			}
+		);
+		$this->container->alias( 'scheduler.service', SchedulingServiceInterface::class );
+
+		// Register ProgressStore as a singleton.
+		$this->container->singleton(
+			ProgressStore::class,
+			function () {
+				return new ProgressStore();
+			}
+		);
+		$this->container->alias( 'scheduler.progress_store', ProgressStore::class );
+
+		// Register TaskObservabilityService as a singleton.
+		$this->container->singleton(
+			TaskObservabilityService::class,
+			function ( $container ) {
+				return new TaskObservabilityService(
+					$container->get( ActivityLoggerInterface::class ),
+					$container->get( SettingsInterface::class ),
+					$container->get( ProgressStore::class )
+				);
+			}
+		);
+		$this->container->alias( 'scheduler.observability', TaskObservabilityService::class );
 
 		// Register task classes.
 		$this->register_tasks();
@@ -111,7 +155,8 @@ class SchedulerServiceProvider extends ServiceProvider {
 					$container->get( TransientsCleanerInterface::class ),
 					$container->get( OrphanedCleanerInterface::class ),
 					$container->get( TrashCleanerInterface::class ),
-					$container->get( OptimizerInterface::class )
+					$container->get( OptimizerInterface::class ),
+					$container->get( SettingsInterface::class )
 				);
 			}
 		);
@@ -135,10 +180,7 @@ class SchedulerServiceProvider extends ServiceProvider {
 			PerformanceCheckTask::class,
 			function ( $container ) {
 				return new PerformanceCheckTask(
-					$container->get( AutoloadAnalyzerInterface::class ),
-					$container->get( QueryMonitorInterface::class ),
-					$container->get( PluginProfilerInterface::class ),
-					$container->get( ConnectionInterface::class )
+					$container->get( RunHealthCheck::class )
 				);
 			}
 		);
@@ -153,6 +195,27 @@ class SchedulerServiceProvider extends ServiceProvider {
 
 		// Hook the registry into WP-Cron execution.
 		$this->setup_cron_hooks();
+
+		// Register task observability hooks.
+		$this->setup_observability_hooks();
+	}
+
+	/**
+	 * Set up task observability hooks.
+	 *
+	 * @since 1.8.0
+	 *
+	 * @return void
+	 */
+	private function setup_observability_hooks(): void {
+		// Only register if ActivityLoggerInterface is available.
+		if ( ! $this->container->has( ActivityLoggerInterface::class ) ) {
+			return;
+		}
+
+		/** @var TaskObservabilityService $observability */
+		$observability = $this->container->get( TaskObservabilityService::class );
+		$observability->register();
 	}
 
 	/**

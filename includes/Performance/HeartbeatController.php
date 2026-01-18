@@ -71,16 +71,16 @@ class HeartbeatController {
 	/**
 	 * Constructor.
 	 *
+	 * This class is container-managed via BootstrapServiceProvider, which injects
+	 * the SettingsInterface dependency. The optional parameter is retained for
+	 * backwards compatibility and testing.
+	 *
 	 * @since 1.0.0
 	 *
-	 * @param SettingsInterface|null $settings Optional settings instance.
+	 * @param SettingsInterface $settings Settings instance (required when container-managed).
+	 * @throws \RuntimeException If settings instance is not provided.
 	 */
-	public function __construct( ?SettingsInterface $settings = null ) {
-		if ( null === $settings ) {
-			/** @var SettingsInterface $settings */
-			$settings = \WPAdminHealth\Plugin::get_instance()->get_container()->get( SettingsInterface::class );
-		}
-
+	public function __construct( SettingsInterface $settings ) {
 		$this->settings = $settings;
 		$this->maybe_migrate_legacy_settings();
 		$this->init_hooks();

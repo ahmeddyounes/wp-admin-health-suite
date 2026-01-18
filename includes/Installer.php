@@ -2,6 +2,16 @@
 /**
  * Installer Class
  *
+ * EDGE ADAPTER: This class uses static methods called during plugin activation and deactivation.
+ * At activation time, the DI container may not be fully initialized yet. The class uses optional
+ * service location via Plugin::get_instance()->get_container() with fallback to global $wpdb
+ * to ensure database operations work in all contexts (activation, upgrade, uninstall).
+ *
+ * The service-locator pattern is necessary here because:
+ * 1. WordPress activation hooks execute before the plugin's init() method
+ * 2. Static methods cannot receive constructor-injected dependencies
+ * 3. The Installer must function even if the container is unavailable
+ *
  * @package WPAdminHealth
  */
 
@@ -15,6 +25,8 @@ use WPAdminHealth\Settings\Domain\PerformanceSettings;
 use WPAdminHealth\Settings\Domain\SchedulingSettings;
 use WPAdminHealth\Settings\Domain\AdvancedSettings;
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\TableCheckerInterface;
+use WPAdminHealth\Scheduler\Contracts\SchedulingServiceInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -23,6 +35,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Handles plugin installation, upgrades, and database setup.
+ *
+ * This is an edge adapter that uses optional service location because it operates
+ * during WordPress lifecycle events where the DI container may not be available.
+ * For normal application code, use ConnectionInterface via constructor injection.
  *
  * @since 1.0.0
  * @since 1.3.0 Added ConnectionInterface support with optional injection.
@@ -45,6 +61,14 @@ class Installer {
 	private static ?ConnectionInterface $connection = null;
 
 	/**
+	 * Scheduling service.
+	 *
+	 * @since 2.0.0
+	 * @var SchedulingServiceInterface|null
+	 */
+	private static ?SchedulingServiceInterface $scheduling_service = null;
+
+	/**
 	 * Set the database connection.
 	 *
 	 * @since 1.3.0
@@ -54,6 +78,18 @@ class Installer {
 	 */
 	public static function set_connection( ConnectionInterface $connection ): void {
 		self::$connection = $connection;
+	}
+
+	/**
+	 * Set the scheduling service.
+	 *
+	 * @since 2.0.0
+	 *
+	 * @param SchedulingServiceInterface $scheduling_service Scheduling service instance.
+	 * @return void
+	 */
+	public static function set_scheduling_service( SchedulingServiceInterface $scheduling_service ): void {
+		self::$scheduling_service = $scheduling_service;
 	}
 
 	/**
@@ -72,6 +108,29 @@ class Installer {
 		}
 
 		return self::$connection;
+	}
+
+	/**
+	 * Get the scheduling service.
+	 *
+	 * @since 2.0.0
+	 *
+	 * @return SchedulingServiceInterface|null Scheduling service or null if not available.
+	 */
+	private static function get_scheduling_service(): ?SchedulingServiceInterface {
+		if ( null === self::$scheduling_service && class_exists( Plugin::class ) ) {
+			try {
+				$container = Plugin::get_instance()->get_container();
+				if ( $container && $container->has( SchedulingServiceInterface::class ) ) {
+					self::$scheduling_service = $container->get( SchedulingServiceInterface::class );
+				}
+			} catch ( \Exception $e ) {
+				// Container not available during activation, which is expected.
+				return null;
+			}
+		}
+
+		return self::$scheduling_service;
 	}
 
 	/**
@@ -211,6 +270,46 @@ class Installer {
 		) {$charset_collate};";
 
 		dbDelta( $sql_ajax_log );
+
+		// Clear table existence cache after creating/updating tables.
+		self::clear_table_checker_cache();
+	}
+
+	/**
+	 * Clear the TableChecker cache after table creation/modification.
+	 *
+	 * This ensures that table existence checks return accurate results
+	 * after install or upgrade operations.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return void
+	 */
+	private static function clear_table_checker_cache(): void {
+		// Try to get TableChecker from container and clear its cache.
+		if ( class_exists( Plugin::class ) ) {
+			try {
+				$container = Plugin::get_instance()->get_container();
+				if ( $container && $container->has( TableCheckerInterface::class ) ) {
+					$table_checker = $container->get( TableCheckerInterface::class );
+					$table_checker->clear_cache();
+				}
+			} catch ( \Exception $e ) {
+				// TableChecker not available during activation, which is expected.
+				// The in-memory cache will be empty for a fresh request anyway.
+			}
+		}
+
+		/**
+		 * Fires after plugin tables have been created or updated.
+		 *
+		 * Use this hook to invalidate any table-related caches.
+		 *
+		 * @since 1.4.0
+		 *
+		 * @hook wpha_tables_updated
+		 */
+		do_action( 'wpha_tables_updated' );
 	}
 
 	/**
@@ -258,14 +357,40 @@ class Installer {
 	 * created (only when an existing option is updated), we need to manually
 	 * schedule initial cron tasks based on default settings.
 	 *
+	 * This method delegates to SchedulingService when available, falling back
+	 * to direct scheduling if the DI container isn't ready during activation.
+	 *
 	 * @since 1.2.0
+	 * @since 2.0.0 Delegates to SchedulingService when available.
 	 *
 	 * @return void
 	 */
 	private static function schedule_initial_tasks(): void {
-		$settings = get_option( SettingsRegistry::OPTION_NAME, array() );
-
 		// Ensure our custom schedules are available during activation/fresh install.
+		self::register_custom_cron_schedules();
+
+		// Try to use SchedulingService if available.
+		$scheduling_service = self::get_scheduling_service();
+		if ( null !== $scheduling_service ) {
+			$scheduling_service->schedule_initial_tasks();
+			return;
+		}
+
+		// Fallback: Direct scheduling if SchedulingService isn't available.
+		// This can happen during activation when the container isn't fully initialized.
+		self::schedule_initial_tasks_fallback();
+	}
+
+	/**
+	 * Register custom cron schedules.
+	 *
+	 * Ensures weekly and monthly schedules are available during plugin activation.
+	 *
+	 * @since 2.0.0
+	 *
+	 * @return void
+	 */
+	private static function register_custom_cron_schedules(): void {
 		add_filter(
 			'cron_schedules',
 			function ( array $schedules ): array {
@@ -286,6 +411,20 @@ class Installer {
 				return $schedules;
 			}
 		);
+	}
+
+	/**
+	 * Fallback method for scheduling initial tasks directly.
+	 *
+	 * Used when SchedulingService is not available (e.g., during activation
+	 * before the container is initialized).
+	 *
+	 * @since 2.0.0
+	 *
+	 * @return void
+	 */
+	private static function schedule_initial_tasks_fallback(): void {
+		$settings = get_option( SettingsRegistry::OPTION_NAME, array() );
 
 		// Only schedule if scheduler is enabled (default is true).
 		if ( empty( $settings['scheduler_enabled'] ) ) {

@@ -1,0 +1,45 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (5ccea6f)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 241 files
+[STARTED] *.{js,jsx} — 4 files
+[STARTED] *.{json,css,scss,md} — 111 files
+[STARTED] eslint --fix
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 111 files
+[FAILED] eslint --fix [FAILED]
+[FAILED] eslint --fix [FAILED]
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[SKIPPED] Skipped because of errors from tasks.
+[STARTED] Reverting to original state because of errors...
+[COMPLETED] Reverting to original state because of errors...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+
+✖ eslint --fix:
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/admin.js
+    7:1  warning  Missing JSDoc @param "window" type    jsdoc/require-param-type
+    8:1  warning  Missing JSDoc @param "$" type         jsdoc/require-param-type
+  291:1  warning  Missing JSDoc @param "message" type   jsdoc/require-param-type
+  292:1  warning  Missing JSDoc @param "duration" type  jsdoc/require-param-type
+
+/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/jest.setup.js
+   9:12  error  'jest' is not defined  no-undef
+  16:18  error  'jest' is not defined  no-undef
+
+✖ 6 problems (2 errors, 4 warnings)
+
+husky - pre-commit script failed (code 1)

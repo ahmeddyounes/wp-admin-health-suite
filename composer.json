@@ -23,15 +23,7 @@
   "autoload": {
     "psr-4": {
       "WPAdminHealth\\": "includes/"
-    },
-    "classmap": [
-      "includes/database/",
-      "includes/integrations/",
-      "includes/media/",
-      "includes/rest/",
-      "includes/performance/",
-      "includes/ai/"
-    ]
+    }
   },
   "autoload-dev": {
     "psr-4": {
@@ -67,7 +59,12 @@
     "lint:php:fix": "phpcbf",
     "analyse": "phpstan analyse --memory-limit=1G",
     "docs": "phpdoc run -c phpdoc.xml",
-    "docs:clear": "rm -rf docs/api .phpdoc"
+    "docs:clear": "rm -rf docs/api .phpdoc",
+    "check": [
+      "@lint:php",
+      "@analyse",
+      "@test:standalone"
+    ]
   },
   "minimum-stability": "stable",
   "prefer-stable": true

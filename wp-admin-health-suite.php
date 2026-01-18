@@ -89,7 +89,14 @@ if ( ! wp_admin_health_requirements_met() ) {
 }
 
 // Require the autoloader.
-require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/autoload.php';
+// Prefer Composer autoload when available (e.g., development with `composer install`).
+// Fall back to the built-in PSR-4 autoloader for production/distribution without vendor/.
+$composer_autoload = WP_ADMIN_HEALTH_PLUGIN_DIR . 'vendor/autoload.php';
+if ( file_exists( $composer_autoload ) ) {
+	require_once $composer_autoload;
+} else {
+	require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/autoload.php';
+}
 
 /**
  * Main plugin class initialization.

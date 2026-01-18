@@ -5,139 +5,105 @@
  */
 
 import React from 'react';
+import { cleanup } from '@testing-library/react';
 
 // Mock the admin.js import
 jest.mock('../admin.js', () => ({}));
 
 // Import after mocking
-import './settings.js';
+import { __testing__ } from './settings.js';
 
 describe('Settings Entry Point', () => {
 	beforeEach(() => {
 		// Reset mocks
 		jest.clearAllMocks();
+
+		// Ensure WPAdminHealth namespace exists
+		window.WPAdminHealth = window.WPAdminHealth || {};
 	});
 
 	afterEach(() => {
-		// Cleanup global state if needed
+		cleanup();
 	});
 
-	describe('WPAdminHealthComponents global', () => {
-		it('exposes components on window.WPAdminHealthComponents', () => {
-			expect(window.WPAdminHealthComponents).toBeDefined();
+	describe('Extension API', () => {
+		it('exposes extension API on window.WPAdminHealth.extensions', () => {
+			expect(window.WPAdminHealth.extensions).toBeDefined();
 		});
 
-		it('exposes React', () => {
-			expect(window.WPAdminHealthComponents.React).toBeDefined();
-			expect(window.WPAdminHealthComponents.React).toBe(React);
+		it('provides version information', () => {
+			expect(window.WPAdminHealth.extensions.version).toBeDefined();
 		});
 
-		it('exposes createRoot', () => {
-			expect(window.WPAdminHealthComponents.createRoot).toBeDefined();
-			expect(typeof window.WPAdminHealthComponents.createRoot).toBe(
+		it('provides registerWidget method', () => {
+			expect(typeof window.WPAdminHealth.extensions.registerWidget).toBe(
 				'function'
 			);
 		});
-	});
 
-	describe('Global namespace preservation', () => {
-		it('preserves existing WPAdminHealthComponents properties', () => {
-			// Verify that the settings entry point uses Object.assign correctly
-			expect(window.WPAdminHealthComponents).toBeDefined();
-
-			// Core utilities should be available
-			expect(window.WPAdminHealthComponents.React).toBeDefined();
-			expect(window.WPAdminHealthComponents.createRoot).toBeDefined();
-		});
-
-		it('does not remove previously set components', () => {
-			// After multiple entry points load, all components should be available
-			const components = window.WPAdminHealthComponents;
-
-			// Core utilities should be available
-			expect(components.React).toBeDefined();
-			expect(components.createRoot).toBeDefined();
-		});
-
-		it('initializes WPAdminHealthComponents if not already present', () => {
-			// The entry point should handle the case where window.WPAdminHealthComponents
-			// is not already defined by initializing it to an empty object first
-			expect(window.WPAdminHealthComponents).toBeDefined();
-			expect(typeof window.WPAdminHealthComponents).toBe('object');
+		it('provides hook constants', () => {
+			expect(window.WPAdminHealth.extensions.hooks).toBeDefined();
 		});
 	});
 
-	describe('React and createRoot availability for settings page', () => {
-		it('React is available for settings form components', () => {
-			expect(window.WPAdminHealthComponents.React).toBe(React);
-			expect(window.WPAdminHealthComponents.React.createElement).toBe(
-				React.createElement
-			);
+	describe('Internal utilities (via __testing__)', () => {
+		it('has React reference', () => {
+			expect(__testing__.React).toBe(React);
+		});
+
+		it('has createRoot function', () => {
+			expect(typeof __testing__.createRoot).toBe('function');
+		});
+	});
+
+	describe('Global namespace changes', () => {
+		it('does NOT expose WPAdminHealthComponents global', () => {
+			// The old API has been removed
+			expect(window.WPAdminHealthComponents).toBeUndefined();
+		});
+	});
+
+	describe('React availability for settings page', () => {
+		it('React is available via __testing__ export', () => {
+			expect(__testing__.React).toBe(React);
+			expect(__testing__.React.createElement).toBe(React.createElement);
 		});
 
 		it('createRoot is available for mounting settings UI components', () => {
-			const { createRoot } = window.WPAdminHealthComponents;
+			const { createRoot } = __testing__;
 			expect(createRoot).toBeDefined();
 			expect(typeof createRoot).toBe('function');
 		});
 	});
 
-	describe('Settings-specific functionality', () => {
-		it('provides React hooks for form state management', () => {
-			const { React: ExposedReact } = window.WPAdminHealthComponents;
-			expect(ExposedReact.useState).toBeDefined();
-			expect(typeof ExposedReact.useState).toBe('function');
+	describe('React hooks are available', () => {
+		it('provides useState hook', () => {
+			expect(__testing__.React.useState).toBeDefined();
+			expect(typeof __testing__.React.useState).toBe('function');
 		});
 
-		it('provides React hooks for side effects', () => {
-			const { React: ExposedReact } = window.WPAdminHealthComponents;
-			expect(ExposedReact.useEffect).toBeDefined();
-			expect(typeof ExposedReact.useEffect).toBe('function');
+		it('provides useEffect hook', () => {
+			expect(__testing__.React.useEffect).toBeDefined();
+			expect(typeof __testing__.React.useEffect).toBe('function');
 		});
 
-		it('provides React hooks for refs (useful for form inputs)', () => {
-			const { React: ExposedReact } = window.WPAdminHealthComponents;
-			expect(ExposedReact.useRef).toBeDefined();
-			expect(typeof ExposedReact.useRef).toBe('function');
+		it('provides useRef hook', () => {
+			expect(__testing__.React.useRef).toBeDefined();
+			expect(typeof __testing__.React.useRef).toBe('function');
 		});
 
-		it('provides React callback memoization (useful for form handlers)', () => {
-			const { React: ExposedReact } = window.WPAdminHealthComponents;
-			expect(ExposedReact.useCallback).toBeDefined();
-			expect(typeof ExposedReact.useCallback).toBe('function');
+		it('provides useCallback hook', () => {
+			expect(__testing__.React.useCallback).toBeDefined();
+			expect(typeof __testing__.React.useCallback).toBe('function');
 		});
 
-		it('provides React memo for component optimization', () => {
-			const { React: ExposedReact } = window.WPAdminHealthComponents;
-			expect(ExposedReact.memo).toBeDefined();
-			expect(typeof ExposedReact.memo).toBe('function');
-		});
-	});
-
-	describe('WordPress template integration', () => {
-		it('WPAdminHealthComponents is accessible globally for WordPress PHP templates', () => {
-			// WordPress templates can use this to mount React components
-			expect(window.WPAdminHealthComponents).toBeDefined();
-			expect(window.WPAdminHealthComponents.React).toBeDefined();
-			expect(window.WPAdminHealthComponents.createRoot).toBeDefined();
+		it('provides memo for component optimization', () => {
+			expect(__testing__.React.memo).toBeDefined();
+			expect(typeof __testing__.React.memo).toBe('function');
 		});
 
-		it('allows creating React elements from WordPress templates', () => {
-			const { React: ExposedReact } = window.WPAdminHealthComponents;
-			const element = ExposedReact.createElement(
-				'div',
-				{ className: 'test' },
-				'Test content'
-			);
-			expect(element).toBeDefined();
-			expect(element.type).toBe('div');
-			expect(element.props.className).toBe('test');
-			expect(element.props.children).toBe('Test content');
-		});
-
-		it('provides Fragment for grouping elements without extra DOM nodes', () => {
-			const { React: ExposedReact } = window.WPAdminHealthComponents;
-			expect(ExposedReact.Fragment).toBeDefined();
+		it('provides Fragment for grouping elements', () => {
+			expect(__testing__.React.Fragment).toBeDefined();
 		});
 	});
 });

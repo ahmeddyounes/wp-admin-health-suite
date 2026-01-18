@@ -10,6 +10,9 @@
 (function ($) {
 	'use strict';
 
+	// Get centralized API client
+	const api = window.WPAdminHealth?.api;
+
 	const MediaAudit = {
 		/**
 		 * Current tab.
@@ -177,22 +180,22 @@
 		/**
 		 * Load statistics.
 		 */
-		loadStats() {
-			wp.apiFetch({
-				path: '/wpha/v1/media/stats',
-			})
-				.then((response) => {
-					if (response.success && response.data) {
-						this.dataCache.stats = response.data;
-						this.renderStats(response.data);
-						this.renderScanStatus(response.data);
-					}
-				})
-				.catch((error) => {
-					console.error('Error loading stats:', error);
-					this.hideSkeletons(this.$statsCards);
-					this.hideSkeletons(this.$scanBanner);
-				});
+		async loadStats() {
+			try {
+				const response = await api.get('media/stats');
+				if (response.success && response.data) {
+					this.dataCache.stats = response.data;
+					this.renderStats(response.data);
+					this.renderScanStatus(response.data);
+				}
+			} catch (error) {
+				console.error('Error loading stats:', error);
+				this.hideSkeletons(this.$statsCards);
+				this.hideSkeletons(this.$scanBanner);
+				window.WPAdminHealth?.Toast?.error(
+					error.message || 'Failed to load media statistics'
+				);
+			}
 		},
 
 		/**
@@ -277,26 +280,26 @@
 		 * Load data for specific tab.
 		 * @param tab
 		 */
-		loadTabData(tab) {
+		async loadTabData(tab) {
 			// If data is cached, just render it
 			if (this.dataCache[tab].length > 0) {
 				this.renderTabData(tab);
 				return;
 			}
 
-			let apiPath = '';
+			let endpoint = '';
 			switch (tab) {
 				case 'unused':
-					apiPath = '/wpha/v1/media/unused';
+					endpoint = 'media/unused';
 					break;
 				case 'duplicates':
-					apiPath = '/wpha/v1/media/duplicates';
+					endpoint = 'media/duplicates';
 					break;
 				case 'large-files':
-					apiPath = '/wpha/v1/media/large';
+					endpoint = 'media/large';
 					break;
 				case 'missing-alt':
-					apiPath = '/wpha/v1/media/missing-alt';
+					endpoint = 'media/missing-alt';
 					break;
 			}
 
@@ -305,20 +308,20 @@
 
 			$skeleton.show();
 
-			wp.apiFetch({
-				path: apiPath,
-			})
-				.then((response) => {
-					if (response.success && response.data) {
-						this.dataCache[tab] = response.data;
-						this.renderTabData(tab);
-					}
-				})
-				.catch((error) => {
-					console.error(`Error loading ${tab} data:`, error);
-					$skeleton.hide();
-					this.showEmptyState($panel);
-				});
+			try {
+				const response = await api.get(endpoint);
+				if (response.success && response.data) {
+					this.dataCache[tab] = response.data;
+					this.renderTabData(tab);
+				}
+			} catch (error) {
+				console.error(`Error loading ${tab} data:`, error);
+				$skeleton.hide();
+				this.showEmptyState($panel);
+				window.WPAdminHealth?.Toast?.error(
+					error.message || `Failed to load ${tab} data`
+				);
+			}
 		},
 
 		/**
@@ -759,7 +762,7 @@
 		 * Handle rescan.
 		 * @param e
 		 */
-		handleRescan(e) {
+		async handleRescan(e) {
 			e.preventDefault();
 			const $btn = $(e.currentTarget);
 
@@ -770,41 +773,46 @@
 			$btn.prop('disabled', true).addClass('wpha-loading');
 			$btn.find('.dashicons').addClass('wpha-spin');
 
-			wp.apiFetch({
-				path: '/wpha/v1/media/scan',
-				method: 'POST',
-			})
-				.then((response) => {
-					if (response.success) {
-						// Clear cache and reload
-						Object.keys(this.dataCache).forEach((key) => {
-							if (key !== 'stats') {
-								this.dataCache[key] = [];
-							}
-						});
+			try {
+				const response = await api.post('media/scan');
+				if (response.success) {
+					// Clear cache and reload
+					Object.keys(this.dataCache).forEach((key) => {
+						if (key !== 'stats') {
+							this.dataCache[key] = [];
+						}
+					});
 
-						this.loadStats();
-						this.loadTabData(this.currentTab);
+					// Invalidate media stats cache
+					api.invalidateCache('media/stats');
+					api.invalidateCache('media/unused');
+					api.invalidateCache('media/duplicates');
+					api.invalidateCache('media/large');
+					api.invalidateCache('media/missing-alt');
 
-						// Show success message
-						this.showNotice(
-							'success',
-							wpAdminHealthData.i18n.success ||
-								'Scan completed successfully.'
-						);
-					}
-				})
-				.catch((error) => {
-					console.error('Error scanning:', error);
+					this.loadStats();
+					this.loadTabData(this.currentTab);
+
+					// Show success message
 					this.showNotice(
-						'error',
-						wpAdminHealthData.i18n.error || 'Scan failed.'
+						'success',
+						wpAdminHealthData.i18n.success ||
+							'Scan completed successfully.'
 					);
-				})
-				.finally(() => {
-					$btn.prop('disabled', false).removeClass('wpha-loading');
-					$btn.find('.dashicons').removeClass('wpha-spin');
-				});
+				}
+			} catch (error) {
+				console.error('Error scanning:', error);
+				this.showNotice(
+					'error',
+					wpAdminHealthData.i18n.error || 'Scan failed.'
+				);
+				window.WPAdminHealth?.Toast?.error(
+					error.message || 'Media scan failed'
+				);
+			} finally {
+				$btn.prop('disabled', false).removeClass('wpha-loading');
+				$btn.find('.dashicons').removeClass('wpha-spin');
+			}
 		},
 
 		/**
@@ -969,55 +977,52 @@
 		 * @param items
 		 * @param tab
 		 */
-		executeBulkAction(action, items, tab) {
-			const request =
+		async executeBulkAction(action, items, tab) {
+			const endpoint =
+				action === 'delete' ? 'media/delete' : 'media/exclusions';
+			const data =
 				action === 'delete'
-					? {
-							path: '/wpha/v1/media/delete',
-							method: 'POST',
-							data: { ids: items, confirm: true },
-						}
-					: {
-							path: '/wpha/v1/media/exclusions',
-							method: 'POST',
-							data: {
-								ids: items,
-								reason: 'Ignored via Media Audit',
-							},
-						};
+					? { ids: items, confirm: true }
+					: { ids: items, reason: 'Ignored via Media Audit' };
 
-			wp.apiFetch({
-				...request,
-			})
-				.then((response) => {
-					if (response.success) {
-						// Remove from cache
-						this.dataCache[tab] = this.dataCache[tab].filter(
-							(item) => !items.includes(item.id)
-						);
-
-						// Clear selection
-						this.selectedItems[tab].clear();
-
-						// Re-render
-						this.renderTabData(tab);
-						this.loadStats();
-
-						this.showNotice(
-							'success',
-							response.message ||
-								response.data?.message ||
-								'Action completed successfully.'
-						);
-					}
-				})
-				.catch((error) => {
-					console.error('Error executing bulk action:', error);
-					this.showNotice(
-						'error',
-						wpAdminHealthData.i18n.error || 'Action failed.'
+			try {
+				const response = await api.post(endpoint, data);
+				if (response.success) {
+					// Remove from cache
+					this.dataCache[tab] = this.dataCache[tab].filter(
+						(item) => !items.includes(item.id)
 					);
-				});
+
+					// Clear selection
+					this.selectedItems[tab].clear();
+
+					// Invalidate relevant caches
+					api.invalidateCache('media/stats');
+					api.invalidateCache(
+						`media/${tab === 'large-files' ? 'large' : tab}`
+					);
+
+					// Re-render
+					this.renderTabData(tab);
+					this.loadStats();
+
+					this.showNotice(
+						'success',
+						response.message ||
+							response.data?.message ||
+							'Action completed successfully.'
+					);
+				}
+			} catch (error) {
+				console.error('Error executing bulk action:', error);
+				this.showNotice(
+					'error',
+					wpAdminHealthData.i18n.error || 'Action failed.'
+				);
+				window.WPAdminHealth?.Toast?.error(
+					error.message || 'Bulk action failed'
+				);
+			}
 		},
 
 		/**
@@ -1217,7 +1222,7 @@
 
 	// Initialize on document ready
 	$(document).ready(() => {
-		if ($('.wpha-media-audit').length) {
+		if ($('.wpha-media-audit').length && api) {
 			MediaAudit.init();
 		}
 	});

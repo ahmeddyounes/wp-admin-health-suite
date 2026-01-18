@@ -219,6 +219,18 @@ export class ApiError extends Error {
 }
 
 /**
+ * Get the REST namespace from localized data.
+ *
+ * @return {string} REST namespace
+ */
+function getRestNamespace() {
+	if (typeof window !== 'undefined' && window.wpAdminHealthData) {
+		return window.wpAdminHealthData.rest_namespace || 'wpha/v1';
+	}
+	return 'wpha/v1';
+}
+
+/**
  * API Client for making REST API calls
  */
 class ApiClient {
@@ -228,7 +240,7 @@ class ApiClient {
 	 * @param {Object} options - Client options
 	 */
 	constructor(options = {}) {
-		this.namespace = options.namespace || 'wp-admin-health/v1';
+		this.namespace = options.namespace || getRestNamespace();
 		this.cache = new RequestCache(options.cacheTTL || 60000);
 		this.maxRetries = options.maxRetries || 2;
 		this.timeout = options.timeout || 30000;

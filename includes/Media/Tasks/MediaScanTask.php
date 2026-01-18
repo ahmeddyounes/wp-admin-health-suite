@@ -29,6 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.2.0
  * @since 1.6.0 Added locking, incremental scanning, and timeout handling.
+ * @since 1.7.0 Updated to use TaskResult DTO and ProgressStore.
  */
 class MediaScanTask extends AbstractScheduledTask {
 
@@ -250,7 +251,7 @@ class MediaScanTask extends AbstractScheduledTask {
 			if ( $this->is_time_limit_approaching() ) {
 				$this->log( 'Time limit approaching, saving progress for continuation' );
 				$was_interrupted = true;
-				$this->save_progress(
+				$this->save_interrupted_progress(
 					array(
 						'duplicates'      => $scan_results['duplicates'],
 						'large_files'     => $scan_results['large_files'],
@@ -259,7 +260,6 @@ class MediaScanTask extends AbstractScheduledTask {
 						'total_bytes'     => $scan_results['total_bytes'],
 						'completed_tasks' => $completed_tasks,
 						'errors'          => $subtask_errors,
-						'interrupted_at'  => current_time( 'mysql' ),
 					)
 				);
 				break;

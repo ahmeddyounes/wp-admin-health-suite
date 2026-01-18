@@ -192,7 +192,7 @@ class Assets {
 		// Enqueue page-specific bundle.
 		$bundle_path      = 'assets/js/dist/' . $bundle_name . '.bundle.js';
 		$bundle_asset     = $this->get_asset_data( $bundle_name );
-		$bundle_deps      = array_merge( array( 'react', 'react-dom', 'wp-i18n' ), $bundle_asset['dependencies'] );
+		$bundle_deps      = array_merge( array( 'react', 'react-dom', 'wp-i18n', 'wp-api-fetch' ), $bundle_asset['dependencies'] );
 
 		// Add vendor bundle as dependency if it exists.
 		if ( file_exists( $this->plugin_path . 'assets/js/dist/vendor.bundle.js' ) ) {
@@ -227,14 +227,23 @@ class Assets {
 	 * @return void
 	 */
 	private function localize_admin_script( $handle ) {
+		$screen    = get_current_screen();
+		$screen_id = $screen ? $screen->id : '';
+
 		wp_localize_script(
 			$handle,
 			'wpAdminHealthData',
 			array(
-				'ajax_url'   => admin_url( 'admin-ajax.php' ),
-				'rest_url'   => rest_url(),
-				'plugin_url' => $this->plugin_url,
-				'i18n'       => array(
+				'version'        => $this->version,
+				'ajax_url'       => admin_url( 'admin-ajax.php' ),
+				'rest_url'       => rest_url(),
+				'rest_root'      => rest_url(),
+				'rest_nonce'     => wp_create_nonce( 'wp_rest' ),
+				'rest_namespace' => 'wpha/v1',
+				'screen_id'      => $screen_id,
+				'plugin_url'     => $this->plugin_url,
+				'features'       => $this->get_feature_flags(),
+				'i18n'           => array(
 					'loading'       => __( 'Loading…', 'wp-admin-health-suite' ),
 					'error'         => __( 'An error occurred.', 'wp-admin-health-suite' ),
 					'success'       => __( 'Success!', 'wp-admin-health-suite' ),
@@ -255,6 +264,33 @@ class Assets {
 					'confirmCleanup' => __( 'Are you sure you want to clean this data? This action cannot be undone.', 'wp-admin-health-suite' ),
 				),
 			)
+		);
+	}
+
+	/**
+	 * Get feature flags for the frontend.
+	 *
+	 * Returns a set of boolean flags indicating which features are enabled.
+	 * This allows the frontend to conditionally render UI elements based
+	 * on plugin configuration.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @return array<string, bool> Feature flags.
+	 */
+	private function get_feature_flags(): array {
+		$settings = get_option( 'wpha_settings', array() );
+
+		return array(
+			'restApiEnabled'       => isset( $settings['enable_rest_api'] ) ? (bool) $settings['enable_rest_api'] : true,
+			'debugMode'            => isset( $settings['debug_mode'] ) ? (bool) $settings['debug_mode'] : false,
+			'safeMode'             => isset( $settings['safe_mode'] ) ? (bool) $settings['safe_mode'] : false,
+			'dashboardWidget'      => isset( $settings['enable_dashboard_widget'] ) ? (bool) $settings['enable_dashboard_widget'] : true,
+			'adminBarMenu'         => isset( $settings['admin_bar_menu'] ) ? (bool) $settings['admin_bar_menu'] : true,
+			'loggingEnabled'       => isset( $settings['enable_logging'] ) ? (bool) $settings['enable_logging'] : false,
+			'schedulingEnabled'    => isset( $settings['enable_scheduling'] ) ? (bool) $settings['enable_scheduling'] : true,
+			'aiRecommendations'    => isset( $settings['enable_ai_recommendations'] ) ? (bool) $settings['enable_ai_recommendations'] : false,
+			'actionSchedulerAvailable' => class_exists( 'ActionScheduler' ),
 		);
 	}
 

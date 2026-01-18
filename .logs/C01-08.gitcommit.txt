@@ -1,0 +1,43 @@
+
+husky - DEPRECATED
+
+Please remove the following two lines from .husky/pre-commit:
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+They WILL FAIL in v10.0.0
+
+[STARTED] Backing up original state...
+[COMPLETED] Backed up original state in git stash (702c8f3)
+[STARTED] Running tasks for staged files...
+[STARTED] package.json — 55 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 35 files
+[SKIPPED] *.{js,jsx} — no files
+[STARTED] prettier --write
+[COMPLETED] prettier --write
+[COMPLETED] *.{json,css,scss,md} — 35 files
+[COMPLETED] package.json — 55 files
+[COMPLETED] Running tasks for staged files...
+[STARTED] Applying modifications from tasks...
+[COMPLETED] Applying modifications from tasks...
+[STARTED] Cleaning up temporary files...
+[COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+.[31mE[0m. 3 / 3 (100%)
+
+
+
+[1mFILE: wp-admin-health-suite.php[0m
+--------------------------------------------------------------------------------
+[1mFOUND 1 ERROR AFFECTING 1 LINE[0m
+--------------------------------------------------------------------------------
+ 94 | [31mERROR[0m | [1mGlobal variables defined by a theme/plugin should start with the[0m
+    |       | [1mtheme/plugin prefix. Found: "$composer_autoload".[0m
+    |       | (WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound)
+--------------------------------------------------------------------------------
+
+Time: 161ms; Memory: 16MB
+
+husky - pre-commit script failed (code 1)

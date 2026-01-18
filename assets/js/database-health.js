@@ -10,6 +10,9 @@
 (function ($) {
 	'use strict';
 
+	// Use centralized API client for consistent error handling, caching, and retry logic
+	const api = window.WPAdminHealth?.api;
+
 	const DatabaseHealth = {
 		/**
 		 * Initialize the database health module.
@@ -62,19 +65,20 @@
 		/**
 		 * Load overview data.
 		 */
-		loadOverviewData() {
-			wp.apiFetch({
-				path: '/wpha/v1/database/stats',
-			})
-				.then((response) => {
-					if (response.success && response.data) {
-						this.renderOverviewCards(response.data);
-					}
-				})
-				.catch((error) => {
-					console.error('Error loading overview data:', error);
-					this.hideSkeletons(this.$overviewCards);
-				});
+		async loadOverviewData() {
+			try {
+				const response = await api.get('database/stats');
+				if (response.success && response.data) {
+					this.renderOverviewCards(response.data);
+				}
+			} catch (error) {
+				console.error('Error loading overview data:', error);
+				window.WPAdminHealth?.Toast?.error(
+					error.getUserMessage?.() ||
+						'Failed to load database overview'
+				);
+				this.hideSkeletons(this.$overviewCards);
+			}
 		},
 
 		/**
@@ -111,19 +115,19 @@
 		/**
 		 * Load cleanup modules.
 		 */
-		loadCleanupModules() {
-			wp.apiFetch({
-				path: '/wpha/v1/database/stats',
-			})
-				.then((response) => {
-					if (response.success && response.data) {
-						this.renderCleanupModules(response.data);
-					}
-				})
-				.catch((error) => {
-					console.error('Error loading cleanup modules:', error);
-					this.hideSkeletons(this.$cleanupAccordion);
-				});
+		async loadCleanupModules() {
+			try {
+				const response = await api.get('database/stats');
+				if (response.success && response.data) {
+					this.renderCleanupModules(response.data);
+				}
+			} catch (error) {
+				console.error('Error loading cleanup modules:', error);
+				window.WPAdminHealth?.Toast?.error(
+					error.getUserMessage?.() || 'Failed to load cleanup modules'
+				);
+				this.hideSkeletons(this.$cleanupAccordion);
+			}
 		},
 
 		/**
@@ -269,47 +273,45 @@
 		 * Handle analyze button click.
 		 * @param e
 		 */
-		handleAnalyze(e) {
+		async handleAnalyze(e) {
 			e.preventDefault();
 			const $btn = $(e.currentTarget);
 			const moduleId = $btn.data('module');
 
 			$btn.prop('disabled', true).addClass('wpha-loading');
 
-			// Load detailed analysis based on module
-			let apiPath = '';
+			// Determine API endpoint based on module
+			let endpoint = 'database/stats';
 			switch (moduleId) {
 				case 'revisions':
-					apiPath = '/wpha/v1/database/revisions';
+					endpoint = 'database/revisions';
 					break;
 				case 'transients':
-					apiPath = '/wpha/v1/database/transients';
+					endpoint = 'database/transients';
 					break;
 				case 'orphaned':
-					apiPath = '/wpha/v1/database/orphaned';
+					endpoint = 'database/orphaned';
 					break;
-				default:
-					apiPath = '/wpha/v1/database/stats';
 			}
 
-			wp.apiFetch({
-				path: apiPath,
-			})
-				.then((response) => {
-					if (response.success) {
-						this.showAnalysisResults(
-							$btn.closest('.wpha-accordion-item'),
-							response.data
-						);
-					}
-				})
-				.catch((error) => {
-					console.error('Error analyzing:', error);
-					alert(wpAdminHealthData.i18n.error || 'An error occurred.');
-				})
-				.finally(() => {
-					$btn.prop('disabled', false).removeClass('wpha-loading');
-				});
+			try {
+				const response = await api.get(endpoint);
+				if (response.success) {
+					this.showAnalysisResults(
+						$btn.closest('.wpha-accordion-item'),
+						response.data
+					);
+				}
+			} catch (error) {
+				console.error('Error analyzing:', error);
+				window.WPAdminHealth?.Toast?.error(
+					error.getUserMessage?.() ||
+						wpAdminHealthData.i18n.error ||
+						'An error occurred.'
+				);
+			} finally {
+				$btn.prop('disabled', false).removeClass('wpha-loading');
+			}
 		},
 
 		/**
@@ -363,10 +365,9 @@
 		 * @param $item
 		 * @param moduleId
 		 */
-		executeCleanup($item, moduleId) {
+		async executeCleanup($item, moduleId) {
 			const $progress = $item.find('.wpha-module-progress');
 			const $progressFill = $item.find('.wpha-progress-fill');
-			const $progressText = $item.find('.wpha-progress-text');
 			const $actions = $item.find('.wpha-module-actions');
 			const $results = $item.find('.wpha-module-results');
 
@@ -383,38 +384,36 @@
 				$progressFill.css('width', progress + '%');
 			}, 200);
 
-			// Execute cleanup via API
-			wp.apiFetch({
-				path: '/wpha/v1/database/clean',
-				method: 'POST',
-				data: {
+			try {
+				// Execute cleanup via API
+				const response = await api.post('database/clean', {
 					type: moduleId,
 					options: this.getCleanupOptions(moduleId),
-				},
-			})
-				.then((response) => {
-					clearInterval(progressInterval);
-					$progressFill.css('width', '100%');
-
-					setTimeout(() => {
-						$progress.hide();
-						if (response.success) {
-							this.showCleanupResults($item, response.data);
-							// Reload data to update counts
-							this.loadData();
-						}
-					}, 500);
-				})
-				.catch((error) => {
-					clearInterval(progressInterval);
-					console.error('Error cleaning:', error);
-					$progress.hide();
-					$actions.show();
-					alert(
-						wpAdminHealthData.i18n.error ||
-							'An error occurred during cleanup.'
-					);
 				});
+
+				clearInterval(progressInterval);
+				$progressFill.css('width', '100%');
+
+				setTimeout(() => {
+					$progress.hide();
+					if (response.success) {
+						this.showCleanupResults($item, response.data);
+						// Invalidate cache and reload data to update counts
+						api.invalidateCache('database/stats');
+						this.loadData();
+					}
+				}, 500);
+			} catch (error) {
+				clearInterval(progressInterval);
+				console.error('Error cleaning:', error);
+				$progress.hide();
+				$actions.show();
+				window.WPAdminHealth?.Toast?.error(
+					error.getUserMessage?.() ||
+						wpAdminHealthData.i18n.error ||
+						'An error occurred during cleanup.'
+				);
+			}
 		},
 
 		/**
@@ -497,23 +496,23 @@
 		/**
 		 * Load table list.
 		 */
-		loadTableList() {
-			wp.apiFetch({
-				path: '/wpha/v1/database/stats',
-			})
-				.then((response) => {
-					if (
-						response.success &&
-						response.data &&
-						response.data.table_sizes
-					) {
-						this.renderTableList(response.data.table_sizes);
-					}
-				})
-				.catch((error) => {
-					console.error('Error loading table list:', error);
-					this.hideSkeletons(this.$tableList);
-				});
+		async loadTableList() {
+			try {
+				const response = await api.get('database/stats');
+				if (
+					response.success &&
+					response.data &&
+					response.data.table_sizes
+				) {
+					this.renderTableList(response.data.table_sizes);
+				}
+			} catch (error) {
+				console.error('Error loading table list:', error);
+				window.WPAdminHealth?.Toast?.error(
+					error.getUserMessage?.() || 'Failed to load table list'
+				);
+				this.hideSkeletons(this.$tableList);
+			}
 		},
 
 		/**
@@ -600,7 +599,7 @@
 
 	// Initialize on document ready
 	$(document).ready(() => {
-		if ($('.wpha-database-health').length) {
+		if ($('.wpha-database-health').length && api) {
 			DatabaseHealth.init();
 		}
 	});

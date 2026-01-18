@@ -97,6 +97,26 @@ class AdvancedSettings extends AbstractDomainSettings {
 				'min'         => 10,
 				'max'         => 1000,
 			),
+			'activity_log_max_rows' => array(
+				'section'     => 'advanced',
+				'title'       => __( 'Activity Log Max Rows', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 10000,
+				'sanitize'    => 'integer',
+				'description' => __( 'Maximum number of activity log entries to retain (1000-100000). Older entries are automatically pruned.', 'wp-admin-health-suite' ),
+				'min'         => 1000,
+				'max'         => 100000,
+			),
+			'progress_retention_hours' => array(
+				'section'     => 'advanced',
+				'title'       => __( 'Progress Data Retention (hours)', 'wp-admin-health-suite' ),
+				'type'        => 'number',
+				'default'     => 24,
+				'sanitize'    => 'integer',
+				'description' => __( 'How long to retain task progress data before pruning (1-168 hours).', 'wp-admin-health-suite' ),
+				'min'         => 1,
+				'max'         => 168,
+			),
 		);
 	}
 }

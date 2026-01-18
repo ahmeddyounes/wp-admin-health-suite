@@ -2,7 +2,13 @@
 /**
  * Settings Facade
  *
- * Backward-compatible wrapper used by legacy templates.
+ * Template-layer facade providing both data access (via SettingsInterface) and HTML rendering
+ * (via render_field()) for admin settings pages.
+ *
+ * EDGE ADAPTER: This class uses Plugin::get_instance()->get_container() as a service locator
+ * because it is instantiated directly in templates (e.g., templates/admin/settings.php) where
+ * dependency injection is not feasible. The plugin's DI container is guaranteed to be available
+ * when templates are rendered since they execute during admin page callbacks after plugin init.
  *
  * @package WPAdminHealth
  */
@@ -21,6 +27,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Class Settings
  *
  * Provides a simple interface for templates to read and render settings.
+ * This facade wraps SettingsInterface for data access and adds HTML rendering capabilities.
+ *
+ * Note: This is an edge adapter that uses service location because templates instantiate
+ * it directly. For application code, inject SettingsInterface via the container instead.
  *
  * @since 1.0.0
  */
@@ -36,11 +46,15 @@ class Settings {
 	/**
 	 * Constructor.
 	 *
+	 * Resolves SettingsInterface from the plugin container if not injected.
+	 * This service location is necessary for template compatibility.
+	 *
 	 * @param SettingsInterface|null $settings Optional settings instance for dependency injection.
 	 */
 	public function __construct( ?SettingsInterface $settings = null ) {
 		if ( null === $settings ) {
-			/** @var SettingsInterface $settings */
+			// Edge adapter: Resolve from container for template usage.
+			// Templates instantiate this class directly without DI support.
 			$settings = Plugin::get_instance()->get_container()->get( SettingsInterface::class );
 		}
 

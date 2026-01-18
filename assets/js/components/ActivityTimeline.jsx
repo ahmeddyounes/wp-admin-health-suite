@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import PropTypes from 'prop-types';
+import apiClient from '../utils/api.js';
 
 /**
  * Activity type to icon mapping
@@ -524,9 +525,9 @@ const ActivityTimeline = ({
 				}
 				setError(null);
 
-				const response = await wp.apiFetch({
-					path: `/wpha/v1/activity?page=${page}&per_page=${pageSize}`,
-					method: 'GET',
+				const response = await apiClient.get('activity', {
+					page,
+					per_page: pageSize,
 				});
 
 				if (response.success) {
@@ -565,6 +566,9 @@ const ActivityTimeline = ({
 			} catch (err) {
 				console.error('Error fetching activities:', err);
 				setError(err.message || 'Failed to load activities');
+				window.WPAdminHealth?.Toast?.error(
+					err.message || 'Failed to load activities'
+				);
 			} finally {
 				setLoading(false);
 				setRefreshing(false);

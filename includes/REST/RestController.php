@@ -13,6 +13,11 @@ use WP_REST_Response;
 use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Contracts\TableCheckerInterface;
+use WPAdminHealth\Exceptions\WPAdminHealthException;
+use WPAdminHealth\Exceptions\ValidationException;
+use WPAdminHealth\Exceptions\NotFoundException;
+use WPAdminHealth\Exceptions\DatabaseException;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -71,33 +76,48 @@ class RestController extends WP_REST_Controller {
 	protected ?ConnectionInterface $connection = null;
 
 	/**
+	 * Table checker instance.
+	 *
+	 * @since 1.4.0
+	 * @var TableCheckerInterface|null
+	 */
+	protected ?TableCheckerInterface $table_checker = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.1.0
 	 * @since 1.3.0 Added optional connection parameter.
+	 * @since 1.4.0 Added optional table_checker parameter.
 	 *
-	 * @param SettingsInterface|null   $settings   Optional settings instance for dependency injection.
-	 * @param ConnectionInterface|null $connection Optional database connection for dependency injection.
+	 * @param SettingsInterface|null     $settings      Optional settings instance for dependency injection.
+	 * @param ConnectionInterface|null   $connection    Optional database connection for dependency injection.
+	 * @param TableCheckerInterface|null $table_checker Optional table checker for dependency injection.
 	 */
-	public function __construct( ?SettingsInterface $settings = null, ?ConnectionInterface $connection = null ) {
-		$this->settings   = $settings;
-		$this->connection = $connection;
+	public function __construct(
+		?SettingsInterface $settings = null,
+		?ConnectionInterface $connection = null,
+		?TableCheckerInterface $table_checker = null
+	) {
+		$this->settings      = $settings;
+		$this->connection    = $connection;
+		$this->table_checker = $table_checker;
 	}
 
 	/**
 	 * Get the settings instance.
 	 *
-	 * Falls back to retrieving from plugin singleton if not injected.
+	 * All REST controllers are container-managed via RESTServiceProvider,
+	 * which injects the SettingsInterface dependency via constructor.
 	 *
 	 * @since 1.1.0
 	 *
 	 * @return SettingsInterface The settings instance.
+	 * @throws \RuntimeException If settings instance is not set (should never happen in production).
 	 */
 	protected function get_settings(): SettingsInterface {
 		if ( null === $this->settings ) {
-			/** @var SettingsInterface $settings */
-			$settings       = \WPAdminHealth\Plugin::get_instance()->get_container()->get( SettingsInterface::class );
-			$this->settings = $settings;
+			throw new \RuntimeException( 'SettingsInterface not injected. REST controllers must be instantiated via RESTServiceProvider.' );
 		}
 
 		return $this->settings;
@@ -106,20 +126,54 @@ class RestController extends WP_REST_Controller {
 	/**
 	 * Get the database connection instance.
 	 *
-	 * Falls back to retrieving from plugin singleton if not injected.
+	 * All REST controllers are container-managed via RESTServiceProvider,
+	 * which injects the ConnectionInterface dependency via constructor.
 	 *
 	 * @since 1.3.0
 	 *
 	 * @return ConnectionInterface The database connection instance.
+	 * @throws \RuntimeException If connection instance is not set (should never happen in production).
 	 */
 	protected function get_connection(): ConnectionInterface {
 		if ( null === $this->connection ) {
-			/** @var ConnectionInterface $connection */
-			$connection       = \WPAdminHealth\Plugin::get_instance()->get_container()->get( ConnectionInterface::class );
-			$this->connection = $connection;
+			throw new \RuntimeException( 'ConnectionInterface not injected. REST controllers must be instantiated via RESTServiceProvider.' );
 		}
 
 		return $this->connection;
+	}
+
+	/**
+	 * Get the table checker instance.
+	 *
+	 * Provides cached table existence checks. Falls back to direct connection
+	 * check if TableCheckerInterface is not injected.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return TableCheckerInterface|null The table checker instance, or null if not available.
+	 */
+	protected function get_table_checker(): ?TableCheckerInterface {
+		return $this->table_checker;
+	}
+
+	/**
+	 * Check if a table exists using the cached TableChecker.
+	 *
+	 * Falls back to direct ConnectionInterface::table_exists() if
+	 * TableCheckerInterface is not injected.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param string $table_name Full table name to check.
+	 * @return bool True if table exists, false otherwise.
+	 */
+	protected function table_exists( string $table_name ): bool {
+		if ( null !== $this->table_checker ) {
+			return $this->table_checker->exists( $table_name );
+		}
+
+		// Fallback to direct connection check.
+		return $this->get_connection()->table_exists( $table_name );
 	}
 
 	/**
@@ -626,6 +680,191 @@ class RestController extends WP_REST_Controller {
 		}
 
 		return new WP_REST_Response( $response, $status );
+	}
+
+	/**
+	 * Handle an exception and convert it to a REST response.
+	 *
+	 * Converts WPAdminHealthException instances to appropriate REST error responses
+	 * with consistent formatting and appropriate HTTP status codes.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param \Throwable $exception The exception to handle.
+	 * @return WP_REST_Response The formatted error response.
+	 */
+	protected function handle_exception( \Throwable $exception ): WP_REST_Response {
+		// Handle our custom exceptions with full context.
+		if ( $exception instanceof WPAdminHealthException ) {
+			return $this->format_exception_response( $exception );
+		}
+
+		// Handle standard exceptions with limited info for security.
+		// Log the full error but only return safe message to client.
+		if ( $this->is_debug_mode_enabled() && $this->can_view_detailed_debug() ) {
+			// In debug mode, include more details for development.
+			return $this->format_generic_exception_response( $exception, true );
+		}
+
+		// Production: generic error message.
+		return $this->format_generic_exception_response( $exception, false );
+	}
+
+	/**
+	 * Format a WPAdminHealthException into a REST response.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param WPAdminHealthException $exception The exception to format.
+	 * @return WP_REST_Response The formatted error response.
+	 */
+	protected function format_exception_response( WPAdminHealthException $exception ): WP_REST_Response {
+		$response = array(
+			'success' => false,
+			'data'    => null,
+			'message' => $exception->getMessage(),
+			'code'    => $exception->getCode(),
+		);
+
+		// Include context data if available (already sanitized in exception classes).
+		$context = $exception->get_context();
+		if ( ! empty( $context ) ) {
+			$response['error_data'] = $context;
+		}
+
+		// Add debug info if enabled.
+		if ( $this->is_debug_mode_enabled() && $this->can_view_detailed_debug() ) {
+			$response['debug'] = array(
+				'exception_class' => get_class( $exception ),
+				'file'            => basename( $exception->getFile() ),
+				'line'            => $exception->getLine(),
+			);
+		}
+
+		return new WP_REST_Response( $response, $exception->get_http_status() );
+	}
+
+	/**
+	 * Format a generic exception into a REST response.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param \Throwable $exception     The exception to format.
+	 * @param bool       $include_debug Whether to include debug information.
+	 * @return WP_REST_Response The formatted error response.
+	 */
+	protected function format_generic_exception_response( \Throwable $exception, bool $include_debug ): WP_REST_Response {
+		$response = array(
+			'success' => false,
+			'data'    => null,
+			'message' => $include_debug ? $exception->getMessage() : __( 'An unexpected error occurred.', 'wp-admin-health-suite' ),
+			'code'    => 'internal_error',
+		);
+
+		if ( $include_debug ) {
+			$response['debug'] = array(
+				'exception_class' => get_class( $exception ),
+				'file'            => basename( $exception->getFile() ),
+				'line'            => $exception->getLine(),
+			);
+		}
+
+		return new WP_REST_Response( $response, 500 );
+	}
+
+	/**
+	 * Execute a callback with exception handling.
+	 *
+	 * Wraps callback execution in try-catch to convert exceptions to REST responses.
+	 * Use this in controller methods to get automatic exception handling.
+	 *
+	 * Example usage:
+	 * ```php
+	 * public function get_item( $request ) {
+	 *     return $this->execute_with_exception_handling( function() use ( $request ) {
+	 *         $id = $request->get_param( 'id' );
+	 *         $item = $this->service->find( $id );
+	 *         if ( ! $item ) {
+	 *             throw NotFoundException::resource( 'item', $id );
+	 *         }
+	 *         return $this->format_response( true, $item, 'Item retrieved.' );
+	 *     } );
+	 * }
+	 * ```
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param callable $callback The callback to execute.
+	 * @return WP_REST_Response The response from callback or error response.
+	 */
+	protected function execute_with_exception_handling( callable $callback ): WP_REST_Response {
+		try {
+			$result = $callback();
+
+			// If callback returns WP_Error, convert it.
+			if ( is_wp_error( $result ) ) {
+				$error_data = $result->get_error_data();
+				$status     = isset( $error_data['status'] ) ? (int) $error_data['status'] : 400;
+				return $this->format_error_response( $result, $status );
+			}
+
+			// If callback returns a WP_REST_Response, use it directly.
+			if ( $result instanceof WP_REST_Response ) {
+				return $result;
+			}
+
+			// Otherwise, wrap the result in a success response.
+			return $this->format_response( true, $result );
+		} catch ( WPAdminHealthException $e ) {
+			// Log the exception for debugging.
+			$this->log_exception( $e );
+			return $this->handle_exception( $e );
+		} catch ( \Throwable $e ) {
+			// Log unexpected exceptions.
+			$this->log_exception( $e, 'error' );
+			return $this->handle_exception( $e );
+		}
+	}
+
+	/**
+	 * Log an exception.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param \Throwable $exception The exception to log.
+	 * @param string     $level     Log level ('debug' or 'error').
+	 * @return void
+	 */
+	protected function log_exception( \Throwable $exception, string $level = 'debug' ): void {
+		// Only log if debug mode is enabled or it's an error.
+		if ( 'error' !== $level && ! $this->is_debug_mode_enabled() ) {
+			return;
+		}
+
+		$context = array(
+			'exception' => get_class( $exception ),
+			'message'   => $exception->getMessage(),
+			'file'      => $exception->getFile(),
+			'line'      => $exception->getLine(),
+		);
+
+		if ( $exception instanceof WPAdminHealthException ) {
+			$context['code']        = $exception->getCode();
+			$context['http_status'] = $exception->get_http_status();
+			$context['context']     = $exception->get_context();
+		}
+
+		// Use error_log for now. Can be replaced with proper logging system.
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		error_log(
+			sprintf(
+				'[WP Admin Health] %s exception: %s in %s:%d',
+				ucfirst( $level ),
+				$exception->getMessage(),
+				basename( $exception->getFile() ),
+				$exception->getLine()
+			)
+		);
 	}
 
 	/**

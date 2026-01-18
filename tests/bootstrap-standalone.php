@@ -303,13 +303,43 @@ if ( ! function_exists( 'esc_url' ) ) {
 
 if ( ! function_exists( 'get_option' ) ) {
 	/**
-	 * Get option stub - returns default.
+	 * Get option stub - returns default or test-configured value.
+	 *
+	 * Supports test overrides via global arrays:
+	 * - $GLOBALS['wpha_test_active_plugins'] for 'active_plugins' option
+	 * - $GLOBALS['wpha_test_options'] for arbitrary options
 	 *
 	 * @param string $option  Option name.
 	 * @param mixed  $default Default value.
-	 * @return mixed Default value.
+	 * @return mixed Option value or default.
 	 */
 	function get_option( $option, $default = false ) {
+		// Support for active_plugins test override.
+		if ( 'active_plugins' === $option && isset( $GLOBALS['wpha_test_active_plugins'] ) ) {
+			return $GLOBALS['wpha_test_active_plugins'];
+		}
+
+		// Support for active_plugins via wp_test_options (legacy).
+		if ( 'active_plugins' === $option ) {
+			if ( isset( $GLOBALS['wp_test_options']['active_plugins'] ) ) {
+				return $GLOBALS['wp_test_options']['active_plugins'];
+			}
+		}
+
+		// Support for arbitrary option overrides (wpha_test_options).
+		if ( isset( $GLOBALS['wpha_test_options'] ) && is_array( $GLOBALS['wpha_test_options'] ) ) {
+			if ( array_key_exists( $option, $GLOBALS['wpha_test_options'] ) ) {
+				return $GLOBALS['wpha_test_options'][ $option ];
+			}
+		}
+
+		// Support for arbitrary option overrides (wp_test_options - legacy).
+		if ( isset( $GLOBALS['wp_test_options'] ) && is_array( $GLOBALS['wp_test_options'] ) ) {
+			if ( array_key_exists( $option, $GLOBALS['wp_test_options'] ) ) {
+				return $GLOBALS['wp_test_options'][ $option ];
+			}
+		}
+
 		return $default;
 	}
 }
@@ -336,6 +366,25 @@ if ( ! function_exists( 'delete_option' ) ) {
 	 */
 	function delete_option( $option ) {
 		return true;
+	}
+}
+
+if ( ! function_exists( 'get_site_option' ) ) {
+	/**
+	 * Get site option stub for multisite - returns default or test-configured value.
+	 *
+	 * @param string $option  Option name.
+	 * @param mixed  $default Default value.
+	 * @return mixed Option value or default.
+	 */
+	function get_site_option( $option, $default = false ) {
+		// Support for arbitrary site option overrides.
+		if ( isset( $GLOBALS['wpha_test_site_options'] ) && is_array( $GLOBALS['wpha_test_site_options'] ) ) {
+			if ( array_key_exists( $option, $GLOBALS['wpha_test_site_options'] ) ) {
+				return $GLOBALS['wpha_test_site_options'][ $option ];
+			}
+		}
+		return $default;
 	}
 }
 
@@ -602,19 +651,32 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 
 if ( ! function_exists( 'get_transient' ) ) {
 	/**
-	 * Get transient stub - always returns false.
+	 * Get transient stub - retrieves from global storage.
 	 *
 	 * @param string $transient Transient name.
-	 * @return mixed False by default.
+	 * @return mixed Transient value or false if not set.
 	 */
 	function get_transient( $transient ) {
+		global $wpha_transients;
+		if ( ! isset( $wpha_transients ) ) {
+			$wpha_transients = array();
+		}
+		if ( isset( $wpha_transients[ $transient ] ) ) {
+			$data = $wpha_transients[ $transient ];
+			// Check expiration.
+			if ( 0 === $data['expiration'] || $data['expiration'] > time() ) {
+				return $data['value'];
+			}
+			// Expired.
+			unset( $wpha_transients[ $transient ] );
+		}
 		return false;
 	}
 }
 
 if ( ! function_exists( 'set_transient' ) ) {
 	/**
-	 * Set transient stub - always succeeds.
+	 * Set transient stub - stores in global storage.
 	 *
 	 * @param string $transient  Transient name.
 	 * @param mixed  $value      Transient value.
@@ -622,18 +684,30 @@ if ( ! function_exists( 'set_transient' ) ) {
 	 * @return bool Always true.
 	 */
 	function set_transient( $transient, $value, $expiration = 0 ) {
+		global $wpha_transients;
+		if ( ! isset( $wpha_transients ) ) {
+			$wpha_transients = array();
+		}
+		$wpha_transients[ $transient ] = array(
+			'value'      => $value,
+			'expiration' => $expiration > 0 ? time() + $expiration : 0,
+		);
 		return true;
 	}
 }
 
 if ( ! function_exists( 'delete_transient' ) ) {
 	/**
-	 * Delete transient stub - always succeeds.
+	 * Delete transient stub - removes from global storage.
 	 *
 	 * @param string $transient Transient name.
 	 * @return bool Always true.
 	 */
 	function delete_transient( $transient ) {
+		global $wpha_transients;
+		if ( isset( $wpha_transients[ $transient ] ) ) {
+			unset( $wpha_transients[ $transient ] );
+		}
 		return true;
 	}
 }
@@ -1107,6 +1181,14 @@ if ( ! defined( 'WP_CONTENT_DIR' ) ) {
 	define( 'WP_CONTENT_DIR', sys_get_temp_dir() . '/wp-content' );
 }
 
+if ( ! defined( 'DB_NAME' ) ) {
+	define( 'DB_NAME', 'test_database' );
+}
+
+if ( ! defined( 'AUTH_KEY' ) ) {
+	define( 'AUTH_KEY', 'test_auth_key_for_standalone_unit_tests' );
+}
+
 if ( ! function_exists( 'wp_upload_dir' ) ) {
 	/**
 	 * Get upload directory info stub.
@@ -1407,6 +1489,276 @@ if ( ! function_exists( 'wp_rand' ) ) {
 			$max = mt_getrandmax();
 		}
 		return mt_rand( $min, $max );
+	}
+}
+
+if ( ! function_exists( 'wp_delete_post' ) ) {
+	/**
+	 * Stub for wp_delete_post.
+	 *
+	 * Uses global array to track calls and return configurable results.
+	 *
+	 * @param int  $post_id      Post ID.
+	 * @param bool $force_delete Whether to bypass trash.
+	 * @return object|false|null Post object on success, false/null on failure.
+	 */
+	function wp_delete_post( $post_id, $force_delete = false ) {
+		if ( ! isset( $GLOBALS['wpha_test_delete_post_calls'] ) ) {
+			$GLOBALS['wpha_test_delete_post_calls'] = array();
+		}
+		$GLOBALS['wpha_test_delete_post_calls'][] = array(
+			'post_id'      => $post_id,
+			'force_delete' => $force_delete,
+		);
+
+		// Return configured result or default to success.
+		if ( isset( $GLOBALS['wpha_test_delete_post_results'] ) && is_array( $GLOBALS['wpha_test_delete_post_results'] ) ) {
+			if ( isset( $GLOBALS['wpha_test_delete_post_results'][ $post_id ] ) ) {
+				return $GLOBALS['wpha_test_delete_post_results'][ $post_id ];
+			}
+		}
+
+		// Default: return truthy value (post object) indicating success.
+		return (object) array( 'ID' => $post_id );
+	}
+}
+
+if ( ! function_exists( 'wp_delete_comment' ) ) {
+	/**
+	 * Stub for wp_delete_comment.
+	 *
+	 * Uses global array to track calls and return configurable results.
+	 *
+	 * @param int  $comment_id   Comment ID.
+	 * @param bool $force_delete Whether to bypass trash.
+	 * @return bool True on success, false on failure.
+	 */
+	function wp_delete_comment( $comment_id, $force_delete = false ) {
+		if ( ! isset( $GLOBALS['wpha_test_delete_comment_calls'] ) ) {
+			$GLOBALS['wpha_test_delete_comment_calls'] = array();
+		}
+		$GLOBALS['wpha_test_delete_comment_calls'][] = array(
+			'comment_id'   => $comment_id,
+			'force_delete' => $force_delete,
+		);
+
+		// Return configured result or default to success.
+		if ( isset( $GLOBALS['wpha_test_delete_comment_results'] ) && is_array( $GLOBALS['wpha_test_delete_comment_results'] ) ) {
+			if ( isset( $GLOBALS['wpha_test_delete_comment_results'][ $comment_id ] ) ) {
+				return $GLOBALS['wpha_test_delete_comment_results'][ $comment_id ];
+			}
+		}
+
+		// Default: return true indicating success.
+		return true;
+	}
+}
+
+if ( ! function_exists( 'size_format' ) ) {
+	/**
+	 * Format bytes to human readable size stub.
+	 *
+	 * @param int|string $bytes    Number of bytes.
+	 * @param int        $decimals Decimal precision.
+	 * @return string Formatted size.
+	 */
+	function size_format( $bytes, $decimals = 0 ) {
+		$bytes = (float) $bytes;
+
+		if ( $bytes < 1024 ) {
+			return $bytes . ' B';
+		}
+
+		$units = array( 'KB', 'MB', 'GB', 'TB', 'PB' );
+		$power = floor( log( $bytes, 1024 ) );
+		$power = min( $power, count( $units ) );
+
+		$value = $bytes / pow( 1024, $power );
+
+		return number_format( $value, $decimals ) . ' ' . $units[ $power - 1 ];
+	}
+}
+
+if ( ! function_exists( 'wp_generate_password' ) ) {
+	/**
+	 * Generate a random password stub.
+	 *
+	 * @param int  $length              Length of password.
+	 * @param bool $special_chars       Include special characters.
+	 * @param bool $extra_special_chars Include extra special characters.
+	 * @return string Generated password.
+	 */
+	function wp_generate_password( $length = 12, $special_chars = true, $extra_special_chars = false ) {
+		$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+		if ( $special_chars ) {
+			$chars .= '!@#$%^&*()';
+		}
+		if ( $extra_special_chars ) {
+			$chars .= '-_ []{}<>~`+=,.;:/?|';
+		}
+		$password = '';
+		for ( $i = 0; $i < $length; $i++ ) {
+			$password .= $chars[ random_int( 0, strlen( $chars ) - 1 ) ];
+		}
+		return $password;
+	}
+}
+
+if ( ! class_exists( 'WP_Theme_Stub' ) ) {
+	/**
+	 * WP_Theme stub class for testing.
+	 */
+	class WP_Theme_Stub {
+		/** @var string */
+		private $name;
+		/** @var string */
+		private $version;
+		/** @var string */
+		private $stylesheet;
+		/** @var string */
+		private $template;
+
+		/**
+		 * Constructor.
+		 *
+		 * @param string|null $stylesheet Theme stylesheet name.
+		 */
+		public function __construct( $stylesheet = null ) {
+			$this->name       = 'Test Theme';
+			$this->version    = '1.0.0';
+			$this->stylesheet = $stylesheet ?? 'test-theme';
+			$this->template   = 'test-theme';
+		}
+
+		/**
+		 * Get theme name.
+		 *
+		 * @return string
+		 */
+		public function get_name() {
+			return $this->name;
+		}
+
+		/**
+		 * Get theme version.
+		 *
+		 * @return string
+		 */
+		public function get_version() {
+			return $this->version;
+		}
+
+		/**
+		 * Get theme stylesheet.
+		 *
+		 * @return string
+		 */
+		public function get_stylesheet() {
+			return $this->stylesheet;
+		}
+
+		/**
+		 * Get theme template.
+		 *
+		 * @return string
+		 */
+		public function get_template() {
+			return $this->template;
+		}
+
+		/**
+		 * Get theme directory.
+		 *
+		 * @return string
+		 */
+		public function get_stylesheet_directory() {
+			return '/tmp/themes/' . $this->stylesheet;
+		}
+
+		/**
+		 * Magic getter for properties.
+		 *
+		 * @param string $name Property name.
+		 * @return mixed
+		 */
+		public function __get( $name ) {
+			return $this->$name ?? null;
+		}
+	}
+}
+
+if ( ! function_exists( 'wp_get_theme' ) ) {
+	/**
+	 * Get theme data stub.
+	 *
+	 * @param string|null $stylesheet Theme stylesheet name.
+	 * @return WP_Theme_Stub Theme object stub.
+	 */
+	function wp_get_theme( $stylesheet = null ) {
+		return new WP_Theme_Stub( $stylesheet );
+	}
+}
+
+if ( ! function_exists( 'wp_next_scheduled' ) ) {
+	/**
+	 * Check if a scheduled event is coming up stub.
+	 *
+	 * @param string $hook Action hook to execute when the event is run.
+	 * @param array  $args Optional arguments to pass to the callback.
+	 * @return int|false Timestamp of next scheduled event or false if not found.
+	 */
+	function wp_next_scheduled( $hook, $args = array() ) {
+		global $wp_scheduled_events;
+		if ( ! isset( $wp_scheduled_events ) ) {
+			$wp_scheduled_events = array();
+		}
+		$key = $hook . '-' . md5( serialize( $args ) );
+		return isset( $wp_scheduled_events[ $key ] ) ? $wp_scheduled_events[ $key ] : false;
+	}
+}
+
+if ( ! function_exists( 'wp_schedule_event' ) ) {
+	/**
+	 * Schedules a recurring event stub.
+	 *
+	 * @param int    $timestamp  Unix timestamp of first occurrence.
+	 * @param string $recurrence How often the event should recur.
+	 * @param string $hook       Action hook to execute.
+	 * @param array  $args       Optional arguments to pass to the callback.
+	 * @param bool   $wp_error   Optional. Whether to return a WP_Error on failure.
+	 * @return bool|WP_Error True if event successfully scheduled.
+	 */
+	function wp_schedule_event( $timestamp, $recurrence, $hook, $args = array(), $wp_error = false ) {
+		global $wp_scheduled_events;
+		if ( ! isset( $wp_scheduled_events ) ) {
+			$wp_scheduled_events = array();
+		}
+		$key                          = $hook . '-' . md5( serialize( $args ) );
+		$wp_scheduled_events[ $key ] = $timestamp;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'is_user_logged_in' ) ) {
+	/**
+	 * Check if user is logged in stub.
+	 *
+	 * @return bool True if user is logged in.
+	 */
+	function is_user_logged_in() {
+		global $wp_test_options;
+		return isset( $wp_test_options['user_logged_in'] ) ? $wp_test_options['user_logged_in'] : false;
+	}
+}
+
+if ( ! function_exists( 'wp_doing_ajax' ) ) {
+	/**
+	 * Check if the current request is an AJAX request stub.
+	 *
+	 * @return bool True if the current request is an AJAX request.
+	 */
+	function wp_doing_ajax() {
+		return defined( 'DOING_AJAX' ) && DOING_AJAX;
 	}
 }
 

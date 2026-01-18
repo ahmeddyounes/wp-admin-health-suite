@@ -11,7 +11,8 @@
 	'use strict';
 
 	const { useState, useEffect } = wp.element;
-	const { apiFetch } = wp;
+	// Use centralized API client for consistent error handling, caching, and retry logic
+	const api = window.WPAdminHealth?.api;
 
 	/**
 	 * Performance Score Circle Component
@@ -294,18 +295,18 @@
 			setLocalSettings(newSettings);
 
 			try {
-				await apiFetch({
-					path: '/wpha/v1/performance/heartbeat',
-					method: 'POST',
-					data: {
-						location,
-						enabled: newEnabled,
-						interval: localSettings[location].interval,
-					},
+				await api.post('performance/heartbeat', {
+					location,
+					enabled: newEnabled,
+					interval: localSettings[location].interval,
 				});
 				onUpdate(newSettings);
 			} catch (error) {
 				console.error('Error updating heartbeat:', error);
+				window.WPAdminHealth?.Toast?.error(
+					error.getUserMessage?.() ||
+						'Failed to update heartbeat settings'
+				);
 			}
 		};
 
@@ -320,18 +321,18 @@
 			setLocalSettings(newSettings);
 
 			try {
-				await apiFetch({
-					path: '/wpha/v1/performance/heartbeat',
-					method: 'POST',
-					data: {
-						location,
-						enabled: localSettings[location].enabled,
-						interval: parseInt(interval),
-					},
+				await api.post('performance/heartbeat', {
+					location,
+					enabled: localSettings[location].enabled,
+					interval: parseInt(interval),
 				});
 				onUpdate(newSettings);
 			} catch (error) {
 				console.error('Error updating heartbeat:', error);
+				window.WPAdminHealth?.Toast?.error(
+					error.getUserMessage?.() ||
+						'Failed to update heartbeat interval'
+				);
 			}
 		};
 
@@ -662,13 +663,13 @@
 					autoload,
 					recs,
 				] = await Promise.all([
-					apiFetch({ path: '/wpha/v1/performance/score' }),
-					apiFetch({ path: '/wpha/v1/performance/plugins' }),
-					apiFetch({ path: '/wpha/v1/performance/queries' }),
-					apiFetch({ path: '/wpha/v1/performance/heartbeat' }),
-					apiFetch({ path: '/wpha/v1/performance/cache' }),
-					apiFetch({ path: '/wpha/v1/performance/autoload' }),
-					apiFetch({ path: '/wpha/v1/performance/recommendations' }),
+					api.get('performance/score'),
+					api.get('performance/plugins'),
+					api.get('performance/queries'),
+					api.get('performance/heartbeat'),
+					api.get('performance/cache'),
+					api.get('performance/autoload'),
+					api.get('performance/recommendations'),
 				]);
 
 				setScoreData(score.data);
@@ -681,6 +682,10 @@
 				setLoading(false);
 			} catch (error) {
 				console.error('Error fetching performance data:', error);
+				window.WPAdminHealth?.Toast?.error(
+					error.getUserMessage?.() ||
+						'Failed to load performance data'
+				);
 				setLoading(false);
 			}
 		};
@@ -747,7 +752,7 @@
 	// Initialize the app when DOM is ready.
 	$(document).ready(function () {
 		const rootElement = document.getElementById('wpha-performance-root');
-		if (rootElement && wp.element && apiFetch) {
+		if (rootElement && wp.element && api) {
 			wp.element.render(
 				wp.element.createElement(PerformanceApp),
 				rootElement

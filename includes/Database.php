@@ -1,8 +1,13 @@
 <?php
 /**
- * Database Class
+ * Database Class (Legacy)
  *
  * @package WPAdminHealth
+ *
+ * @deprecated 1.3.0 This class is deprecated and will be removed in a future release.
+ *                   Database operations are now handled via {@see \WPAdminHealth\Providers\DatabaseServiceProvider}
+ *                   and related service classes in the `Database` namespace.
+ *                   The `wpha_database_init` hook fired by this class is no longer triggered at runtime.
  */
 
 namespace WPAdminHealth;
@@ -16,6 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Database class for handling database operations.
  *
  * @since 1.0.0
+ * @deprecated 1.3.0 Use {@see \WPAdminHealth\Providers\DatabaseServiceProvider} and related
+ *                   service classes instead. This class is no longer instantiated by the plugin.
  */
 class Database {
 

@@ -27,6 +27,9 @@ npm run lint:fix
 
 # Run tests
 npm test
+
+# Run all checks (lint + tests) - recommended before submitting PRs
+npm run check
 ```
 
 ## Architecture
@@ -163,3 +166,25 @@ Babel is configured to support:
 - Exclude dead browsers
 
 Configured in `.babelrc` preset-env targets.
+
+## Contributing
+
+Before submitting a pull request, ensure all checks pass:
+
+```bash
+# Run all PHP checks (PHPCS linting + PHPStan static analysis + unit tests)
+composer check
+
+# Run all JavaScript checks (ESLint + Jest tests)
+npm run check
+
+# Run everything
+composer check && npm run check
+```
+
+This ensures:
+- ✅ Code follows WordPress coding standards (PHPCS)
+- ✅ No static analysis issues (PHPStan)
+- ✅ All PHP unit tests pass
+- ✅ JavaScript follows ESLint rules
+- ✅ All JavaScript tests pass

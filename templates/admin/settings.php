@@ -2,6 +2,9 @@
 /**
  * Settings Template
  *
+ * Server-rendered settings form with accessibility scaffolding.
+ * Uses WordPress Settings API for form handling and nonce protection.
+ *
  * @package WPAdminHealth
  */
 
@@ -10,12 +13,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
 
-// Get settings instance.
-$settings_obj = new \WPAdminHealth\Settings();
-$sections     = $settings_obj->get_sections();
-$settings     = $settings_obj->get_settings();
+// Use injected SettingsViewModel if available (via PageRenderer), otherwise fall back
+// to the Settings facade for backward compatibility. The SettingsViewModel is preferred
+// as it eliminates service location in templates.
+if ( ! isset( $settings_obj ) || ! $settings_obj instanceof \WPAdminHealth\Admin\SettingsViewModel ) {
+	// Legacy fallback: instantiate Settings facade directly (edge adapter pattern).
+	// This path is deprecated and will be removed in a future version.
+	$settings_obj = new \WPAdminHealth\Settings();
+}
+$sections = $settings_obj->get_sections();
+$settings = $settings_obj->get_settings();
 
 // Get current tab.
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only check, no data modification.
 $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'general';
 
 // Validate tab exists.
@@ -24,8 +34,14 @@ if ( ! isset( $sections[ $current_tab ] ) ) {
 }
 ?>
 
-<div class="wrap wpha-settings-wrap">
-	<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+<!-- Skip Links for Keyboard Navigation -->
+<div class="wpha-skip-links">
+	<a href="#wpha-main-content" class="screen-reader-shortcut"><?php esc_html_e( 'Skip to main content', 'wp-admin-health-suite' ); ?></a>
+	<a href="#wpha-tab-content" class="screen-reader-shortcut"><?php esc_html_e( 'Skip to settings form', 'wp-admin-health-suite' ); ?></a>
+</div>
+
+<div class="wrap wpha-settings-wrap" role="main" aria-labelledby="wpha-page-title">
+	<h1 id="wpha-page-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
 
 	<?php
 	// Display success messages.
@@ -66,8 +82,10 @@ if ( ! isset( $sections[ $current_tab ] ) ) {
 		?>
 	</nav>
 
+	<!-- Main Content Container -->
+	<div id="wpha-main-content" class="wpha-settings">
 	<!-- Tab Content -->
-	<div class="wpha-tab-content">
+	<div id="wpha-tab-content" class="wpha-tab-content">
 		<?php if ( 'advanced' === $current_tab ) : ?>
 			<!-- Advanced Tab: Import/Export and Reset -->
 			<form method="post" action="options.php" class="wpha-settings-form">
@@ -320,6 +338,7 @@ if ( ! isset( $sections[ $current_tab ] ) ) {
 			</div>
 
 		<?php endif; ?>
+	</div>
 	</div>
 </div>
 

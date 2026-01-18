@@ -67,26 +67,14 @@ class Exclusions implements ExclusionsInterface {
 	/**
 	 * Get the settings instance if available.
 	 *
+	 * Returns the settings instance injected via constructor, or null if not provided.
+	 * This class is container-managed via MediaServiceProvider, which always injects
+	 * the SettingsInterface dependency.
+	 *
 	 * @return SettingsInterface|null Settings instance or null if unavailable.
 	 */
 	private function get_settings(): ?SettingsInterface {
-		if ( null !== $this->settings ) {
-			return $this->settings;
-		}
-
-		// Fall back to the plugin container if available.
-		if ( class_exists( '\WPAdminHealth\Plugin' ) ) {
-			try {
-				/** @var SettingsInterface $settings */
-				$settings       = \WPAdminHealth\Plugin::get_instance()->get_container()->get( SettingsInterface::class );
-				$this->settings = $settings;
-				return $settings;
-			} catch ( \Throwable $e ) {
-				return null;
-			}
-		}
-
-		return null;
+		return $this->settings;
 	}
 
 	/**

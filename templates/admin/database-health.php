@@ -2,6 +2,9 @@
 /**
  * Database Health Template
  *
+ * Provides accessibility scaffolding and React mount point for database health page.
+ * All dynamic content is rendered by React components.
+ *
  * @package WPAdminHealth
  */
 
@@ -11,75 +14,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 
-<div class="wrap wpha-database-health-wrap">
-	<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+<!-- Skip Links for Keyboard Navigation -->
+<div class="wpha-skip-links">
+	<a href="#wpha-main-content" class="screen-reader-shortcut"><?php esc_html_e( 'Skip to main content', 'wp-admin-health-suite' ); ?></a>
+	<a href="#wpha-cleanup-modules" class="screen-reader-shortcut"><?php esc_html_e( 'Skip to cleanup modules', 'wp-admin-health-suite' ); ?></a>
+</div>
 
-	<div class="wpha-database-health">
-		<!-- Overview Cards -->
-		<div class="wpha-overview-cards">
-			<div class="wpha-overview-card">
-				<div class="wpha-overview-card-skeleton"></div>
-				<div class="wpha-overview-card-content">
-					<div class="wpha-overview-icon">
-						<span class="dashicons dashicons-database"></span>
-					</div>
-					<div class="wpha-overview-data">
-						<h3 class="wpha-overview-title"><?php esc_html_e( 'Total Database Size', 'wp-admin-health-suite' ); ?></h3>
-						<p class="wpha-overview-value">--</p>
-					</div>
-				</div>
-			</div>
+<div class="wrap wpha-database-health-wrap" role="main" aria-labelledby="wpha-page-title">
+	<h1 id="wpha-page-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
 
-			<div class="wpha-overview-card">
-				<div class="wpha-overview-card-skeleton"></div>
-				<div class="wpha-overview-card-content">
-					<div class="wpha-overview-icon">
-						<span class="dashicons dashicons-admin-generic"></span>
-					</div>
-					<div class="wpha-overview-data">
-						<h3 class="wpha-overview-title"><?php esc_html_e( 'Tables Count', 'wp-admin-health-suite' ); ?></h3>
-						<p class="wpha-overview-value">--</p>
-					</div>
-				</div>
-			</div>
+	<!-- Main Content Container -->
+	<div id="wpha-main-content" class="wpha-database-health">
+		<!-- Database Health Root (React mounts here) -->
+		<div id="wpha-database-health-root" aria-live="polite"></div>
 
-			<div class="wpha-overview-card">
-				<div class="wpha-overview-card-skeleton"></div>
-				<div class="wpha-overview-card-content">
-					<div class="wpha-overview-icon">
-						<span class="dashicons dashicons-chart-area"></span>
-					</div>
-					<div class="wpha-overview-data">
-						<h3 class="wpha-overview-title"><?php esc_html_e( 'Potential Savings', 'wp-admin-health-suite' ); ?></h3>
-						<p class="wpha-overview-value">--</p>
-					</div>
-				</div>
-			</div>
-		</div>
+		<!-- Cleanup Modules Container -->
+		<div id="wpha-cleanup-modules" aria-label="<?php esc_attr_e( 'Database cleanup modules', 'wp-admin-health-suite' ); ?>"></div>
 
-		<!-- Cleanup Modules Accordion -->
-		<div class="wpha-cleanup-modules">
-			<div class="wpha-section-header">
-				<h2><?php esc_html_e( 'Database Cleanup', 'wp-admin-health-suite' ); ?></h2>
-			</div>
-			<div class="wpha-cleanup-accordion">
-				<!-- Accordion items will be populated by JavaScript -->
-				<div class="wpha-cleanup-skeleton"></div>
-			</div>
-		</div>
-
-		<!-- Table Browser -->
-		<div class="wpha-table-browser">
-			<div class="wpha-section-header">
-				<h2><?php esc_html_e( 'Database Tables', 'wp-admin-health-suite' ); ?></h2>
-			</div>
-			<div class="wpha-table-list">
-				<!-- Table list will be populated by JavaScript -->
-				<div class="wpha-table-skeleton"></div>
-			</div>
-		</div>
-
-		<!-- React Mount Point -->
-		<div id="wpha-database-health-root"></div>
+		<!-- Table Browser Container -->
+		<div id="wpha-table-browser" aria-label="<?php esc_attr_e( 'Database tables browser', 'wp-admin-health-suite' ); ?>"></div>
 	</div>
 </div>

@@ -33,13 +33,28 @@
 	// ============================================================================
 
 	/**
+	 * Get the REST namespace from localized data.
+	 *
+	 * @return {string} REST namespace
+	 */
+	function getRestNamespace() {
+		if (
+			typeof wpAdminHealthData !== 'undefined' &&
+			wpAdminHealthData.rest_namespace
+		) {
+			return wpAdminHealthData.rest_namespace;
+		}
+		return 'wpha/v1';
+	}
+
+	/**
 	 * API wrapper for making REST API calls
 	 */
 	const API = {
 		/**
 		 * Base namespace for REST API
 		 */
-		namespace: 'wp-admin-health/v1',
+		namespace: getRestNamespace(),
 
 		/**
 		 * Build full API path

@@ -12,6 +12,7 @@ use WP_REST_Response;
 use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Contracts\TableCheckerInterface;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -39,12 +40,18 @@ class ActivityController extends RestController {
 	 *
 	 * @since 1.1.0
 	 * @since 1.3.0 Added optional connection parameter.
+	 * @since 1.4.0 Added optional table_checker parameter.
 	 *
-	 * @param SettingsInterface|null   $settings   Optional settings instance for dependency injection.
-	 * @param ConnectionInterface|null $connection Optional database connection for dependency injection.
+	 * @param SettingsInterface|null     $settings      Optional settings instance for dependency injection.
+	 * @param ConnectionInterface|null   $connection    Optional database connection for dependency injection.
+	 * @param TableCheckerInterface|null $table_checker Optional table checker for cached existence checks.
 	 */
-	public function __construct( ?SettingsInterface $settings = null, ?ConnectionInterface $connection = null ) {
-		parent::__construct( $settings, $connection );
+	public function __construct(
+		?SettingsInterface $settings = null,
+		?ConnectionInterface $connection = null,
+		?TableCheckerInterface $table_checker = null
+	) {
+		parent::__construct( $settings, $connection, $table_checker );
 	}
 
 	/**
@@ -100,7 +107,7 @@ class ActivityController extends RestController {
 		$table_name = $connection->get_prefix() . 'wpha_scan_history';
 
 		// Check if table exists.
-		if ( ! $connection->table_exists( $table_name ) ) {
+		if ( ! $this->table_exists( $table_name ) ) {
 			return $this->format_response(
 				true,
 				array(

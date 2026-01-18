@@ -48,6 +48,7 @@ class DatabaseServiceProvider extends ServiceProvider {
 	 * @var array<string>
 	 */
 	protected array $provides = array(
+		// Interface identifiers (primary).
 		ConnectionInterface::class,
 		AnalyzerInterface::class,
 		RevisionsManagerInterface::class,
@@ -55,6 +56,9 @@ class DatabaseServiceProvider extends ServiceProvider {
 		OrphanedCleanerInterface::class,
 		TrashCleanerInterface::class,
 		OptimizerInterface::class,
+		// Class-string identifier for classes without interfaces.
+		OrphanedTables::class,
+		// String aliases (backward compatibility).
 		'db.connection',
 		'db.analyzer',
 		'db.orphaned_tables',
@@ -92,7 +96,7 @@ class DatabaseServiceProvider extends ServiceProvider {
 
 		// Register Orphaned Tables detector with ConnectionInterface and CacheInterface injection.
 		$this->container->bind(
-			'db.orphaned_tables',
+			OrphanedTables::class,
 			function ( $container ) {
 				return new OrphanedTables(
 					$container->get( ConnectionInterface::class ),
@@ -100,6 +104,7 @@ class DatabaseServiceProvider extends ServiceProvider {
 				);
 			}
 		);
+		$this->container->alias( 'db.orphaned_tables', OrphanedTables::class );
 
 		// Register Revisions Manager with ConnectionInterface injection.
 		$this->container->singleton(

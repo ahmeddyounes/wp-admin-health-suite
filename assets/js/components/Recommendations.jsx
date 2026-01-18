@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import apiClient from '../utils/api.js';
 
 /**
  * Severity level to color mapping
@@ -120,20 +121,20 @@ const Recommendations = ({
 	 * Dismiss a recommendation
 	 * @param id
 	 */
-	const handleDismiss = (id) => {
+	const handleDismiss = async (id) => {
 		const newDismissed = new Set(dismissedItems);
 		newDismissed.add(id);
 		setDismissedItems(newDismissed);
 		saveDismissedItems(newDismissed);
 
 		// Also call API to dismiss on server
-		if (window.wp && window.wp.apiFetch) {
-			wp.apiFetch({
-				path: `/wpha/v1/recommendations/${id}/dismiss`,
-				method: 'POST',
-			}).catch((error) => {
-				console.error('Error dismissing recommendation:', error);
-			});
+		try {
+			await apiClient.post(`recommendations/${id}/dismiss`);
+		} catch (error) {
+			console.error('Error dismissing recommendation:', error);
+			window.WPAdminHealth?.Toast?.error(
+				error.message || 'Failed to dismiss recommendation'
+			);
 		}
 	};
 
@@ -153,11 +154,16 @@ const Recommendations = ({
 		setExecutingAction(recommendation.id);
 
 		try {
-			const response = await wp.apiFetch({
-				path: recommendation.action_params.endpoint,
-				method: 'POST',
-				data: recommendation.action_params,
-			});
+			// Extract the endpoint path, removing the /wpha/v1/ prefix if present
+			let endpoint = recommendation.action_params.endpoint;
+			if (endpoint.startsWith('/wpha/v1/')) {
+				endpoint = endpoint.replace('/wpha/v1/', '');
+			}
+
+			const response = await apiClient.post(
+				endpoint,
+				recommendation.action_params
+			);
 
 			if (response.success) {
 				// Mark as completed with animation
@@ -175,6 +181,9 @@ const Recommendations = ({
 			}
 		} catch (error) {
 			console.error('Error executing action:', error);
+			window.WPAdminHealth?.Toast?.error(
+				error.message || 'Failed to execute action'
+			);
 			alert(
 				`Failed to execute action: ${error.message || 'Unknown error'}`
 			);

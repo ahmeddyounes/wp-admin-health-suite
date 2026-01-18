@@ -496,7 +496,7 @@ class MockConnection implements ConnectionInterface {
 				array( preg_quote( $placeholder_multi, '/' ), preg_quote( $placeholder_single, '/' ) ),
 				array( '.*', '.' ),
 				$temp
-			) . '$/i';
+			) . '$/is'; // 's' flag makes '.' match newlines too
 
 			if ( preg_match( $regex, $query ) ) {
 				return $result;

@@ -5,6 +5,7 @@ Complete API reference for WP Admin Health Suite REST API endpoints.
 ## Table of Contents
 
 - [Overview](#overview)
+- [API Compatibility](#api-compatibility)
 - [Authentication](#authentication)
 - [Rate Limiting](#rate-limiting)
 - [Response Format](#response-format)
@@ -24,6 +25,70 @@ The WP Admin Health Suite provides a comprehensive REST API for programmatic acc
 **Base URL**: `https://your-site.com/wp-json/wpha/v1/`
 
 **API Version**: v1
+
+## API Compatibility
+
+The `wpha/v1` API follows a stability policy to ensure your integrations continue to work across plugin updates.
+
+### Stability Promise
+
+- **Route paths are stable**: Once an endpoint is released, its path will not change without a deprecation period
+- **Response structures are additive**: New fields may be added, but existing fields will not be removed or renamed
+- **Request parameters are additive**: New optional parameters may be added, but existing ones will not change meaning
+- **Error codes are stable**: Documented error codes will continue to be returned for the same error conditions
+
+### Backward Compatibility
+
+We follow these rules for backward-compatible evolution:
+
+| Change Type              | Allowed | Not Allowed            |
+| ------------------------ | ------- | ---------------------- |
+| Add new endpoint         | ✅      | —                      |
+| Add optional parameter   | ✅      | —                      |
+| Add response field       | ✅      | —                      |
+| Remove endpoint          | —       | ❌ Without deprecation |
+| Remove response field    | —       | ❌                     |
+| Change parameter meaning | —       | ❌                     |
+| Change field type        | —       | ❌                     |
+
+### Deprecation Process
+
+When an endpoint needs to be replaced:
+
+1. **Deprecation headers**: Deprecated endpoints include response headers:
+    - `X-WPHA-Deprecated: true`
+    - `X-WPHA-Deprecated-Message: Use /wpha/v1/new-route instead`
+    - `X-WPHA-Sunset-Version: 2.0.0`
+
+2. **Grace period**: Deprecated endpoints continue to function for at least one minor release
+
+3. **Removal**: Deprecated endpoints may be removed in the next major version
+
+### Version Support
+
+| Version | Status      | Notes                                    |
+| ------- | ----------- | ---------------------------------------- |
+| `v1`    | **Current** | Actively maintained, backward compatible |
+
+**Note**: There is no `v2` API planned. The `v1` API evolves in place with backward-compatible changes only.
+
+### Checking for Deprecation
+
+To check if you're using deprecated endpoints, look for the `X-WPHA-Deprecated` header in responses:
+
+```javascript
+fetch('/wp-json/wpha/v1/some-endpoint', {
+	headers: { 'X-WP-Nonce': wpApiSettings.nonce },
+}).then((response) => {
+	if (response.headers.get('X-WPHA-Deprecated')) {
+		console.warn(
+			'Deprecated endpoint:',
+			response.headers.get('X-WPHA-Deprecated-Message')
+		);
+	}
+	return response.json();
+});
+```
 
 ## Authentication
 

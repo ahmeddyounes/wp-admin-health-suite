@@ -75,7 +75,7 @@ WP Admin Health Suite is a powerful all-in-one solution for maintaining your Wor
 - REST API for external integrations
 - Comprehensive hook system (actions and filters)
 - Full documentation
-- PSR-4 autoloading
+- PSR-4 autoloading (Composer-based with optimized classmap)
 - Modern React-based UI
 - Dependency injection container
 
@@ -110,6 +110,55 @@ WP Admin Health Suite is a powerful all-in-one solution for maintaining your Wor
 composer require wp-admin-health/suite
 ```
 
+## Bootstrap and Autoloading
+
+The plugin supports two runtime environments, automatically selecting the appropriate autoloader:
+
+### Runtime Environments
+
+| Environment | Autoloader | When to Use |
+| ----------- | ---------- | ----------- |
+| **Development** | `vendor/autoload.php` (Composer) | Local development, running tests, contributing |
+| **Production** | `includes/autoload.php` (built-in) | Distributed plugin without vendor directory |
+
+### How It Works
+
+On plugin load, the bootstrap logic in `wp-admin-health-suite.php` checks for Composer's autoloader:
+
+```php
+$composer_autoload = WP_ADMIN_HEALTH_PLUGIN_DIR . 'vendor/autoload.php';
+if ( file_exists( $composer_autoload ) ) {
+    require_once $composer_autoload;
+} else {
+    require_once WP_ADMIN_HEALTH_PLUGIN_DIR . 'includes/autoload.php';
+}
+```
+
+- **With `vendor/` present**: Uses Composer's autoloader (preferred for development and optimized builds)
+- **Without `vendor/`**: Falls back to the built-in PSR-4 autoloader in `includes/autoload.php`
+
+### Case Sensitivity
+
+Both autoloaders use PSR-4 with case-sensitive mapping. Directory and file names must match namespace casing exactly:
+
+| Namespace | File Path |
+| --------- | --------- |
+| `WPAdminHealth\Database\Cleaner` | `includes/Database/Cleaner.php` |
+| `WPAdminHealth\Integrations\ACF` | `includes/Integrations/ACF.php` |
+| `WPAdminHealth\REST\Endpoints` | `includes/REST/Endpoints.php` |
+
+This ensures compatibility with Linux servers where filesystem paths are case-sensitive.
+
+### Building for Distribution
+
+For plugin distribution (e.g., WordPress.org), build with an optimized classmap:
+
+```bash
+composer install --no-dev --optimize-autoloader
+```
+
+Alternatively, distribute without `vendor/` entirely—the built-in autoloader handles all class loading.
+
 ## Quick Start
 
 1. Navigate to **Admin Health > Dashboard**
@@ -138,12 +187,26 @@ We understand your WordPress site is critical. That's why:
 
 ## Development
 
+### Setup for Development
+
+1. Clone the repository into your WordPress plugins directory:
+   ```bash
+   cd /path/to/wordpress/wp-content/plugins
+   git clone https://github.com/yourusername/wp-admin-health-suite.git
+   cd wp-admin-health-suite
+   ```
+
+2. Install PHP and JavaScript dependencies:
+   ```bash
+   composer install
+   npm install
+   ```
+
+With `composer install`, the `vendor/` directory is created and Composer's autoloader is used. This is required for running tests and using development tools like PHPCS and PHPStan.
+
 ### Building Assets
 
 ```bash
-# Install dependencies
-npm install
-
 # Build for production
 npm run build
 
@@ -154,17 +217,37 @@ npm run build:dev
 npm run watch
 ```
 
+### Running All Checks (Recommended for Contributors)
+
+Before submitting a pull request, run all checks to ensure code quality:
+
+```bash
+# Run all PHP checks (lint + static analysis + tests)
+composer check
+
+# Run all JavaScript checks (lint + tests)
+npm run check
+
+# Run everything
+composer check && npm run check
+```
+
 ### Running Tests
 
 ```bash
-# PHP unit tests (standalone, no WordPress)
+# PHP unit tests (standalone, no WordPress required)
 composer test:standalone
 
 # JavaScript tests
 npm test
+
+# Run both
+composer test:standalone && npm test
 ```
 
-### Code Quality
+**Note**: PHP tests require `vendor/` to be present (`composer install`).
+
+### Code Quality (Linting)
 
 ```bash
 # PHP linting (PHPCS with WordPress standards)
@@ -176,7 +259,7 @@ composer phpstan
 # JavaScript linting
 npm run lint
 
-# Fix linting issues
+# Fix linting issues automatically
 npm run lint:fix
 composer phpcbf
 ```

@@ -19,6 +19,7 @@ use WPAdminHealth\Contracts\RevisionsManagerInterface;
 use WPAdminHealth\Contracts\TransientsCleanerInterface;
 use WPAdminHealth\Contracts\OrphanedCleanerInterface;
 use WPAdminHealth\Contracts\TrashCleanerInterface;
+use WPAdminHealth\Contracts\ActivityLoggerInterface;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -79,17 +80,26 @@ class CleanupController extends RestController {
 	private TrashCleanerInterface $trash_cleaner;
 
 	/**
+	 * Activity logger instance.
+	 *
+	 * @var ActivityLoggerInterface|null
+	 */
+	private ?ActivityLoggerInterface $activity_logger;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
+	 * @since 1.4.0 Added ActivityLoggerInterface dependency.
 	 *
-	 * @param SettingsInterface          $settings           Settings instance.
-	 * @param ConnectionInterface        $connection         Database connection instance.
-	 * @param AnalyzerInterface          $analyzer           Analyzer instance.
-	 * @param RevisionsManagerInterface  $revisions_manager  Revisions manager instance.
-	 * @param TransientsCleanerInterface $transients_cleaner Transients cleaner instance.
-	 * @param OrphanedCleanerInterface   $orphaned_cleaner   Orphaned cleaner instance.
-	 * @param TrashCleanerInterface      $trash_cleaner      Trash cleaner instance.
+	 * @param SettingsInterface            $settings           Settings instance.
+	 * @param ConnectionInterface          $connection         Database connection instance.
+	 * @param AnalyzerInterface            $analyzer           Analyzer instance.
+	 * @param RevisionsManagerInterface    $revisions_manager  Revisions manager instance.
+	 * @param TransientsCleanerInterface   $transients_cleaner Transients cleaner instance.
+	 * @param OrphanedCleanerInterface     $orphaned_cleaner   Orphaned cleaner instance.
+	 * @param TrashCleanerInterface        $trash_cleaner      Trash cleaner instance.
+	 * @param ActivityLoggerInterface|null $activity_logger    Activity logger instance (optional).
 	 */
 	public function __construct(
 		SettingsInterface $settings,
@@ -98,7 +108,8 @@ class CleanupController extends RestController {
 		RevisionsManagerInterface $revisions_manager,
 		TransientsCleanerInterface $transients_cleaner,
 		OrphanedCleanerInterface $orphaned_cleaner,
-		TrashCleanerInterface $trash_cleaner
+		TrashCleanerInterface $trash_cleaner,
+		?ActivityLoggerInterface $activity_logger = null
 	) {
 		parent::__construct( $settings, $connection );
 		$this->analyzer           = $analyzer;
@@ -106,6 +117,7 @@ class CleanupController extends RestController {
 		$this->transients_cleaner = $transients_cleaner;
 		$this->orphaned_cleaner   = $orphaned_cleaner;
 		$this->trash_cleaner      = $trash_cleaner;
+		$this->activity_logger    = $activity_logger;
 	}
 
 	/**
@@ -343,7 +355,9 @@ class CleanupController extends RestController {
 		}
 
 		// Log to activity.
-		$this->log_activity( $type, $result );
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_database_cleanup( $type, $result );
+		}
 
 		return $this->format_response(
 			true,
@@ -381,7 +395,9 @@ class CleanupController extends RestController {
 			$result['preview_only'] = true;
 		}
 
-		$this->log_activity( 'revisions', $result );
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_database_cleanup( 'revisions', $result );
+		}
 
 		return $this->format_response(
 			true,
@@ -416,7 +432,9 @@ class CleanupController extends RestController {
 			$result['preview_only'] = true;
 		}
 
-		$this->log_activity( 'transients', $result );
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_database_cleanup( 'transients', $result );
+		}
 
 		return $this->format_response(
 			true,
@@ -450,7 +468,9 @@ class CleanupController extends RestController {
 			$result['preview_only'] = true;
 		}
 
-		$this->log_activity( 'spam', $result );
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_database_cleanup( 'spam', $result );
+		}
 
 		return $this->format_response(
 			true,
@@ -485,7 +505,9 @@ class CleanupController extends RestController {
 			$result['preview_only'] = true;
 		}
 
-		$this->log_activity( 'trash', $result );
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_database_cleanup( 'trash', $result );
+		}
 
 		return $this->format_response(
 			true,
@@ -519,7 +541,9 @@ class CleanupController extends RestController {
 			$result['preview_only'] = true;
 		}
 
-		$this->log_activity( 'orphaned', $result );
+		if ( null !== $this->activity_logger ) {
+			$this->activity_logger->log_database_cleanup( 'orphaned', $result );
+		}
 
 		return $this->format_response(
 			true,
@@ -742,70 +766,6 @@ class CleanupController extends RestController {
 		}
 
 		return $results;
-	}
-
-	/**
-	 * Log activity to scan history.
-	 *
-	 * @since 1.3.0
-	 *
-	 * @param string $type   The cleanup/operation type.
-	 * @param array  $result The result data.
-	 * @return void
-	 */
-	private function log_activity( $type, $result ) {
-		$connection = $this->get_connection();
-
-		$table_name = $connection->get_prefix() . 'wpha_scan_history';
-
-		if ( ! $connection->table_exists( $table_name ) ) {
-			return;
-		}
-
-		$items_found   = 0;
-		$items_cleaned = 0;
-		$bytes_freed   = 0;
-
-		switch ( $type ) {
-			case 'revisions':
-			case 'transients':
-				$items_found   = isset( $result['deleted'] ) ? $result['deleted'] : 0;
-				$items_cleaned = $items_found;
-				$bytes_freed   = isset( $result['bytes_freed'] ) ? $result['bytes_freed'] : 0;
-				break;
-
-			case 'spam':
-				$items_found   = isset( $result['deleted'] ) ? $result['deleted'] : 0;
-				$items_cleaned = $items_found;
-				break;
-
-			case 'trash':
-				$items_found   = ( isset( $result['posts_deleted'] ) ? $result['posts_deleted'] : 0 ) + ( isset( $result['comments_deleted'] ) ? $result['comments_deleted'] : 0 );
-				$items_cleaned = $items_found;
-				break;
-
-			case 'orphaned':
-				$items_found   = ( isset( $result['postmeta_deleted'] ) ? $result['postmeta_deleted'] : 0 ) +
-								( isset( $result['commentmeta_deleted'] ) ? $result['commentmeta_deleted'] : 0 ) +
-								( isset( $result['termmeta_deleted'] ) ? $result['termmeta_deleted'] : 0 ) +
-								( isset( $result['relationships_deleted'] ) ? $result['relationships_deleted'] : 0 );
-				$items_cleaned = $items_found;
-				break;
-		}
-
-		$scan_type = 'database_' . $type;
-
-		$connection->insert(
-			$table_name,
-			array(
-				'scan_type'     => sanitize_text_field( $scan_type ),
-				'items_found'   => absint( $items_found ),
-				'items_cleaned' => absint( $items_cleaned ),
-				'bytes_freed'   => absint( $bytes_freed ),
-				'created_at'    => current_time( 'mysql' ),
-			),
-			array( '%s', '%d', '%d', '%d', '%s' )
-		);
 	}
 
 	/**

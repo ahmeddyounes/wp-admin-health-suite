@@ -5,6 +5,15 @@ All notable changes to WP Admin Health Suite will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Deprecated
+
+- `WPAdminHealth\RestApi` class - REST API routes are now registered via `RESTServiceProvider`. The `wpha_rest_api_init` and `wpha_register_rest_routes` hooks fired by this class are no longer triggered at runtime.
+- `WPAdminHealth\Database` class - Database operations are now handled via `DatabaseServiceProvider` and related service classes. The `wpha_database_init` hook fired by this class is no longer triggered at runtime.
+
+---
+
 ## [1.0.0] - 2026-01-07
 
 ### Added

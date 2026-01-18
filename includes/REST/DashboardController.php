@@ -12,6 +12,7 @@ use WP_REST_Response;
 use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Contracts\TableCheckerInterface;
 use WPAdminHealth\HealthCalculator;
 
 // Exit if accessed directly.
@@ -68,13 +69,20 @@ class DashboardController extends RestController {
 	 * @since 1.1.0
 	 * @since 1.2.0 Made HealthCalculator dependency required.
 	 * @since 1.3.0 Added ConnectionInterface dependency.
+	 * @since 1.4.0 Added TableCheckerInterface dependency.
 	 *
-	 * @param SettingsInterface   $settings          Settings instance.
-	 * @param ConnectionInterface $connection        Database connection instance.
-	 * @param HealthCalculator    $health_calculator Health calculator instance.
+	 * @param SettingsInterface          $settings          Settings instance.
+	 * @param ConnectionInterface        $connection        Database connection instance.
+	 * @param HealthCalculator           $health_calculator Health calculator instance.
+	 * @param TableCheckerInterface|null $table_checker     Optional table checker for cached existence checks.
 	 */
-	public function __construct( SettingsInterface $settings, ConnectionInterface $connection, HealthCalculator $health_calculator ) {
-		parent::__construct( $settings, $connection );
+	public function __construct(
+		SettingsInterface $settings,
+		ConnectionInterface $connection,
+		HealthCalculator $health_calculator,
+		?TableCheckerInterface $table_checker = null
+	) {
+		parent::__construct( $settings, $connection, $table_checker );
 		$this->health_calculator = $health_calculator;
 	}
 
@@ -281,7 +289,7 @@ class DashboardController extends RestController {
 		$table_name = $connection->get_prefix() . 'wpha_scan_history';
 
 		// Check if table exists.
-		if ( ! $connection->table_exists( $table_name ) ) {
+		if ( ! $this->table_exists( $table_name ) ) {
 			return $this->format_response(
 				true,
 				array(
@@ -390,7 +398,7 @@ class DashboardController extends RestController {
 		$log_id     = null;
 		$logged     = false;
 
-		if ( $connection->table_exists( $table_name ) ) {
+		if ( $this->table_exists( $table_name ) ) {
 			$inserted = $connection->insert(
 				$table_name,
 				array(
@@ -700,7 +708,7 @@ class DashboardController extends RestController {
 		$table_name = $connection->get_prefix() . 'wpha_scan_history';
 
 		// Check if table exists.
-		if ( ! $connection->table_exists( $table_name ) ) {
+		if ( ! $this->table_exists( $table_name ) ) {
 			return null;
 		}
 

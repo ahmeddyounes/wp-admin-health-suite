@@ -50,6 +50,10 @@ class AIServiceProvider extends ServiceProvider {
 	 * @var array<string>
 	 */
 	protected array $provides = array(
+		// Class-string identifiers (primary).
+		OneClickFix::class,
+		Recommendations::class,
+		// String aliases (backward compatibility).
 		'ai.one_click_fix',
 		'ai.recommendations',
 	);
@@ -58,14 +62,10 @@ class AIServiceProvider extends ServiceProvider {
 	 * {@inheritdoc}
 	 */
 	public function register(): void {
-		// Register One Click Fix with all dependencies.
+		// Register One Click Fix with class-string ID.
 		$this->container->bind(
-			'ai.one_click_fix',
+			OneClickFix::class,
 			function ( $container ) {
-				if ( ! class_exists( OneClickFix::class ) ) {
-					return null;
-				}
-
 				return new OneClickFix(
 					$container->get( TransientsCleanerInterface::class ),
 					$container->get( TrashCleanerInterface::class ),
@@ -75,15 +75,12 @@ class AIServiceProvider extends ServiceProvider {
 				);
 			}
 		);
+		$this->container->alias( 'ai.one_click_fix', OneClickFix::class );
 
-		// Register Recommendations with all dependencies.
+		// Register Recommendations with class-string ID.
 		$this->container->bind(
-			'ai.recommendations',
+			Recommendations::class,
 			function ( $container ) {
-				if ( ! class_exists( Recommendations::class ) ) {
-					return null;
-				}
-
 				return new Recommendations(
 					$container->get( AnalyzerInterface::class ),
 					$container->get( RevisionsManagerInterface::class ),
@@ -97,6 +94,7 @@ class AIServiceProvider extends ServiceProvider {
 				);
 			}
 		);
+		$this->container->alias( 'ai.recommendations', Recommendations::class );
 	}
 
 	/**

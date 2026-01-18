@@ -12,107 +12,115 @@ jest.mock('../admin.js', () => ({}));
 jest.mock('../charts.js', () => ({}));
 
 // Import after mocking
-import './dashboard.js';
+import { __testing__ } from './dashboard.js';
+import ExtensionAPI from '../utils/extension-api.js';
+import apiClient, { ApiError } from '../utils/api.js';
 
 describe('Dashboard Entry Point', () => {
 	beforeEach(() => {
 		// Reset mocks
 		jest.clearAllMocks();
 
-		// Mock WPAdminHealth.Events
-		window.WPAdminHealth = {
-			Events: {
-				trigger: jest.fn(),
-			},
+		// Setup WPAdminHealth namespace with mocked Events
+		// The dashboard.js module sets extensions, api, and ApiError when imported
+		window.WPAdminHealth = window.WPAdminHealth || {};
+		window.WPAdminHealth.Events = {
+			trigger: jest.fn(),
+			on: jest.fn(() => jest.fn()),
+			once: jest.fn(),
 		};
+		// Ensure extensions is set (may have been cleared by previous test)
+		window.WPAdminHealth.extensions = ExtensionAPI;
+		// Ensure API client is set
+		window.WPAdminHealth.api = apiClient;
+		window.WPAdminHealth.ApiError = ApiError;
 	});
 
 	afterEach(() => {
 		cleanup();
-		delete window.WPAdminHealth;
 	});
 
-	describe('WPAdminHealthComponents global', () => {
-		it('exposes components on window.WPAdminHealthComponents', () => {
-			expect(window.WPAdminHealthComponents).toBeDefined();
+	describe('Extension API', () => {
+		it('exposes extension API on window.WPAdminHealth.extensions', () => {
+			expect(window.WPAdminHealth.extensions).toBeDefined();
 		});
 
-		it('exposes ErrorBoundary component', () => {
-			expect(window.WPAdminHealthComponents.ErrorBoundary).toBeDefined();
+		it('provides version information', () => {
+			expect(window.WPAdminHealth.extensions.version).toBeDefined();
+			expect(typeof window.WPAdminHealth.extensions.version).toBe(
+				'string'
+			);
 		});
 
-		it('exposes HealthScoreCircle component', () => {
-			expect(
-				window.WPAdminHealthComponents.HealthScoreCircle
-			).toBeDefined();
+		it('provides hook constants', () => {
+			expect(window.WPAdminHealth.extensions.hooks).toBeDefined();
+			expect(window.WPAdminHealth.extensions.hooks.DASHBOARD_INIT).toBe(
+				'dashboardInit'
+			);
 		});
 
-		it('exposes MetricCard component', () => {
-			expect(window.WPAdminHealthComponents.MetricCard).toBeDefined();
-		});
-
-		it('exposes ActivityTimeline component', () => {
-			expect(
-				window.WPAdminHealthComponents.ActivityTimeline
-			).toBeDefined();
-		});
-
-		it('exposes QuickActions component', () => {
-			expect(window.WPAdminHealthComponents.QuickActions).toBeDefined();
-		});
-
-		it('exposes Recommendations component', () => {
-			expect(
-				window.WPAdminHealthComponents.Recommendations
-			).toBeDefined();
-		});
-
-		it('exposes React', () => {
-			expect(window.WPAdminHealthComponents.React).toBeDefined();
-			expect(window.WPAdminHealthComponents.React).toBe(React);
-		});
-
-		it('exposes createRoot', () => {
-			expect(window.WPAdminHealthComponents.createRoot).toBeDefined();
-			expect(typeof window.WPAdminHealthComponents.createRoot).toBe(
+		it('provides registerWidget method', () => {
+			expect(typeof window.WPAdminHealth.extensions.registerWidget).toBe(
 				'function'
 			);
 		});
 
-		it('exposes withErrorBoundary utility', () => {
+		it('provides unregisterWidget method', () => {
 			expect(
-				window.WPAdminHealthComponents.withErrorBoundary
-			).toBeDefined();
-			expect(
-				typeof window.WPAdminHealthComponents.withErrorBoundary
+				typeof window.WPAdminHealth.extensions.unregisterWidget
 			).toBe('function');
 		});
 
-		it('exposes mountComponent utility', () => {
-			expect(window.WPAdminHealthComponents.mountComponent).toBeDefined();
-			expect(typeof window.WPAdminHealthComponents.mountComponent).toBe(
+		it('provides addFilter method', () => {
+			expect(typeof window.WPAdminHealth.extensions.addFilter).toBe(
 				'function'
 			);
 		});
 
-		it('exposes unmountComponent utility', () => {
-			expect(
-				window.WPAdminHealthComponents.unmountComponent
-			).toBeDefined();
-			expect(typeof window.WPAdminHealthComponents.unmountComponent).toBe(
+		it('provides on method for event subscription', () => {
+			expect(typeof window.WPAdminHealth.extensions.on).toBe('function');
+		});
+
+		it('provides once method for one-time subscription', () => {
+			expect(typeof window.WPAdminHealth.extensions.once).toBe(
 				'function'
 			);
+		});
+	});
+
+	describe('Internal components (via __testing__)', () => {
+		it('has ErrorBoundary component', () => {
+			expect(__testing__.Components.ErrorBoundary).toBeDefined();
+		});
+
+		it('has HealthScoreCircle component', () => {
+			expect(__testing__.Components.HealthScoreCircle).toBeDefined();
+		});
+
+		it('has MetricCard component', () => {
+			expect(__testing__.Components.MetricCard).toBeDefined();
+		});
+
+		it('has ActivityTimeline component', () => {
+			expect(__testing__.Components.ActivityTimeline).toBeDefined();
+		});
+
+		it('has QuickActions component', () => {
+			expect(__testing__.Components.QuickActions).toBeDefined();
+		});
+
+		it('has Recommendations component', () => {
+			expect(__testing__.Components.Recommendations).toBeDefined();
 		});
 	});
 
 	describe('withErrorBoundary utility', () => {
 		it('wraps component with error boundary', () => {
 			const TestComponent = () => <div>Test</div>;
-			const WrappedComponent =
-				window.WPAdminHealthComponents.withErrorBoundary(
-					TestComponent,
-					'TestComponent'
-				);
+			const WrappedComponent = __testing__.withErrorBoundary(
+				TestComponent,
+				'TestComponent'
+			);
 
 			expect(WrappedComponent.displayName).toBe(
 				'WithErrorBoundary(TestComponent)'
@@ -121,11 +129,10 @@ describe('Dashboard Entry Point', () => {
 
 		it('renders wrapped component correctly', () => {
 			const TestComponent = () => <div>Wrapped content</div>;
-			const WrappedComponent =
-				window.WPAdminHealthComponents.withErrorBoundary(
-					TestComponent,
-					'TestComponent'
-				);
+			const WrappedComponent = __testing__.withErrorBoundary(
+				TestComponent,
+				'TestComponent'
+			);
 
 			render(<WrappedComponent />);
 			expect(screen.getByText('Wrapped content')).toBeInTheDocument();
@@ -133,11 +140,10 @@ describe('Dashboard Entry Point', () => {
 
 		it('passes props to wrapped component', () => {
 			const TestComponent = ({ message }) => <div>{message}</div>;
-			const WrappedComponent =
-				window.WPAdminHealthComponents.withErrorBoundary(
-					TestComponent,
-					'TestComponent'
-				);
+			const WrappedComponent = __testing__.withErrorBoundary(
+				TestComponent,
+				'TestComponent'
+			);
 
 			render(<WrappedComponent message="Hello World" />);
 			expect(screen.getByText('Hello World')).toBeInTheDocument();
@@ -164,7 +170,7 @@ describe('Dashboard Entry Point', () => {
 
 			let root;
 			await act(async () => {
-				root = window.WPAdminHealthComponents.mountComponent(
+				root = __testing__.mountComponent(
 					container,
 					TestComponent,
 					{},
@@ -181,7 +187,7 @@ describe('Dashboard Entry Point', () => {
 
 			let root;
 			await act(async () => {
-				root = window.WPAdminHealthComponents.mountComponent(
+				root = __testing__.mountComponent(
 					'#test-container',
 					TestComponent,
 					{},
@@ -198,7 +204,7 @@ describe('Dashboard Entry Point', () => {
 				.spyOn(console, 'warn')
 				.mockImplementation(() => {});
 			const TestComponent = () => <div>Test</div>;
-			const root = window.WPAdminHealthComponents.mountComponent(
+			const root = __testing__.mountComponent(
 				'#non-existent',
 				TestComponent,
 				{},
@@ -217,7 +223,7 @@ describe('Dashboard Entry Point', () => {
 			const TestComponent = ({ name }) => <div>Hello {name}</div>;
 
 			await act(async () => {
-				window.WPAdminHealthComponents.mountComponent(
+				__testing__.mountComponent(
 					container,
 					TestComponent,
 					{ name: 'World' },
@@ -239,7 +245,7 @@ describe('Dashboard Entry Point', () => {
 			};
 
 			await act(async () => {
-				window.WPAdminHealthComponents.mountComponent(
+				__testing__.mountComponent(
 					container,
 					ThrowingComponent,
 					{},
@@ -265,7 +271,7 @@ describe('Dashboard Entry Point', () => {
 
 			let root;
 			await act(async () => {
-				root = window.WPAdminHealthComponents.mountComponent(
+				root = __testing__.mountComponent(
 					testContainer,
 					TestComponent,
 					{},
@@ -276,7 +282,7 @@ describe('Dashboard Entry Point', () => {
 			expect(testContainer.textContent).toContain('Test');
 
 			act(() => {
-				window.WPAdminHealthComponents.unmountComponent(root);
+				__testing__.unmountComponent(root);
 			});
 
 			// Content should be removed after unmount
@@ -287,16 +293,12 @@ describe('Dashboard Entry Point', () => {
 
 		it('handles null root gracefully', () => {
 			// Should not throw
-			expect(() =>
-				window.WPAdminHealthComponents.unmountComponent(null)
-			).not.toThrow();
+			expect(() => __testing__.unmountComponent(null)).not.toThrow();
 		});
 
 		it('handles undefined root gracefully', () => {
 			// Should not throw
-			expect(() =>
-				window.WPAdminHealthComponents.unmountComponent(undefined)
-			).not.toThrow();
+			expect(() => __testing__.unmountComponent(undefined)).not.toThrow();
 		});
 	});
 
@@ -309,7 +311,7 @@ describe('Dashboard Entry Point', () => {
 			expect(window.WPAdminHealth.Events.trigger).toHaveBeenCalledWith(
 				'dashboardInit',
 				expect.objectContaining({
-					components: window.WPAdminHealthComponents,
+					extensions: window.WPAdminHealth.extensions,
 				})
 			);
 		});
@@ -322,6 +324,18 @@ describe('Dashboard Entry Point', () => {
 				const event = new Event('DOMContentLoaded');
 				document.dispatchEvent(event);
 			}).not.toThrow();
+		});
+	});
+
+	describe('Global namespace changes', () => {
+		it('does NOT expose WPAdminHealthComponents global', () => {
+			// The old API has been removed
+			expect(window.WPAdminHealthComponents).toBeUndefined();
+		});
+
+		it('exposes API on WPAdminHealth namespace', () => {
+			expect(window.WPAdminHealth.api).toBeDefined();
+			expect(window.WPAdminHealth.ApiError).toBeDefined();
 		});
 	});
 });

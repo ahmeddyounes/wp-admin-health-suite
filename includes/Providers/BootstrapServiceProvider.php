@@ -2,7 +2,7 @@
 /**
  * Bootstrap Service Provider
  *
- * Registers core UI services: Admin, Assets, RestApi.
+ * Registers core UI services: Admin services, Assets, RestApi.
  *
  * @package WPAdminHealth\Providers
  */
@@ -13,7 +13,9 @@ use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\QueryMonitorInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
-use WPAdminHealth\Admin;
+use WPAdminHealth\Admin\MenuRegistrar;
+use WPAdminHealth\Admin\PageRenderer;
+use WPAdminHealth\Admin\SettingsViewModel;
 use WPAdminHealth\Assets;
 use WPAdminHealth\Performance\AjaxMonitor;
 use WPAdminHealth\Performance\HeartbeatController;
@@ -29,6 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Registers essential UI and API services.
  *
  * @since 1.2.0
+ * @since 1.4.0 Refactored to use MenuRegistrar and PageRenderer services.
  */
 class BootstrapServiceProvider extends ServiceProvider {
 
@@ -38,12 +41,16 @@ class BootstrapServiceProvider extends ServiceProvider {
 	 * @var array<string>
 	 */
 	protected array $provides = array(
-		Admin::class,
+		MenuRegistrar::class,
+		PageRenderer::class,
+		SettingsViewModel::class,
 		Assets::class,
 		HeartbeatController::class,
 		AjaxMonitor::class,
 		QueryMonitorInterface::class,
-		'admin',
+		'admin.menu_registrar',
+		'admin.page_renderer',
+		'admin.settings_view_model',
 		'assets',
 		'performance.heartbeat_controller',
 		'performance.ajax_monitor',
@@ -53,17 +60,40 @@ class BootstrapServiceProvider extends ServiceProvider {
 	 * {@inheritdoc}
 	 */
 	public function register(): void {
-		// Register Admin as singleton.
+		// Register SettingsViewModel as singleton.
 		$this->container->singleton(
-			Admin::class,
+			SettingsViewModel::class,
 			function ( $container ) {
-				return new Admin(
-					$container->get( 'plugin.version' ),
-					$container->get( 'plugin.name' )
+				return new SettingsViewModel(
+					$container->get( SettingsInterface::class )
 				);
 			}
 		);
-		$this->container->alias( 'admin', Admin::class );
+		$this->container->alias( 'admin.settings_view_model', SettingsViewModel::class );
+
+		// Register PageRenderer as singleton.
+		$this->container->singleton(
+			PageRenderer::class,
+			function ( $container ) {
+				return new PageRenderer(
+					$container->get( 'plugin.path' ) . 'templates/admin',
+					'manage_options',
+					$container->get( SettingsViewModel::class )
+				);
+			}
+		);
+		$this->container->alias( 'admin.page_renderer', PageRenderer::class );
+
+		// Register MenuRegistrar as singleton.
+		$this->container->singleton(
+			MenuRegistrar::class,
+			function ( $container ) {
+				return new MenuRegistrar(
+					$container->get( PageRenderer::class )
+				);
+			}
+		);
+		$this->container->alias( 'admin.menu_registrar', MenuRegistrar::class );
 
 		// Register Assets as singleton.
 		$this->container->singleton(
@@ -123,10 +153,22 @@ class BootstrapServiceProvider extends ServiceProvider {
 			$this->container->get( AjaxMonitor::class );
 		}
 
-		// Initialize Admin and Assets only in admin context.
+		// Initialize admin services and Assets only in admin context.
 		if ( is_admin() ) {
-			$this->container->get( Admin::class );
+			// Get MenuRegistrar and register its hooks.
+			$menu_registrar = $this->container->get( MenuRegistrar::class );
+			$menu_registrar->register();
+
 			$this->container->get( Assets::class );
+
+			/**
+			 * Fires after admin initialization.
+			 *
+			 * @since 1.0.0
+			 *
+			 * @hook wpha_admin_init
+			 */
+			do_action( 'wpha_admin_init' );
 		}
 	}
 }

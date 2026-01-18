@@ -7,6 +7,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Recommendations from './Recommendations';
+import apiClient from '../utils/api.js';
+
+// Mock the API client
+jest.mock('../utils/api.js');
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -79,11 +83,8 @@ describe('Recommendations', () => {
 	beforeEach(() => {
 		localStorageMock.clear();
 		jest.clearAllMocks();
-		// Ensure wp.apiFetch is defined
-		if (!global.wp) {
-			global.wp = {};
-		}
-		global.wp.apiFetch = jest.fn().mockResolvedValue({ success: true });
+		// Reset API client mocks
+		apiClient.post.mockResolvedValue({ success: true });
 	});
 
 	it('renders without crashing', () => {
@@ -384,7 +385,7 @@ describe('Recommendations', () => {
 
 	it('executes Fix Now action and shows completion animation', async () => {
 		const onRefresh = jest.fn();
-		global.wp.apiFetch = jest.fn().mockResolvedValue({ success: true });
+		apiClient.post.mockResolvedValue({ success: true });
 
 		render(
 			<Recommendations
@@ -408,18 +409,14 @@ describe('Recommendations', () => {
 
 		// Wait for completion
 		await waitFor(() => {
-			expect(global.wp.apiFetch).toHaveBeenCalledWith({
-				path: '/wpha/v1/cleanup/revisions',
-				method: 'POST',
-				data: { endpoint: '/wpha/v1/cleanup/revisions' },
+			expect(apiClient.post).toHaveBeenCalledWith('cleanup/revisions', {
+				endpoint: '/wpha/v1/cleanup/revisions',
 			});
 		});
 	});
 
 	it('handles Fix Now action failure with alert', async () => {
-		global.wp.apiFetch = jest
-			.fn()
-			.mockRejectedValue(new Error('Network error'));
+		apiClient.post.mockRejectedValue(new Error('Network error'));
 
 		render(<Recommendations recommendations={mockRecommendations} />);
 
@@ -551,7 +548,7 @@ describe('Recommendations', () => {
 	});
 
 	it('calls API to dismiss recommendation on server', async () => {
-		global.wp.apiFetch = jest.fn().mockResolvedValue({ success: true });
+		apiClient.post.mockResolvedValue({ success: true });
 
 		render(<Recommendations recommendations={mockRecommendations} />);
 
@@ -563,19 +560,16 @@ describe('Recommendations', () => {
 		const dismissButton = screen.getByText('Dismiss');
 		fireEvent.click(dismissButton);
 
-		expect(global.wp.apiFetch).toHaveBeenCalledWith({
-			path: '/wpha/v1/recommendations/rec-1/dismiss',
-			method: 'POST',
-		});
+		expect(apiClient.post).toHaveBeenCalledWith(
+			'recommendations/rec-1/dismiss'
+		);
 	});
 
 	it('handles API dismiss error gracefully', async () => {
 		const consoleSpy = jest
 			.spyOn(console, 'error')
 			.mockImplementation(() => {});
-		global.wp.apiFetch = jest
-			.fn()
-			.mockRejectedValue(new Error('API error'));
+		apiClient.post.mockRejectedValue(new Error('API error'));
 
 		render(<Recommendations recommendations={mockRecommendations} />);
 
@@ -719,13 +713,12 @@ describe('Recommendations', () => {
 		expect(screen.getByText('Unknown category')).toBeInTheDocument();
 	});
 
-	it('works when wp.apiFetch is not available', () => {
-		const originalWp = global.wp;
-		global.wp = undefined;
+	it('works when API call fails', async () => {
+		apiClient.post.mockRejectedValue(new Error('Network unavailable'));
 
 		render(<Recommendations recommendations={mockRecommendations} />);
 
-		// Expand and dismiss - should not crash even without apiFetch
+		// Expand and dismiss - should work locally even if API fails
 		const firstRecommendation = screen
 			.getByText('Clean up database')
 			.closest('div');
@@ -735,7 +728,5 @@ describe('Recommendations', () => {
 
 		// Item should still be dismissed locally
 		expect(screen.queryByText('Clean up database')).not.toBeInTheDocument();
-
-		global.wp = originalWp;
 	});
 });

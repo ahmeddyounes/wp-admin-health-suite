@@ -9,6 +9,7 @@
 
 namespace WPAdminHealth\Integrations;
 
+use WPAdminHealth\Contracts\IntegrationFactoryInterface;
 use WPAdminHealth\Contracts\IntegrationInterface;
 
 // Exit if accessed directly.
@@ -55,16 +56,34 @@ class IntegrationManager {
 	private array $capability_index = array();
 
 	/**
-	 * Integration class map for auto-discovery.
+	 * Integration factory for resolving integrations from the container.
+	 *
+	 * @var IntegrationFactoryInterface|null
+	 */
+	private ?IntegrationFactoryInterface $factory = null;
+
+	/**
+	 * Integration class map for auto-discovery (fallback when factory unavailable).
 	 *
 	 * @var array<string, string>
 	 */
 	private array $builtin_integrations = array(
-		'woocommerce'   => 'WPAdminHealth\\Integrations\\WooCommerce',
-		'elementor'     => 'WPAdminHealth\\Integrations\\Elementor',
-		'acf'           => 'WPAdminHealth\\Integrations\\Acf',
-		'multilingual'  => 'WPAdminHealth\\Integrations\\Multilingual',
+		'woocommerce'  => 'WPAdminHealth\\Integrations\\WooCommerce',
+		'elementor'    => 'WPAdminHealth\\Integrations\\Elementor',
+		'acf'          => 'WPAdminHealth\\Integrations\\ACF',
+		'multilingual' => 'WPAdminHealth\\Integrations\\Multilingual',
 	);
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param IntegrationFactoryInterface|null $factory Optional integration factory.
+	 */
+	public function __construct( ?IntegrationFactoryInterface $factory = null ) {
+		$this->factory = $factory;
+	}
 
 	/**
 	 * Register an integration.
@@ -115,19 +134,8 @@ class IntegrationManager {
 		 */
 		do_action( 'wpha_before_integration_discovery' );
 
-		// Register built-in integrations.
-		foreach ( $this->builtin_integrations as $id => $class ) {
-			if ( class_exists( $class ) && ! isset( $this->integrations[ $id ] ) ) {
-				try {
-					$integration = new $class();
-					if ( $integration instanceof IntegrationInterface ) {
-						$this->register( $integration );
-					}
-				} catch ( \Throwable $e ) {
-					$this->log_error( $id, $e->getMessage() );
-				}
-			}
-		}
+		// Register built-in integrations via factory or direct instantiation.
+		$this->discover_builtin_integrations();
 
 		/**
 		 * Fires to allow third-party integrations to register.
@@ -150,6 +158,71 @@ class IntegrationManager {
 		do_action( 'wpha_integrations_loaded', $this );
 
 		return $this;
+	}
+
+	/**
+	 * Discover and register built-in integrations.
+	 *
+	 * Requires a factory to create integrations with proper dependencies.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return void
+	 */
+	private function discover_builtin_integrations(): void {
+		// Factory is required to inject dependencies.
+		if ( ! $this->factory ) {
+			$this->log_error( 'discovery', 'Cannot discover integrations without factory - dependencies are required.' );
+			return;
+		}
+
+		$ids_to_discover = $this->factory->get_available_ids();
+
+		foreach ( $ids_to_discover as $id ) {
+			if ( isset( $this->integrations[ $id ] ) ) {
+				continue;
+			}
+
+			$integration = $this->create_integration( $id );
+
+			if ( $integration instanceof IntegrationInterface ) {
+				$this->register( $integration );
+			}
+		}
+	}
+
+	/**
+	 * Create an integration instance.
+	 *
+	 * Requires a factory to properly inject dependencies.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $id Integration ID.
+	 * @return IntegrationInterface|null The integration instance or null on failure.
+	 */
+	private function create_integration( string $id ): ?IntegrationInterface {
+		// Factory is required to inject dependencies.
+		if ( ! $this->factory ) {
+			$this->log_error( $id, 'Cannot create integration without factory - dependencies are required.' );
+			return null;
+		}
+
+		if ( ! $this->factory->can_create( $id ) ) {
+			$this->log_error( $id, 'Factory cannot create integration - not registered.' );
+			return null;
+		}
+
+		try {
+			$integration = $this->factory->create( $id );
+			if ( $integration instanceof IntegrationInterface ) {
+				return $integration;
+			}
+		} catch ( \Throwable $e ) {
+			$this->log_error( $id, 'Factory error: ' . $e->getMessage() );
+		}
+
+		return null;
 	}
 
 	/**
@@ -646,5 +719,31 @@ class IntegrationManager {
 	public function register_builtin_class( string $id, string $class ): self {
 		$this->builtin_integrations[ $id ] = $class;
 		return $this;
+	}
+
+	/**
+	 * Set the integration factory.
+	 *
+	 * Allows setting the factory after construction for lazy injection.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param IntegrationFactoryInterface $factory The factory instance.
+	 * @return self
+	 */
+	public function set_factory( IntegrationFactoryInterface $factory ): self {
+		$this->factory = $factory;
+		return $this;
+	}
+
+	/**
+	 * Get the integration factory.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return IntegrationFactoryInterface|null The factory instance or null.
+	 */
+	public function get_factory(): ?IntegrationFactoryInterface {
+		return $this->factory;
 	}
 }

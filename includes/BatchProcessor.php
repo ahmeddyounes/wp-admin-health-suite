@@ -5,6 +5,16 @@
  * Provides efficient batch processing for large datasets using generators
  * to avoid memory issues on sites with 100k+ posts.
  *
+ * EDGE ADAPTER: This class uses static utility methods for batch processing that can be
+ * called from various contexts (services, CLI commands, cron tasks). It uses optional
+ * service location via Plugin::get_instance()->get_container() with fallback to global $wpdb
+ * because static utility methods cannot receive constructor-injected dependencies.
+ *
+ * The service-locator pattern is necessary here because:
+ * 1. Static utility methods are designed for direct invocation without instantiation
+ * 2. The class may be used before or outside the normal plugin lifecycle
+ * 3. Maintains backwards compatibility with existing static method calls
+ *
  * @package WPAdminHealth
  */
 
@@ -23,6 +33,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Uses PHP generators to process large datasets without loading
  * everything into memory at once. This prevents timeout and memory
  * issues on large sites.
+ *
+ * This is an edge adapter that uses optional service location because it provides
+ * static utility methods. For normal application code, prefer using container-managed
+ * services with ConnectionInterface injected via constructor.
  *
  * @since 1.0.0
  * @since 1.3.0 Added ConnectionInterface support with optional injection.

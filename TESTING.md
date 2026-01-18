@@ -1,12 +1,56 @@
 # Testing Guide - WP Admin Health Suite
 
-This document provides instructions for setting up and running the PHPUnit test suite for the WP Admin Health Suite plugin.
+This document provides instructions for setting up and running the PHPUnit test suites for the WP Admin Health Suite plugin.
+
+## Test Modes Overview
+
+The plugin has **two PHPUnit test modes**:
+
+| Mode | Command | WordPress Required | Database Required | Purpose |
+|------|---------|-------------------|-------------------|---------|
+| **Standalone** | `composer test:standalone` | No | No | Unit tests with function stubs |
+| **Integration** | `composer test` | Yes | Yes | Full WordPress integration tests |
+
+### Standalone Tests (Recommended for Development)
+
+Standalone tests use function stubs instead of a real WordPress installation. They are faster to run and require no external dependencies.
+
+```bash
+# Run standalone tests (no WordPress required)
+composer test:standalone
+```
+
+**What's tested:** Unit tests for classes that don't require WordPress runtime, using stubs for WordPress functions.
+
+**Test location:** `tests/unit-standalone/`
+
+**Configuration:** `phpunit-standalone.xml`
+
+### Integration Tests (Full WordPress)
+
+Integration tests run against a real WordPress installation with a database. They verify the plugin works correctly within WordPress.
+
+```bash
+# Run WordPress integration tests
+composer test
+```
+
+**What's tested:** Integration tests that require the full WordPress environment.
+
+**Test location:** `tests/unit/` and `tests/integration/`
+
+**Configuration:** `phpunit.xml`
 
 ## Prerequisites
 
+### For Standalone Tests
+
 - PHP 7.4 or higher
-- MySQL or MariaDB
 - Composer
+
+### For Integration Tests (Additional Requirements)
+
+- MySQL or MariaDB
 - Subversion (SVN) - for downloading WordPress test library
 
 ## Quick Setup
@@ -234,23 +278,91 @@ composer test
 
 ## CI/CD Integration
 
-The test suite works with continuous integration platforms. Example GitHub Actions:
+The project's CI workflow (`.github/workflows/ci.yml`) runs **both test modes** across multiple PHP versions.
+
+### CI Jobs
+
+| Job | PHP Versions | What it tests |
+|-----|--------------|---------------|
+| `test-php-standalone` | 7.4, 8.0, 8.1, 8.2 | Standalone unit tests |
+| `test-php-integration` | 7.4, 8.0, 8.1, 8.2 | WordPress integration tests |
+
+### Standalone Tests in CI
 
 ```yaml
 - name: Set up PHP
   uses: shivammathur/setup-php@v2
   with:
-      php-version: '8.0'
+    php-version: '8.0'
 
 - name: Install dependencies
   run: composer install
 
-- name: Install WordPress Test Suite
-  run: bash bin/install-wp-tests.sh wordpress_test root '' 127.0.0.1 latest
-
-- name: Run tests
-  run: composer test
+- name: Run standalone tests
+  run: composer test:standalone
 ```
+
+### Integration Tests in CI
+
+Integration tests require a MySQL service container:
+
+```yaml
+services:
+  mysql:
+    image: mysql:8.0
+    env:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wordpress_test
+    ports:
+      - 3306:3306
+    options: >-
+      --health-cmd="mysqladmin ping"
+      --health-interval=10s
+      --health-timeout=5s
+      --health-retries=5
+
+env:
+  WP_TESTS_DIR: /tmp/wordpress-tests-lib
+  WP_CORE_DIR: /tmp/wordpress
+
+steps:
+  - name: Set up PHP
+    uses: shivammathur/setup-php@v2
+    with:
+      php-version: '8.0'
+      extensions: mysqli
+
+  - name: Install dependencies
+    run: composer install
+
+  - name: Install WordPress Test Suite
+    run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 latest
+
+  - name: Run tests
+    run: composer test
+```
+
+### Required Environment Variables for Integration Tests
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WP_TESTS_DIR` | `/tmp/wordpress-tests-lib` | Path to WordPress test library |
+| `WP_CORE_DIR` | `/tmp/wordpress` | Path to WordPress core files |
+
+### Install Script Parameters
+
+```bash
+bash bin/install-wp-tests.sh <db-name> <db-user> <db-pass> [db-host] [wp-version] [skip-database-creation]
+```
+
+| Parameter | Example | Description |
+|-----------|---------|-------------|
+| `db-name` | `wordpress_test` | Test database name (will be created) |
+| `db-user` | `root` | MySQL username |
+| `db-pass` | `root` | MySQL password |
+| `db-host` | `127.0.0.1` | MySQL host (optional, default: localhost) |
+| `wp-version` | `latest` | WordPress version (optional, default: latest) |
+| `skip-database-creation` | `true` | Skip DB creation (optional, default: false) |
 
 ## Best Practices
 

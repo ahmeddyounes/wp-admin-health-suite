@@ -56,12 +56,12 @@ class Elementor extends AbstractIntegration implements MediaAwareIntegrationInte
 	 *
 	 * @since 1.1.0
 	 *
-	 * @param ConnectionInterface|null $connection Optional database connection.
-	 * @param CacheInterface|null      $cache      Optional cache instance.
+	 * @param ConnectionInterface $connection Database connection.
+	 * @param CacheInterface      $cache      Cache instance.
 	 */
 	public function __construct(
-		?ConnectionInterface $connection = null,
-		?CacheInterface $cache = null
+		ConnectionInterface $connection,
+		CacheInterface $cache
 	) {
 		parent::__construct( $connection, $cache );
 	}

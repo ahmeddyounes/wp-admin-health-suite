@@ -10,6 +10,7 @@
 namespace WPAdminHealth\Database\Tasks;
 
 use WPAdminHealth\Scheduler\AbstractScheduledTask;
+use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Contracts\RevisionsManagerInterface;
 use WPAdminHealth\Contracts\TransientsCleanerInterface;
 use WPAdminHealth\Contracts\OrphanedCleanerInterface;
@@ -29,6 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.2.0
  * @since 1.5.0 Added timeout handling, progress tracking, and error recovery.
+ * @since 1.7.0 Updated to use TaskResult DTO and ProgressStore.
  */
 class DatabaseCleanupTask extends AbstractScheduledTask {
 
@@ -148,26 +150,40 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 	private OptimizerInterface $optimizer;
 
 	/**
+	 * Settings interface.
+	 *
+	 * @since 1.8.0
+	 * @var SettingsInterface|null
+	 */
+	private ?SettingsInterface $settings = null;
+
+	/**
 	 * Constructor.
+	 *
+	 * @since 1.2.0
+	 * @since 1.8.0 Added optional SettingsInterface dependency for safe mode support.
 	 *
 	 * @param RevisionsManagerInterface  $revisions_manager  Revisions manager.
 	 * @param TransientsCleanerInterface $transients_cleaner Transients cleaner.
 	 * @param OrphanedCleanerInterface   $orphaned_cleaner   Orphaned cleaner.
 	 * @param TrashCleanerInterface      $trash_cleaner      Trash cleaner.
 	 * @param OptimizerInterface         $optimizer          Database optimizer.
+	 * @param SettingsInterface|null     $settings           Settings interface (optional).
 	 */
 	public function __construct(
 		RevisionsManagerInterface $revisions_manager,
 		TransientsCleanerInterface $transients_cleaner,
 		OrphanedCleanerInterface $orphaned_cleaner,
 		TrashCleanerInterface $trash_cleaner,
-		OptimizerInterface $optimizer
+		OptimizerInterface $optimizer,
+		?SettingsInterface $settings = null
 	) {
 		$this->revisions_manager  = $revisions_manager;
 		$this->transients_cleaner = $transients_cleaner;
 		$this->orphaned_cleaner   = $orphaned_cleaner;
 		$this->trash_cleaner      = $trash_cleaner;
 		$this->optimizer          = $optimizer;
+		$this->settings           = $settings;
 	}
 
 	/**
@@ -175,12 +191,19 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 	 *
 	 * @since 1.2.0
 	 * @since 1.5.0 Added timeout handling, progress tracking, and error recovery.
+	 * @since 1.8.0 Added safe mode support - returns preview data without executing destructive operations.
 	 */
 	public function execute( array $options = array() ): array {
 		$this->start_time = microtime( true );
 		$this->configure_time_limit( $options );
 
 		$this->log( 'Starting database cleanup task' );
+
+		// Check if safe mode is enabled (blocks all destructive operations).
+		if ( $this->is_safe_mode_enabled( $options ) ) {
+			$this->log( 'Safe mode enabled - returning preview data only (no destructive operations)' );
+			return $this->create_safe_mode_preview( $options );
+		}
 
 		// Load any existing progress from a previous interrupted run.
 		$progress = $this->load_progress();
@@ -218,13 +241,12 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 			if ( $this->is_time_limit_approaching() ) {
 				$this->log( 'Time limit approaching, saving progress for continuation' );
 				$was_interrupted = true;
-				$this->save_progress(
+				$this->save_interrupted_progress(
 					array(
 						'total_items'     => $total_items,
 						'total_bytes'     => $total_bytes,
 						'completed_tasks' => $completed_tasks,
 						'errors'          => $subtask_errors,
-						'interrupted_at'  => current_time( 'mysql' ),
 					)
 				);
 				break;
@@ -552,6 +574,178 @@ class DatabaseCleanupTask extends AbstractScheduledTask {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Check if safe mode is enabled.
+	 *
+	 * Safe mode can be enabled via:
+	 * 1. WPHA_SAFE_MODE constant in wp-config.php
+	 * 2. 'safe_mode' setting in plugin settings
+	 * 3. 'safe_mode' option passed directly to execute()
+	 *
+	 * @since 1.8.0
+	 *
+	 * @param array $options Task options (may contain 'safe_mode' override).
+	 * @return bool True if safe mode is enabled.
+	 */
+	private function is_safe_mode_enabled( array $options ): bool {
+		// Option override takes precedence.
+		if ( isset( $options['safe_mode'] ) ) {
+			return (bool) $options['safe_mode'];
+		}
+
+		// Use SettingsInterface if available.
+		if ( null !== $this->settings ) {
+			return $this->settings->is_safe_mode_enabled();
+		}
+
+		// Fall back to checking constant and option directly.
+		if ( defined( 'WPHA_SAFE_MODE' ) ) {
+			return (bool) WPHA_SAFE_MODE;
+		}
+
+		$settings = get_option( 'wpha_settings', array() );
+		return ! empty( $settings['safe_mode'] );
+	}
+
+	/**
+	 * Create a safe mode preview result.
+	 *
+	 * Returns preview data showing what would be cleaned without actually
+	 * executing any destructive operations.
+	 *
+	 * @since 1.8.0
+	 *
+	 * @param array $options Task options.
+	 * @return array Preview result with 'would_delete' and 'would_free' counts.
+	 */
+	private function create_safe_mode_preview( array $options ): array {
+		$settings      = get_option( 'wpha_settings', array() );
+		$cleanup_tasks = $this->determine_cleanup_tasks( $settings, $options );
+
+		$preview = array(
+			'revisions_count'  => 0,
+			'transients_count' => 0,
+			'orphaned_count'   => 0,
+			'spam_count'       => 0,
+			'trash_count'      => 0,
+			'auto_drafts_count' => 0,
+		);
+
+		// Collect counts for what would be cleaned.
+		foreach ( $cleanup_tasks as $task ) {
+			switch ( $task ) {
+				case 'revisions':
+					$preview['revisions_count'] = $this->revisions_manager->get_all_revisions_count();
+					break;
+
+				case 'transients':
+					$preview['transients_count'] = $this->transients_cleaner->count_transients();
+					break;
+
+				case 'orphaned':
+					$preview['orphaned_count'] = count( $this->orphaned_cleaner->find_orphaned_postmeta() )
+						+ count( $this->orphaned_cleaner->find_orphaned_commentmeta() )
+						+ count( $this->orphaned_cleaner->find_orphaned_termmeta() )
+						+ count( $this->orphaned_cleaner->find_orphaned_relationships() );
+					break;
+
+				case 'spam':
+					$preview['spam_count'] = $this->get_spam_count();
+					break;
+
+				case 'trash':
+					$preview['trash_count'] = $this->get_trash_count();
+					break;
+
+				case 'auto_drafts':
+					$preview['auto_drafts_count'] = $this->get_auto_drafts_count( $options );
+					break;
+			}
+		}
+
+		$total_would_delete = array_sum( $preview );
+
+		$elapsed_time = microtime( true ) - $this->start_time;
+
+		$result                   = $this->create_result( 0, 0, true );
+		$result['safe_mode']      = true;
+		$result['preview_only']   = true;
+		$result['would_delete']   = $total_would_delete;
+		$result['preview']        = $preview;
+		$result['cleanup_tasks']  = $cleanup_tasks;
+		$result['elapsed_time']   = $elapsed_time;
+		$result['was_interrupted'] = false;
+		$result['errors']         = array();
+
+		return $result;
+	}
+
+	/**
+	 * Get count of spam comments.
+	 *
+	 * @since 1.8.0
+	 *
+	 * @return int Number of spam comments.
+	 */
+	private function get_spam_count(): int {
+		global $wpdb;
+		$count = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = 'spam'" );
+		return absint( $count );
+	}
+
+	/**
+	 * Get count of trashed items (posts and comments).
+	 *
+	 * @since 1.8.0
+	 *
+	 * @return int Number of trashed items.
+	 */
+	private function get_trash_count(): int {
+		global $wpdb;
+		$posts_count    = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'trash'" );
+		$comments_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = 'trash'" );
+		return absint( $posts_count ) + absint( $comments_count );
+	}
+
+	/**
+	 * Get count of auto-drafts.
+	 *
+	 * @since 1.8.0
+	 *
+	 * @param array $options Task options.
+	 * @return int Number of auto-drafts.
+	 */
+	private function get_auto_drafts_count( array $options ): int {
+		$older_than_days = 7;
+
+		if ( ! empty( $options['clean_auto_drafts'] ) && isset( $options['older_than_days'] ) ) {
+			$older_than_days = absint( $options['older_than_days'] );
+		}
+
+		if ( $older_than_days <= 0 ) {
+			$older_than_days = 0;
+		}
+
+		$before = gmdate( 'Y-m-d H:i:s', strtotime( "-{$older_than_days} days" ) );
+
+		$post_ids = get_posts(
+			array(
+				'post_type'      => 'any',
+				'post_status'    => 'auto-draft',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'date_query'     => array(
+					array(
+						'column' => 'post_modified_gmt',
+						'before' => $before,
+					),
+				),
+			)
+		);
+
+		return count( $post_ids );
 	}
 
 	/**

@@ -11,6 +11,45 @@ on:
       - develop
 
 jobs:
+  case-sensitivity:
+    name: Case-Sensitivity Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run case-sensitivity validation
+        run: ./scripts/check-case-sensitivity.sh
+
+  forbidden-patterns:
+    name: Forbidden Patterns Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run forbidden patterns validation
+        run: ./scripts/check-forbidden-patterns.sh
+
+  autoload-sanity:
+    name: Autoload Sanity Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          coverage: none
+
+      - name: Run autoload sanity check
+        run: php scripts/check-autoload-sanity.php
+
   lint-php:
     name: PHP Linting
     runs-on: ubuntu-latest
@@ -96,8 +135,8 @@ jobs:
       - name: Check formatting with Prettier
         run: npm run format:check
 
-  test-php:
-    name: PHP Tests
+  test-php-standalone:
+    name: PHP Standalone Tests
     runs-on: ubuntu-latest
 
     strategy:
@@ -128,7 +167,66 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-progress --no-suggest --prefer-dist
 
-      - name: Run PHPUnit
+      - name: Run standalone PHPUnit tests
+        run: composer test:standalone
+
+  test-php-integration:
+    name: PHP Integration Tests (WordPress)
+    runs-on: ubuntu-latest
+
+    # WordPress integration tests require MySQL
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    strategy:
+      matrix:
+        php-version: ['7.4', '8.0', '8.1', '8.2']
+        wp-version: ['latest']
+
+    env:
+      WP_TESTS_DIR: /tmp/wordpress-tests-lib
+      WP_CORE_DIR: /tmp/wordpress
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: mysqli
+          coverage: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php-${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-php-${{ matrix.php-version }}-composer-
+
+      - name: Install PHP dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist
+
+      - name: Install WordPress test suite
+        run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wp-version }}
+
+      - name: Run WordPress integration PHPUnit tests
         run: composer test
 
   test-js:

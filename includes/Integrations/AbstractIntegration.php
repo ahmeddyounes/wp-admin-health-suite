@@ -12,8 +12,6 @@ namespace WPAdminHealth\Integrations;
 use WPAdminHealth\Contracts\IntegrationInterface;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\CacheInterface;
-use WPAdminHealth\Database\WpdbConnection;
-use WPAdminHealth\Cache\CacheFactory;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -61,15 +59,15 @@ abstract class AbstractIntegration implements IntegrationInterface {
 	/**
 	 * Constructor.
 	 *
-	 * @param ConnectionInterface|null $connection Optional database connection.
-	 * @param CacheInterface|null      $cache      Optional cache instance.
+	 * @param ConnectionInterface $connection Database connection.
+	 * @param CacheInterface      $cache      Cache instance.
 	 */
 	public function __construct(
-		?ConnectionInterface $connection = null,
-		?CacheInterface $cache = null
+		ConnectionInterface $connection,
+		CacheInterface $cache
 	) {
-		$this->connection = $connection ?? new WpdbConnection();
-		$this->cache      = $cache ?? CacheFactory::get_instance();
+		$this->connection = $connection;
+		$this->cache      = $cache;
 	}
 
 	/**

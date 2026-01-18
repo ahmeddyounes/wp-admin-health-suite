@@ -9,7 +9,12 @@ namespace WPAdminHealth\Tests;
 
 use WP_REST_Request;
 use WP_REST_Server;
-use WPAdminHealth\REST\REST_Controller;
+use WPAdminHealth\REST\RestController;
+use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Contracts\TableCheckerInterface;
+use WPAdminHealth\Plugin;
+use WPAdminHealth\Settings\SettingsRegistry;
 
 /**
  * Test REST API endpoints.
@@ -29,7 +34,7 @@ class RestApiTest extends TestCase {
 	/**
 	 * REST controller instance.
 	 *
-	 * @var REST_Controller
+	 * @var RestController
 	 */
 	protected $controller;
 
@@ -46,6 +51,13 @@ class RestApiTest extends TestCase {
 	 * @var int
 	 */
 	protected $subscriber_user_id;
+
+	/**
+	 * Settings interface instance.
+	 *
+	 * @var SettingsInterface
+	 */
+	protected $settings;
 
 	/**
 	 * Set up test environment.
@@ -73,16 +85,33 @@ class RestApiTest extends TestCase {
 			)
 		);
 
-		// Create controller instance.
-		$this->controller = new REST_Controller();
+		// Get the container from the plugin instance.
+		$container = Plugin::get_instance()->get_container();
+
+		// Get the settings interface from container.
+		$this->settings = $container->get( SettingsInterface::class );
+
+		// Get the connection interface from container.
+		$connection = $container->get( ConnectionInterface::class );
+
+		// Get the table checker interface from container (optional).
+		$table_checker = null;
+		if ( $container->has( TableCheckerInterface::class ) ) {
+			$table_checker = $container->get( TableCheckerInterface::class );
+		}
+
+		// Create controller instance with proper dependencies.
+		$this->controller = new RestController( $this->settings, $connection, $table_checker );
 		$this->controller->register_routes();
 
-		// Ensure REST API is enabled.
-		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'enable_rest_api' => true )
-		) );
+		// Ensure REST API is enabled via the settings option.
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'enable_rest_api' => true )
+			)
+		);
 	}
 
 	/**
@@ -172,11 +201,13 @@ class RestApiTest extends TestCase {
 		wp_set_current_user( $this->admin_user_id );
 
 		// Disable REST API.
-		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'enable_rest_api' => false )
-		) );
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'enable_rest_api' => false )
+			)
+		);
 
 		$request = new WP_REST_Request( 'GET', '/wpha/v1/' );
 		$request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
@@ -188,10 +219,13 @@ class RestApiTest extends TestCase {
 		$this->assertEquals( 'rest_api_disabled', $data['code'] );
 
 		// Re-enable for other tests.
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'enable_rest_api' => true )
-		) );
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'enable_rest_api' => true )
+			)
+		);
 	}
 
 	/**
@@ -223,11 +257,13 @@ class RestApiTest extends TestCase {
 		wp_set_current_user( $this->admin_user_id );
 
 		// Enable debug mode.
-		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'debug_mode' => true )
-		) );
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'debug_mode' => true )
+			)
+		);
 
 		$request = new WP_REST_Request( 'GET', '/wpha/v1/' );
 		$request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
@@ -243,10 +279,13 @@ class RestApiTest extends TestCase {
 		$this->assertArrayHasKey( 'time_elapsed', $data['debug'] );
 
 		// Disable debug mode.
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'debug_mode' => false )
-		) );
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'debug_mode' => false )
+			)
+		);
 	}
 
 	/**
@@ -372,11 +411,13 @@ class RestApiTest extends TestCase {
 		wp_set_current_user( $this->admin_user_id );
 
 		// Set a low rate limit for testing.
-		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'rest_api_rate_limit' => 3 )
-		) );
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'rest_api_rate_limit' => 3 )
+			)
+		);
 
 		// Clean up any existing rate limit transients.
 		delete_transient( 'wpha_rate_limit_' . $this->admin_user_id );
@@ -400,10 +441,13 @@ class RestApiTest extends TestCase {
 		$this->assertEquals( 'rest_rate_limit_exceeded', $data['code'] );
 
 		// Reset rate limit to default.
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'rest_api_rate_limit' => 60 )
-		) );
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'rest_api_rate_limit' => 60 )
+			)
+		);
 		delete_transient( 'wpha_rate_limit_' . $this->admin_user_id );
 	}
 
@@ -415,20 +459,25 @@ class RestApiTest extends TestCase {
 		wp_set_current_user( $this->admin_user_id );
 
 		// Set custom rate limit.
-		$settings = \WPAdminHealth\Plugin::get_instance()->get_settings();
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'rest_api_rate_limit' => 100 )
-		) );
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'rest_api_rate_limit' => 100 )
+			)
+		);
 
-		$rate_limit = $settings->get_rest_api_rate_limit();
+		$rate_limit = $this->settings->get_rest_api_rate_limit();
 		$this->assertEquals( 100, $rate_limit );
 
 		// Reset to default.
-		update_option( 'wpha_settings', array_merge(
-			$settings->get_settings(),
-			array( 'rest_api_rate_limit' => 60 )
-		) );
+		update_option(
+			SettingsRegistry::OPTION_NAME,
+			array_merge(
+				$this->settings->get_settings(),
+				array( 'rest_api_rate_limit' => 60 )
+			)
+		);
 	}
 
 	/**

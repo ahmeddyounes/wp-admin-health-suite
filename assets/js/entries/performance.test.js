@@ -5,126 +5,86 @@
  */
 
 import React from 'react';
+import { cleanup } from '@testing-library/react';
 
-// Mock the admin.js, charts.js, and performance.js imports
+// Mock the imports
 jest.mock('../admin.js', () => ({}));
 jest.mock('../charts.js', () => ({}));
 jest.mock('../performance.js', () => ({}));
 
 // Import after mocking
-import './performance.js';
+import { __testing__ } from './performance.js';
 
 describe('Performance Entry Point', () => {
 	beforeEach(() => {
 		// Reset mocks
 		jest.clearAllMocks();
+
+		// Ensure WPAdminHealth namespace exists
+		window.WPAdminHealth = window.WPAdminHealth || {};
 	});
 
 	afterEach(() => {
-		// Cleanup global state if needed
+		cleanup();
 	});
 
-	describe('WPAdminHealthComponents global', () => {
-		it('exposes components on window.WPAdminHealthComponents', () => {
-			expect(window.WPAdminHealthComponents).toBeDefined();
+	describe('Extension API', () => {
+		it('exposes extension API on window.WPAdminHealth.extensions', () => {
+			expect(window.WPAdminHealth.extensions).toBeDefined();
 		});
 
-		it('exposes MetricCard component', () => {
-			expect(window.WPAdminHealthComponents.MetricCard).toBeDefined();
+		it('provides version information', () => {
+			expect(window.WPAdminHealth.extensions.version).toBeDefined();
 		});
 
-		it('exposes Recommendations component', () => {
-			expect(
-				window.WPAdminHealthComponents.Recommendations
-			).toBeDefined();
-		});
-
-		it('exposes React', () => {
-			expect(window.WPAdminHealthComponents.React).toBeDefined();
-			expect(window.WPAdminHealthComponents.React).toBe(React);
-		});
-
-		it('exposes createRoot', () => {
-			expect(window.WPAdminHealthComponents.createRoot).toBeDefined();
-			expect(typeof window.WPAdminHealthComponents.createRoot).toBe(
+		it('provides registerWidget method', () => {
+			expect(typeof window.WPAdminHealth.extensions.registerWidget).toBe(
 				'function'
 			);
 		});
 	});
 
-	describe('Component exports are valid React components', () => {
+	describe('Internal components (via __testing__)', () => {
+		it('has MetricCard component', () => {
+			expect(__testing__.Components.MetricCard).toBeDefined();
+		});
+
+		it('has Recommendations component', () => {
+			expect(__testing__.Components.Recommendations).toBeDefined();
+		});
+
+		it('has React reference', () => {
+			expect(__testing__.React).toBe(React);
+		});
+
+		it('has createRoot function', () => {
+			expect(typeof __testing__.createRoot).toBe('function');
+		});
+	});
+
+	describe('Global namespace changes', () => {
+		it('does NOT expose WPAdminHealthComponents global', () => {
+			// The old API has been removed
+			expect(window.WPAdminHealthComponents).toBeUndefined();
+		});
+
+		it('exposes API on WPAdminHealth namespace', () => {
+			expect(window.WPAdminHealth.api).toBeDefined();
+			expect(window.WPAdminHealth.ApiError).toBeDefined();
+		});
+	});
+
+	describe('Components are valid React components', () => {
 		it('MetricCard is a valid React component', () => {
-			const MetricCard = window.WPAdminHealthComponents.MetricCard;
+			const MetricCard = __testing__.Components.MetricCard;
+			expect(MetricCard).toBeDefined();
 			expect(typeof MetricCard).toBe('function');
 		});
 
 		it('Recommendations is a valid React component', () => {
-			const Recommendations =
-				window.WPAdminHealthComponents.Recommendations;
-			expect(typeof Recommendations).toBe('function');
-		});
-	});
-
-	describe('Global namespace preservation', () => {
-		it('preserves existing WPAdminHealthComponents properties', () => {
-			// Verify that the performance entry point uses Object.assign correctly
-			expect(window.WPAdminHealthComponents).toBeDefined();
-
-			// Should have MetricCard from performance entry
-			expect(window.WPAdminHealthComponents.MetricCard).toBeDefined();
-
-			// Should have Recommendations from performance entry
-			expect(
-				window.WPAdminHealthComponents.Recommendations
-			).toBeDefined();
-		});
-
-		it('does not remove previously set components', () => {
-			// After multiple entry points load, all components should be available
-			const components = window.WPAdminHealthComponents;
-
-			// Core utilities should be available
-			expect(components.React).toBeDefined();
-			expect(components.createRoot).toBeDefined();
-		});
-
-		it('initializes WPAdminHealthComponents if not already present', () => {
-			// The entry point should handle the case where window.WPAdminHealthComponents
-			// is not already defined by initializing it to an empty object first
-			expect(window.WPAdminHealthComponents).toBeDefined();
-			expect(typeof window.WPAdminHealthComponents).toBe('object');
-		});
-	});
-
-	describe('Performance-specific component availability', () => {
-		it('MetricCard component can be used for performance metrics display', () => {
-			const MetricCard = window.WPAdminHealthComponents.MetricCard;
-			expect(MetricCard).toBeDefined();
-			// Verify it's a function (React component)
-			expect(typeof MetricCard).toBe('function');
-		});
-
-		it('Recommendations component can be used for performance recommendations', () => {
-			const Recommendations =
-				window.WPAdminHealthComponents.Recommendations;
+			const Recommendations = __testing__.Components.Recommendations;
 			expect(Recommendations).toBeDefined();
-			// Verify it's a function (React component)
 			expect(typeof Recommendations).toBe('function');
-		});
-	});
-
-	describe('React and createRoot availability for chart rendering', () => {
-		it('React is available for performance chart components', () => {
-			expect(window.WPAdminHealthComponents.React).toBe(React);
-			expect(window.WPAdminHealthComponents.React.createElement).toBe(
-				React.createElement
-			);
-		});
-
-		it('createRoot is available for mounting performance visualizations', () => {
-			const { createRoot } = window.WPAdminHealthComponents;
-			expect(createRoot).toBeDefined();
-			expect(typeof createRoot).toBe('function');
 		});
 	});
 });

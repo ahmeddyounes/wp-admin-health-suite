@@ -14,6 +14,7 @@ use WP_REST_Response;
 use WP_Error;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Application\Performance\RunHealthCheck;
 use WPAdminHealth\REST\RestController;
 
 // Exit if accessed directly.
@@ -29,6 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - Performance recommendations
  *
  * @since 1.3.0
+ * @since 1.4.0 Updated to use RunHealthCheck application service.
  */
 class PerformanceStatsController extends RestController {
 
@@ -40,18 +42,30 @@ class PerformanceStatsController extends RestController {
 	protected $rest_base = 'performance/stats';
 
 	/**
+	 * Health check application service.
+	 *
+	 * @since 1.4.0
+	 * @var RunHealthCheck
+	 */
+	protected RunHealthCheck $health_check;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
+	 * @since 1.4.0 Added RunHealthCheck dependency.
 	 *
-	 * @param SettingsInterface   $settings   Settings instance.
-	 * @param ConnectionInterface $connection Database connection instance.
+	 * @param SettingsInterface   $settings     Settings instance.
+	 * @param ConnectionInterface $connection   Database connection instance.
+	 * @param RunHealthCheck      $health_check Health check application service.
 	 */
 	public function __construct(
 		SettingsInterface $settings,
-		ConnectionInterface $connection
+		ConnectionInterface $connection,
+		RunHealthCheck $health_check
 	) {
 		parent::__construct( $settings, $connection );
+		$this->health_check = $health_check;
 	}
 
 	/**
@@ -107,73 +121,22 @@ class PerformanceStatsController extends RestController {
 	 *
 	 * @since 1.0.0
 	 * @since 1.3.0 Moved to PerformanceStatsController.
+	 * @since 1.4.0 Delegates to RunHealthCheck application service.
 	 *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_performance_stats( $request ) {
-		$connection = $this->get_connection();
-
-		// Calculate performance factors.
-		$plugin_count   = count( get_option( 'active_plugins', array() ) );
-		$autoload_size  = $this->get_autoload_size();
-		$db_query_count = $connection->get_num_queries();
-		$object_cache   = wp_using_ext_object_cache();
-
-		// Calculate score (0-100).
-		$score = 100;
-
-		// Deduct points for high plugin count.
-		if ( $plugin_count > 30 ) {
-			$score -= 20;
-		} elseif ( $plugin_count > 20 ) {
-			$score -= 10;
-		} elseif ( $plugin_count > 10 ) {
-			$score -= 5;
-		}
-
-		// Deduct points for large autoload size.
-		$autoload_mb = $autoload_size / 1024 / 1024;
-		if ( $autoload_mb > 1 ) {
-			$score -= 15;
-		} elseif ( $autoload_mb > 0.5 ) {
-			$score -= 10;
-		}
-
-		// Add points for object cache.
-		if ( ! $object_cache ) {
-			$score -= 15;
-		}
-
-		// Deduct points for high query count.
-		if ( $db_query_count > 100 ) {
-			$score -= 10;
-		} elseif ( $db_query_count > 50 ) {
-			$score -= 5;
-		}
-
-		$score = max( 0, min( 100, $score ) );
-
-		// Determine grade.
-		if ( $score >= 90 ) {
-			$grade = 'A';
-		} elseif ( $score >= 80 ) {
-			$grade = 'B';
-		} elseif ( $score >= 70 ) {
-			$grade = 'C';
-		} elseif ( $score >= 60 ) {
-			$grade = 'D';
-		} else {
-			$grade = 'F';
-		}
+		// Use the application service to get a quick performance score.
+		$quick_score = $this->health_check->get_quick_score();
 
 		$response_data = array(
-			'score'         => $score,
-			'grade'         => $grade,
-			'plugin_count'  => $plugin_count,
-			'autoload_size' => $autoload_size,
-			'query_count'   => $db_query_count,
-			'object_cache'  => $object_cache,
+			'score'         => $quick_score['score'],
+			'grade'         => $quick_score['grade'],
+			'plugin_count'  => $quick_score['plugin_count'],
+			'autoload_size' => $quick_score['autoload_size'],
+			'query_count'   => $quick_score['query_count'],
+			'object_cache'  => $quick_score['object_cache'],
 			'timestamp'     => time(),
 		);
 
@@ -189,11 +152,16 @@ class PerformanceStatsController extends RestController {
 	 *
 	 * @since 1.0.0
 	 * @since 1.3.0 Moved to PerformanceStatsController.
+	 * @since 1.4.0 Delegates to RunHealthCheck application service.
 	 *
 	 * @param WP_REST_Request $request Full details about the request.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_recommendations( $request ) {
+		// Run checks to get recommendations from the application service.
+		$autoload_results = $this->health_check->check_autoload();
+		$cache_results    = $this->health_check->check_cache();
+
 		$recommendations = array();
 
 		// Check plugin count.
@@ -211,8 +179,8 @@ class PerformanceStatsController extends RestController {
 			);
 		}
 
-		// Check autoload size.
-		$autoload_size = $this->get_autoload_size();
+		// Check autoload size using results from application service.
+		$autoload_size = $autoload_results['total_size'] ?? 0;
 		$autoload_mb   = $autoload_size / 1024 / 1024;
 		if ( $autoload_mb > 0.8 ) {
 			$recommendations[] = array(
@@ -227,8 +195,8 @@ class PerformanceStatsController extends RestController {
 			);
 		}
 
-		// Check object cache.
-		if ( ! wp_using_ext_object_cache() ) {
+		// Check object cache using results from application service.
+		if ( empty( $cache_results['object_cache_enabled'] ) ) {
 			$recommendations[] = array(
 				'type'        => 'info',
 				'title'       => __( 'Enable Object Caching', 'wp-admin-health-suite' ),
@@ -237,8 +205,8 @@ class PerformanceStatsController extends RestController {
 			);
 		}
 
-		// Check OPcache.
-		if ( ! function_exists( 'opcache_get_status' ) || ! opcache_get_status() ) {
+		// Check OPcache using results from application service.
+		if ( empty( $cache_results['opcache_enabled'] ) ) {
 			$recommendations[] = array(
 				'type'        => 'info',
 				'title'       => __( 'Enable OPcache', 'wp-admin-health-suite' ),
@@ -247,31 +215,23 @@ class PerformanceStatsController extends RestController {
 			);
 		}
 
+		// Add cache recommendations from the application service.
+		if ( ! empty( $cache_results['recommendations'] ) ) {
+			foreach ( $cache_results['recommendations'] as $rec ) {
+				$recommendations[] = array(
+					'type'        => $rec['type'] ?? 'info',
+					'title'       => $rec['title'] ?? '',
+					'description' => $rec['message'] ?? '',
+					'action'      => $rec['action'] ?? '',
+					'priority'    => $rec['priority'] ?? 'medium',
+				);
+			}
+		}
+
 		return $this->format_response(
 			true,
 			array( 'recommendations' => $recommendations ),
 			__( 'Recommendations retrieved successfully.', 'wp-admin-health-suite' )
 		);
-	}
-
-	/**
-	 * Get total autoload size.
-	 *
-	 * @since 1.0.0
-	 * @since 1.3.0 Moved to PerformanceStatsController.
-	 *
-	 * @return int Autoload size in bytes.
-	 */
-	private function get_autoload_size(): int {
-		$connection    = $this->get_connection();
-		$options_table = $connection->get_options_table();
-
-		$result = $connection->get_var(
-			"SELECT SUM(LENGTH(option_value))
-			FROM {$options_table}
-			WHERE autoload = 'yes'"
-		);
-
-		return $result ? (int) $result : 0;
 	}
 }

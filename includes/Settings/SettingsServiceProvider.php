@@ -12,6 +12,7 @@ namespace WPAdminHealth\Settings;
 use WPAdminHealth\Container\ServiceProvider;
 use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\HealthCalculator;
+use WPAdminHealth\Scheduler\Contracts\SchedulingServiceInterface;
 use WPAdminHealth\Settings\Contracts\SettingsRegistryInterface;
 use WPAdminHealth\Settings\Domain\CoreSettings;
 use WPAdminHealth\Settings\Domain\DatabaseSettings;
@@ -47,8 +48,17 @@ class SettingsServiceProvider extends ServiceProvider {
 	 * @var array<string>
 	 */
 	protected array $provides = array(
+		// Interface identifiers (primary).
 		SettingsInterface::class,
 		SettingsRegistryInterface::class,
+		// Class-string identifiers for domain settings.
+		CoreSettings::class,
+		DatabaseSettings::class,
+		MediaSettings::class,
+		PerformanceSettings::class,
+		SchedulingSettings::class,
+		AdvancedSettings::class,
+		// String aliases (backward compatibility).
 		'settings.registry',
 		'settings.core',
 		'settings.database',
@@ -84,48 +94,54 @@ class SettingsServiceProvider extends ServiceProvider {
 		$this->container->alias( SettingsInterface::class, SettingsRegistryInterface::class );
 		$this->container->alias( 'settings.registry', SettingsRegistryInterface::class );
 
-		// Register individual domain settings for direct access.
+		// Register individual domain settings for direct access with class-string IDs.
 		$this->container->bind(
-			'settings.core',
+			CoreSettings::class,
 			function () {
 				return new CoreSettings();
 			}
 		);
+		$this->container->alias( 'settings.core', CoreSettings::class );
 
 		$this->container->bind(
-			'settings.database',
+			DatabaseSettings::class,
 			function () {
 				return new DatabaseSettings();
 			}
 		);
+		$this->container->alias( 'settings.database', DatabaseSettings::class );
 
 		$this->container->bind(
-			'settings.media',
+			MediaSettings::class,
 			function () {
 				return new MediaSettings();
 			}
 		);
+		$this->container->alias( 'settings.media', MediaSettings::class );
 
 		$this->container->bind(
-			'settings.performance',
+			PerformanceSettings::class,
 			function () {
 				return new PerformanceSettings();
 			}
 		);
+		$this->container->alias( 'settings.performance', PerformanceSettings::class );
 
 		$this->container->bind(
-			'settings.scheduling',
+			SchedulingSettings::class,
 			function () {
 				return new SchedulingSettings();
 			}
 		);
+		$this->container->alias( 'settings.scheduling', SchedulingSettings::class );
 
 		$this->container->bind(
-			'settings.advanced',
+			AdvancedSettings::class,
 			function () {
 				return new AdvancedSettings();
 			}
 		);
+		$this->container->alias( 'settings.advanced', AdvancedSettings::class );
 	}
 
 	/**
@@ -805,81 +821,35 @@ class SettingsServiceProvider extends ServiceProvider {
 	/**
 	 * Handle scheduling settings updates.
 	 *
-	 * Only reschedules tasks when their frequency changes, preferred time changes,
-	 * or when the scheduler is newly enabled.
+	 * Delegates to SchedulingService::reconcile() which compares current schedules
+	 * against settings and adjusts as needed (schedules, unschedules, or reschedules).
+	 *
+	 * @since 1.0.0
+	 * @since 2.0.0 Refactored to use SchedulingService for single-authority scheduling.
 	 *
 	 * @param array $old_value Previous settings.
 	 * @param array $new_value New settings.
 	 * @return void
 	 */
 	public function handle_scheduling_update( $old_value, $new_value ): void {
-		if ( ! is_array( $old_value ) ) {
-			$old_value = array();
-		}
-
 		if ( ! is_array( $new_value ) ) {
 			$new_value = array();
 		}
 
-		// Handle scheduler being disabled.
-		if ( empty( $new_value['scheduler_enabled'] ) ) {
-			$this->unschedule_all_tasks();
+		// Check if the SchedulingService is available.
+		if ( ! $this->container->has( SchedulingServiceInterface::class ) ) {
 			return;
 		}
 
-		// Check if scheduler was just enabled or preferred time changed.
-		$was_enabled    = ! empty( $old_value['scheduler_enabled'] );
-		$old_time       = isset( $old_value['preferred_time'] ) ? absint( $old_value['preferred_time'] ) : 2;
-		$new_time       = isset( $new_value['preferred_time'] ) ? absint( $new_value['preferred_time'] ) : 2;
-		$time_changed   = $old_time !== $new_time;
-		$reschedule_all = ! $was_enabled || $time_changed;
+		/** @var SchedulingServiceInterface $scheduling_service */
+		$scheduling_service = $this->container->get( SchedulingServiceInterface::class );
 
-		$next_run = $this->calculate_next_run_time( $new_time );
-
-		// Task scheduling configuration.
-		$tasks = array(
-			'wpha_database_cleanup'  => array(
-				'enabled_key'   => 'enable_scheduled_db_cleanup',
-				'frequency_key' => 'database_cleanup_frequency',
-				'default_freq'  => 'weekly',
-			),
-			'wpha_media_scan'        => array(
-				'enabled_key'   => 'enable_scheduled_media_scan',
-				'frequency_key' => 'media_scan_frequency',
-				'default_freq'  => 'weekly',
-			),
-			'wpha_performance_check' => array(
-				'enabled_key'   => 'enable_scheduled_performance_check',
-				'frequency_key' => 'performance_check_frequency',
-				'default_freq'  => 'daily',
-			),
-		);
-
-		// Reschedule tasks only when necessary.
-		foreach ( $tasks as $hook => $config ) {
-			$enabled_key = $config['enabled_key'];
-
-			$old_enabled = array_key_exists( $enabled_key, $old_value ) ? ! empty( $old_value[ $enabled_key ] ) : true;
-			$new_enabled = array_key_exists( $enabled_key, $new_value ) ? ! empty( $new_value[ $enabled_key ] ) : true;
-
-			$frequency_key = $config['frequency_key'];
-			$default_freq  = $config['default_freq'];
-			$old_frequency = $old_value[ $frequency_key ] ?? $default_freq;
-			$new_frequency = $new_value[ $frequency_key ] ?? $default_freq;
-
-			$enabled_changed   = $old_enabled !== $new_enabled;
-			$frequency_changed = $old_frequency !== $new_frequency;
-
-			// Disabled tasks should not remain scheduled.
-			if ( ! $new_enabled ) {
-				$this->unschedule_task( $hook );
-				continue;
-			}
-
-			if ( $reschedule_all || $enabled_changed || $frequency_changed ) {
-				$this->schedule_task( $hook, (string) $new_frequency, $next_run );
-			}
-		}
+		// Let SchedulingService::reconcile() handle all the logic:
+		// - If scheduler_enabled is false, it unschedules all tasks.
+		// - If a task is disabled, it unschedules that task.
+		// - If frequency changed, it reschedules the task.
+		// - If preferred_time changed, it reschedules all tasks.
+		$scheduling_service->reconcile();
 	}
 
 	/**
@@ -956,113 +926,5 @@ class SettingsServiceProvider extends ServiceProvider {
 		$css = str_replace( array( '<', '>' ), '', $css );
 
 		return trim( $css );
-	}
-
-	/**
-	 * Schedule a task.
-	 *
-	 * @param string $hook      Hook name.
-	 * @param string $frequency Frequency.
-	 * @param int    $next_run  Next run timestamp.
-	 * @return void
-	 */
-	private function schedule_task( string $hook, string $frequency, int $next_run ): void {
-		if ( 'disabled' === $frequency ) {
-			$this->unschedule_task( $hook );
-			return;
-		}
-
-		$interval = $this->get_interval_seconds( $frequency );
-		if ( ! $interval ) {
-			return;
-		}
-
-		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_unschedule_all_actions' ) ) {
-			as_unschedule_all_actions( $hook, array(), 'wpha_scheduling' );
-			as_schedule_recurring_action( $next_run, $interval, $hook, array(), 'wpha_scheduling' );
-		} else {
-			// Ensure we don't accidentally leave multiple schedules behind.
-			wp_clear_scheduled_hook( $hook );
-			wp_schedule_event( $next_run, $this->get_cron_schedule_name( $frequency ), $hook );
-		}
-	}
-
-	/**
-	 * Unschedule a task.
-	 *
-	 * @param string $hook Hook name.
-	 * @return void
-	 */
-	private function unschedule_task( string $hook ): void {
-		if ( function_exists( 'as_unschedule_all_actions' ) ) {
-			as_unschedule_all_actions( $hook, array(), 'wpha_scheduling' );
-		}
-
-		// Clear all scheduled events for this hook (covers duplicates).
-		wp_clear_scheduled_hook( $hook );
-	}
-
-	/**
-	 * Unschedule all tasks.
-	 *
-	 * @return void
-	 */
-	private function unschedule_all_tasks(): void {
-		$hooks = array( 'wpha_database_cleanup', 'wpha_media_scan', 'wpha_performance_check' );
-		foreach ( $hooks as $hook ) {
-			$this->unschedule_task( $hook );
-		}
-	}
-
-	/**
-	 * Calculate next run time.
-	 *
-	 * @param int $preferred_hour Preferred hour.
-	 * @return int Timestamp.
-	 */
-	private function calculate_next_run_time( int $preferred_hour ): int {
-		$preferred_hour = min( 23, max( 0, $preferred_hour ) );
-
-		$timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new \DateTimeZone( 'UTC' );
-		$now      = new \DateTimeImmutable( 'now', $timezone );
-
-		$preferred = $now->setTime( $preferred_hour, 0, 0 );
-		if ( $preferred->getTimestamp() <= $now->getTimestamp() ) {
-			$preferred = $preferred->modify( '+1 day' );
-		}
-
-		return $preferred->getTimestamp();
-	}
-
-	/**
-	 * Get interval in seconds.
-	 *
-	 * @param string $frequency Frequency.
-	 * @return int|false Interval or false.
-	 */
-	private function get_interval_seconds( string $frequency ) {
-		$intervals = array(
-			'daily'   => DAY_IN_SECONDS,
-			'weekly'  => WEEK_IN_SECONDS,
-			'monthly' => 30 * DAY_IN_SECONDS,
-		);
-
-		return $intervals[ $frequency ] ?? false;
-	}
-
-	/**
-	 * Get WP-Cron schedule name.
-	 *
-	 * @param string $frequency Frequency.
-	 * @return string Schedule name.
-	 */
-	private function get_cron_schedule_name( string $frequency ): string {
-		$schedules = array(
-			'daily'   => 'daily',
-			'weekly'  => 'weekly',
-			'monthly' => 'monthly',
-		);
-
-		return $schedules[ $frequency ] ?? 'daily';
 	}
 }

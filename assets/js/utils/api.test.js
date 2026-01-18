@@ -4,6 +4,9 @@
  * @package
  */
 
+// Unmock the api module so we can test the actual implementation
+jest.unmock('./api.js');
+
 import { apiClient, ApiError, RequestCache } from './api.js';
 
 describe('RequestCache', () => {
@@ -310,12 +313,12 @@ describe('ApiClient', () => {
 	describe('buildPath', () => {
 		it('builds path with namespace', () => {
 			const path = apiClient.buildPath('test/endpoint');
-			expect(path).toBe('/wp-admin-health/v1/test/endpoint');
+			expect(path).toBe('/wpha/v1/test/endpoint');
 		});
 
 		it('removes leading slash from endpoint', () => {
 			const path = apiClient.buildPath('/test/endpoint');
-			expect(path).toBe('/wp-admin-health/v1/test/endpoint');
+			expect(path).toBe('/wpha/v1/test/endpoint');
 		});
 	});
 
@@ -327,7 +330,7 @@ describe('ApiClient', () => {
 
 			expect(mockApiFetch).toHaveBeenCalledWith(
 				expect.objectContaining({
-					path: '/wp-admin-health/v1/test',
+					path: '/wpha/v1/test',
 					method: 'GET',
 				})
 			);
@@ -344,7 +347,7 @@ describe('ApiClient', () => {
 
 			expect(mockApiFetch).toHaveBeenCalledWith(
 				expect.objectContaining({
-					path: '/wp-admin-health/v1/test?foo=bar',
+					path: '/wpha/v1/test?foo=bar',
 				})
 			);
 		});
@@ -376,7 +379,7 @@ describe('ApiClient', () => {
 
 			expect(mockApiFetch).toHaveBeenCalledWith(
 				expect.objectContaining({
-					path: '/wp-admin-health/v1/test',
+					path: '/wpha/v1/test',
 					method: 'POST',
 					data: { name: 'value' },
 				})
@@ -402,7 +405,7 @@ describe('ApiClient', () => {
 
 			expect(mockApiFetch).toHaveBeenCalledWith(
 				expect.objectContaining({
-					path: '/wp-admin-health/v1/test/1',
+					path: '/wpha/v1/test/1',
 					method: 'PUT',
 					data: { name: 'updated' },
 				})
@@ -418,7 +421,7 @@ describe('ApiClient', () => {
 
 			expect(mockApiFetch).toHaveBeenCalledWith(
 				expect.objectContaining({
-					path: '/wp-admin-health/v1/test/1',
+					path: '/wpha/v1/test/1',
 					method: 'PATCH',
 					data: { name: 'patched' },
 				})
@@ -434,7 +437,7 @@ describe('ApiClient', () => {
 
 			expect(mockApiFetch).toHaveBeenCalledWith(
 				expect.objectContaining({
-					path: '/wp-admin-health/v1/test/1',
+					path: '/wpha/v1/test/1',
 					method: 'DELETE',
 				})
 			);
@@ -471,6 +474,93 @@ describe('ApiClient', () => {
 				apiClient.get('test', { cache: false })
 			).rejects.toMatchObject({
 				code: 'network_error',
+			});
+		});
+
+		it('normalizes HTTP Response errors with status', async () => {
+			mockApiFetch.mockRejectedValue({
+				status: 502,
+				statusText: 'Bad Gateway',
+			});
+
+			await expect(
+				apiClient.get('test', { cache: false })
+			).rejects.toMatchObject({
+				status: 502,
+				code: 'http_error',
+			});
+		});
+
+		it('handles HTTP Response error without statusText', async () => {
+			mockApiFetch.mockRejectedValue({
+				status: 500,
+			});
+
+			await expect(
+				apiClient.get('test', { cache: false })
+			).rejects.toMatchObject({
+				status: 500,
+				message: 'Request failed',
+			});
+		});
+
+		it('normalizes AbortError as timeout', async () => {
+			const abortError = new Error('Aborted');
+			abortError.name = 'AbortError';
+			mockApiFetch.mockRejectedValue(abortError);
+
+			await expect(
+				apiClient.get('test', { cache: false })
+			).rejects.toMatchObject({
+				code: 'timeout_error',
+			});
+		});
+
+		it('normalizes timeout message errors', async () => {
+			mockApiFetch.mockRejectedValue(new Error('Request timeout'));
+
+			await expect(
+				apiClient.get('test', { cache: false })
+			).rejects.toMatchObject({
+				code: 'timeout_error',
+			});
+		});
+
+		it('returns same ApiError if already ApiError', async () => {
+			const existingError = new ApiError(
+				'Existing error',
+				400,
+				'existing_code'
+			);
+			mockApiFetch.mockRejectedValue(existingError);
+
+			await expect(
+				apiClient.get('test', { cache: false })
+			).rejects.toMatchObject({
+				message: 'Existing error',
+				status: 400,
+				code: 'existing_code',
+			});
+		});
+
+		it('handles generic unknown errors', async () => {
+			mockApiFetch.mockRejectedValue({});
+
+			await expect(
+				apiClient.get('test', { cache: false })
+			).rejects.toMatchObject({
+				code: 'unknown_error',
+			});
+		});
+
+		it('handles error with no message', async () => {
+			const err = {};
+			mockApiFetch.mockRejectedValue(err);
+
+			await expect(
+				apiClient.get('test', { cache: false })
+			).rejects.toMatchObject({
+				message: 'Unknown error',
 			});
 		});
 	});
@@ -512,6 +602,30 @@ describe('ApiClient', () => {
 
 			// Initial request + 2 retries = 3 total calls
 			expect(mockApiFetch).toHaveBeenCalledTimes(3);
+		});
+
+		it('throws cancelled error when signal is aborted during retry', async () => {
+			const controller = new AbortController();
+
+			// First call fails, triggering retry
+			mockApiFetch.mockImplementation(() => {
+				return new Promise((_, reject) => {
+					// Abort the controller before rejecting
+					setTimeout(() => {
+						controller.abort();
+						reject(new TypeError('NetworkError'));
+					}, 10);
+				});
+			});
+
+			await expect(
+				apiClient.get('test', {
+					cache: false,
+					signal: controller.signal,
+				})
+			).rejects.toMatchObject({
+				code: 'request_cancelled',
+			});
 		});
 	});
 

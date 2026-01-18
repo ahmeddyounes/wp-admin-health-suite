@@ -5,69 +5,75 @@
  */
 
 import React from 'react';
+import { cleanup } from '@testing-library/react';
 
 // Mock the admin.js and media-audit.js imports
 jest.mock('../admin.js', () => ({}));
 jest.mock('../media-audit.js', () => ({}));
 
 // Import after mocking
-import './media-audit.js';
+import { __testing__ } from './media-audit.js';
 
 describe('Media Audit Entry Point', () => {
 	beforeEach(() => {
 		// Reset mocks
 		jest.clearAllMocks();
+
+		// Ensure WPAdminHealth namespace exists
+		window.WPAdminHealth = window.WPAdminHealth || {};
 	});
 
 	afterEach(() => {
-		// Cleanup global state if needed
+		cleanup();
 	});
 
-	describe('WPAdminHealthComponents global', () => {
-		it('exposes components on window.WPAdminHealthComponents', () => {
-			expect(window.WPAdminHealthComponents).toBeDefined();
+	describe('Extension API', () => {
+		it('exposes extension API on window.WPAdminHealth.extensions', () => {
+			expect(window.WPAdminHealth.extensions).toBeDefined();
 		});
 
-		it('exposes MetricCard component', () => {
-			expect(window.WPAdminHealthComponents.MetricCard).toBeDefined();
+		it('provides version information', () => {
+			expect(window.WPAdminHealth.extensions.version).toBeDefined();
 		});
 
-		it('exposes React', () => {
-			expect(window.WPAdminHealthComponents.React).toBeDefined();
-			expect(window.WPAdminHealthComponents.React).toBe(React);
-		});
-
-		it('exposes createRoot', () => {
-			expect(window.WPAdminHealthComponents.createRoot).toBeDefined();
-			expect(typeof window.WPAdminHealthComponents.createRoot).toBe(
+		it('provides registerWidget method', () => {
+			expect(typeof window.WPAdminHealth.extensions.registerWidget).toBe(
 				'function'
 			);
 		});
 	});
 
-	describe('Component exports are valid React components', () => {
-		it('MetricCard is a valid React component', () => {
-			const MetricCard = window.WPAdminHealthComponents.MetricCard;
-			expect(typeof MetricCard).toBe('function');
+	describe('Internal components (via __testing__)', () => {
+		it('has MetricCard component', () => {
+			expect(__testing__.Components.MetricCard).toBeDefined();
+		});
+
+		it('has React reference', () => {
+			expect(__testing__.React).toBe(React);
+		});
+
+		it('has createRoot function', () => {
+			expect(typeof __testing__.createRoot).toBe('function');
 		});
 	});
 
-	describe('Global namespace preservation', () => {
-		it('preserves existing WPAdminHealthComponents properties', () => {
-			// Verify that the media-audit entry point uses Object.assign correctly
-			expect(window.WPAdminHealthComponents).toBeDefined();
-
-			// Should have MetricCard from media-audit entry
-			expect(window.WPAdminHealthComponents.MetricCard).toBeDefined();
+	describe('Global namespace changes', () => {
+		it('does NOT expose WPAdminHealthComponents global', () => {
+			// The old API has been removed
+			expect(window.WPAdminHealthComponents).toBeUndefined();
 		});
 
-		it('does not remove previously set components', () => {
-			// After multiple entry points load, all components should be available
-			const components = window.WPAdminHealthComponents;
+		it('exposes API on WPAdminHealth namespace', () => {
+			expect(window.WPAdminHealth.api).toBeDefined();
+			expect(window.WPAdminHealth.ApiError).toBeDefined();
+		});
+	});
 
-			// Core utilities should be available
-			expect(components.React).toBeDefined();
-			expect(components.createRoot).toBeDefined();
+	describe('Components are valid React components', () => {
+		it('MetricCard is a valid React component', () => {
+			const MetricCard = __testing__.Components.MetricCard;
+			expect(MetricCard).toBeDefined();
+			expect(typeof MetricCard).toBe('function');
 		});
 	});
 });
