@@ -83,12 +83,13 @@ class DatabaseServiceProvider extends ServiceProvider {
 
 		$this->container->alias( 'db.connection', ConnectionInterface::class );
 
-		// Register Analyzer with ConnectionInterface injection.
+		// Register Analyzer with ConnectionInterface and CacheInterface injection.
 		$this->container->bind(
 			AnalyzerInterface::class,
 			function ( $container ) {
 				$connection = $container->get( ConnectionInterface::class );
-				return new Analyzer( $connection );
+				$cache      = $container->get( CacheInterface::class );
+				return new Analyzer( $connection, $cache );
 			}
 		);
 

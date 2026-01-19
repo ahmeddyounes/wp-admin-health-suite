@@ -10,7 +10,9 @@
 namespace WPAdminHealth\Database;
 
 use WPAdminHealth\Contracts\AnalyzerInterface;
+use WPAdminHealth\Contracts\CacheInterface;
 use WPAdminHealth\Contracts\ConnectionInterface;
+use WPAdminHealth\Support\CacheKeys;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,22 +24,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  * @since 1.3.0 Added constructor dependency injection for ConnectionInterface.
+ * @since 1.3.1 Migrated to CacheInterface with centralized CacheKeys.
  */
 class Analyzer implements AnalyzerInterface {
-
-	/**
-	 * Transient cache expiration time (5 minutes).
-	 *
-	 * @var int
-	 */
-	const CACHE_EXPIRATION = 5 * MINUTE_IN_SECONDS;
-
-	/**
-	 * Transient key prefix.
-	 *
-	 * @var string
-	 */
-	const CACHE_PREFIX = 'wpha_db_analyzer_';
 
 	/**
 	 * Database connection.
@@ -47,14 +36,22 @@ class Analyzer implements AnalyzerInterface {
 	private ConnectionInterface $connection;
 
 	/**
-	 * Cache for database size.
+	 * Cache instance.
+	 *
+	 * @since 1.3.1
+	 * @var CacheInterface
+	 */
+	private CacheInterface $cache;
+
+	/**
+	 * Cache for database size (in-memory for request lifecycle).
 	 *
 	 * @var int|null
 	 */
 	private $database_size = null;
 
 	/**
-	 * Cache for table sizes.
+	 * Cache for table sizes (in-memory for request lifecycle).
 	 *
 	 * @var array|null
 	 */
@@ -127,19 +124,23 @@ class Analyzer implements AnalyzerInterface {
 	 * Constructor.
 	 *
 	 * @since 1.3.0
+	 * @since 1.3.1 Added CacheInterface parameter.
 	 *
 	 * @param ConnectionInterface $connection Database connection.
+	 * @param CacheInterface      $cache      Cache instance.
 	 */
-	public function __construct( ConnectionInterface $connection ) {
+	public function __construct( ConnectionInterface $connection, CacheInterface $cache ) {
 		$this->connection = $connection;
+		$this->cache      = $cache;
 	}
 
 	/**
 	 * Get the total database size in bytes.
 	 *
-	 * Uses transient caching to avoid expensive queries on large databases.
+	 * Uses CacheInterface for persistent caching to avoid expensive queries on large databases.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.1 Migrated from transients to CacheInterface.
 	 *
 	 * @return int Total database size in bytes.
 	 */
@@ -148,33 +149,25 @@ class Analyzer implements AnalyzerInterface {
 			return $this->database_size;
 		}
 
-		// Try to get from transient cache first.
-		$cache_key = self::CACHE_PREFIX . 'database_size';
-		$cached = get_transient( $cache_key );
+		$this->database_size = $this->cache->remember(
+			CacheKeys::DB_ANALYZER_DATABASE_SIZE,
+			function () {
+				$query = $this->connection->prepare(
+					'SELECT SUM(data_length + index_length) as size
+					FROM information_schema.TABLES
+					WHERE table_schema = %s',
+					DB_NAME
+				);
 
-		if ( false !== $cached ) {
-			$this->database_size = absint( $cached );
-			return $this->database_size;
-		}
+				if ( null === $query ) {
+					return 0;
+				}
 
-		$query = $this->connection->prepare(
-			'SELECT SUM(data_length + index_length) as size
-			FROM information_schema.TABLES
-			WHERE table_schema = %s',
-			DB_NAME
+				$result = $this->connection->get_var( $query );
+				return absint( $result );
+			},
+			CacheKeys::get_ttl( CacheKeys::DB_ANALYZER_DATABASE_SIZE )
 		);
-
-		if ( null === $query ) {
-			$this->database_size = 0;
-			return $this->database_size;
-		}
-
-		$result = $this->connection->get_var( $query );
-
-		$this->database_size = absint( $result );
-
-		// Cache the result.
-		set_transient( $cache_key, $this->database_size, self::CACHE_EXPIRATION );
 
 		return $this->database_size;
 	}
@@ -182,9 +175,10 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get sizes of all database tables.
 	 *
-	 * Uses transient caching to avoid expensive queries on large databases.
+	 * Uses CacheInterface for persistent caching to avoid expensive queries on large databases.
 	 *
 	 * @since 1.0.0
+	 * @since 1.3.1 Migrated from transients to CacheInterface.
 	 *
 	 * @return array Array of table names and their sizes in bytes.
 	 */
@@ -193,40 +187,35 @@ class Analyzer implements AnalyzerInterface {
 			return $this->table_sizes;
 		}
 
-		// Try to get from transient cache first.
-		$cache_key = self::CACHE_PREFIX . 'table_sizes';
-		$cached = get_transient( $cache_key );
+		$this->table_sizes = $this->cache->remember(
+			CacheKeys::DB_ANALYZER_TABLE_SIZES,
+			function () {
+				$query = $this->connection->prepare(
+					"SELECT table_name as 'table',
+					(data_length + index_length) as size
+					FROM information_schema.TABLES
+					WHERE table_schema = %s
+					ORDER BY (data_length + index_length) DESC",
+					DB_NAME
+				);
 
-		if ( false !== $cached && is_array( $cached ) ) {
-			$this->table_sizes = $cached;
-			return $this->table_sizes;
-		}
+				if ( null === $query ) {
+					return array();
+				}
 
-		$query = $this->connection->prepare(
-			"SELECT table_name as 'table',
-			(data_length + index_length) as size
-			FROM information_schema.TABLES
-			WHERE table_schema = %s
-			ORDER BY (data_length + index_length) DESC",
-			DB_NAME
+				$results     = $this->connection->get_results( $query );
+				$table_sizes = array();
+
+				if ( $results ) {
+					foreach ( $results as $row ) {
+						$table_sizes[ $row->table ] = absint( $row->size );
+					}
+				}
+
+				return $table_sizes;
+			},
+			CacheKeys::get_ttl( CacheKeys::DB_ANALYZER_TABLE_SIZES )
 		);
-
-		if ( null === $query ) {
-			$this->table_sizes = array();
-			return $this->table_sizes;
-		}
-
-		$results = $this->connection->get_results( $query );
-
-		$this->table_sizes = array();
-		if ( $results ) {
-			foreach ( $results as $row ) {
-				$this->table_sizes[ $row->table ] = absint( $row->size );
-			}
-		}
-
-		// Cache the result.
-		set_transient( $cache_key, $this->table_sizes, self::CACHE_EXPIRATION );
 
 		return $this->table_sizes;
 	}
@@ -261,41 +250,37 @@ class Analyzer implements AnalyzerInterface {
 	 * Overhead is the space that could be reclaimed by optimizing tables.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.1 Migrated from transients to CacheInterface.
 	 *
 	 * @return int Total overhead in bytes.
 	 */
 	public function get_total_overhead(): int {
-		$cache_key = self::CACHE_PREFIX . 'total_overhead';
-		$cached    = get_transient( $cache_key );
+		return $this->cache->remember(
+			CacheKeys::DB_ANALYZER_TOTAL_OVERHEAD,
+			function () {
+				$query = $this->connection->prepare(
+					'SELECT SUM(data_free) as overhead
+					FROM information_schema.TABLES
+					WHERE table_schema = %s',
+					DB_NAME
+				);
 
-		if ( false !== $cached ) {
-			return absint( $cached );
-		}
+				if ( null === $query ) {
+					return 0;
+				}
 
-		$query = $this->connection->prepare(
-			'SELECT SUM(data_free) as overhead
-			FROM information_schema.TABLES
-			WHERE table_schema = %s',
-			DB_NAME
+				$result = $this->connection->get_var( $query );
+				return absint( $result );
+			},
+			CacheKeys::get_ttl( CacheKeys::DB_ANALYZER_TOTAL_OVERHEAD )
 		);
-
-		if ( null === $query ) {
-			return 0;
-		}
-
-		$result   = $this->connection->get_var( $query );
-		$overhead = absint( $result );
-
-		set_transient( $cache_key, $overhead, self::CACHE_EXPIRATION );
-
-		return $overhead;
 	}
 
 	/**
 	 * Get the count of post revisions.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of post revisions.
 	 */
 	public function get_revisions_count(): int {
@@ -304,7 +289,7 @@ class Analyzer implements AnalyzerInterface {
 		}
 
 		$posts_table = $this->connection->get_posts_table();
-		$query = $this->connection->prepare(
+		$query       = $this->connection->prepare(
 			"SELECT COUNT(*) FROM {$posts_table} WHERE post_type = %s",
 			'revision'
 		);
@@ -322,8 +307,8 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get the count of auto-draft posts.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of auto-draft posts.
 	 */
 	public function get_auto_drafts_count(): int {
@@ -332,7 +317,7 @@ class Analyzer implements AnalyzerInterface {
 		}
 
 		$posts_table = $this->connection->get_posts_table();
-		$query = $this->connection->prepare(
+		$query       = $this->connection->prepare(
 			"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = %s",
 			'auto-draft'
 		);
@@ -350,8 +335,8 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get the count of trashed posts.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of trashed posts.
 	 */
 	public function get_trashed_posts_count(): int {
@@ -360,7 +345,7 @@ class Analyzer implements AnalyzerInterface {
 		}
 
 		$posts_table = $this->connection->get_posts_table();
-		$query = $this->connection->prepare(
+		$query       = $this->connection->prepare(
 			"SELECT COUNT(*) FROM {$posts_table} WHERE post_status = %s",
 			'trash'
 		);
@@ -378,8 +363,8 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get the count of spam comments.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of spam comments.
 	 */
 	public function get_spam_comments_count(): int {
@@ -388,7 +373,7 @@ class Analyzer implements AnalyzerInterface {
 		}
 
 		$comments_table = $this->connection->get_comments_table();
-		$query = $this->connection->prepare(
+		$query          = $this->connection->prepare(
 			"SELECT COUNT(*) FROM {$comments_table} WHERE comment_approved = %s",
 			'spam'
 		);
@@ -406,8 +391,8 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get the count of trashed comments.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of trashed comments.
 	 */
 	public function get_trashed_comments_count(): int {
@@ -416,7 +401,7 @@ class Analyzer implements AnalyzerInterface {
 		}
 
 		$comments_table = $this->connection->get_comments_table();
-		$query = $this->connection->prepare(
+		$query          = $this->connection->prepare(
 			"SELECT COUNT(*) FROM {$comments_table} WHERE comment_approved = %s",
 			'trash'
 		);
@@ -434,8 +419,8 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get the count of expired transients.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of expired transients.
 	 */
 	public function get_expired_transients_count(): int {
@@ -444,7 +429,7 @@ class Analyzer implements AnalyzerInterface {
 		}
 
 		$options_table = $this->connection->get_options_table();
-		$query = $this->connection->prepare(
+		$query         = $this->connection->prepare(
 			"SELECT COUNT(*) FROM {$options_table}
 			WHERE option_name LIKE %s
 			AND option_value < %d",
@@ -465,8 +450,8 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get the count of orphaned postmeta.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of orphaned postmeta records.
 	 */
 	public function get_orphaned_postmeta_count(): int {
@@ -493,8 +478,8 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get the count of orphaned commentmeta.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of orphaned commentmeta records.
 	 */
 	public function get_orphaned_commentmeta_count(): int {
@@ -521,8 +506,8 @@ class Analyzer implements AnalyzerInterface {
 	/**
 	 * Get the count of orphaned termmeta.
 	 *
- * @since 1.0.0
- *
+	 * @since 1.0.0
+	 *
 	 * @return int Number of orphaned termmeta records.
 	 */
 	public function get_orphaned_termmeta_count(): int {
@@ -555,15 +540,15 @@ class Analyzer implements AnalyzerInterface {
 	 */
 	public function get_bloat_summary(): array {
 		return array(
-			'revisions'           => $this->get_revisions_count(),
-			'auto_drafts'         => $this->get_auto_drafts_count(),
-			'trashed_posts'       => $this->get_trashed_posts_count(),
-			'spam_comments'       => $this->get_spam_comments_count(),
-			'trashed_comments'    => $this->get_trashed_comments_count(),
-			'expired_transients'  => $this->get_expired_transients_count(),
-			'orphaned_postmeta'   => $this->get_orphaned_postmeta_count(),
+			'revisions'            => $this->get_revisions_count(),
+			'auto_drafts'          => $this->get_auto_drafts_count(),
+			'trashed_posts'        => $this->get_trashed_posts_count(),
+			'spam_comments'        => $this->get_spam_comments_count(),
+			'trashed_comments'     => $this->get_trashed_comments_count(),
+			'expired_transients'   => $this->get_expired_transients_count(),
+			'orphaned_postmeta'    => $this->get_orphaned_postmeta_count(),
 			'orphaned_commentmeta' => $this->get_orphaned_commentmeta_count(),
-			'orphaned_termmeta'   => $this->get_orphaned_termmeta_count(),
+			'orphaned_termmeta'    => $this->get_orphaned_termmeta_count(),
 		);
 	}
 
@@ -579,15 +564,15 @@ class Analyzer implements AnalyzerInterface {
 	public function get_estimated_reclaimable_space(): int {
 		// Average row sizes (rough estimates based on typical WordPress data).
 		$row_sizes = array(
-			'revisions'           => 2048,  // Posts table row with content.
-			'auto_drafts'         => 1024,  // Smaller posts.
-			'trashed_posts'       => 2048,  // Posts with content.
-			'spam_comments'       => 512,   // Comments table row.
-			'trashed_comments'    => 512,   // Comments table row.
-			'expired_transients'  => 256,   // Options table row.
-			'orphaned_postmeta'   => 128,   // Postmeta table row.
-			'orphaned_commentmeta' => 128,  // Commentmeta table row.
-			'orphaned_termmeta'   => 128,   // Termmeta table row.
+			'revisions'            => 2048,  // Posts table row with content.
+			'auto_drafts'          => 1024,  // Smaller posts.
+			'trashed_posts'        => 2048,  // Posts with content.
+			'spam_comments'        => 512,   // Comments table row.
+			'trashed_comments'     => 512,   // Comments table row.
+			'expired_transients'   => 256,   // Options table row.
+			'orphaned_postmeta'    => 128,   // Postmeta table row.
+			'orphaned_commentmeta' => 128,   // Commentmeta table row.
+			'orphaned_termmeta'    => 128,   // Termmeta table row.
 		);
 
 		$bloat_summary = $this->get_bloat_summary();
@@ -600,5 +585,36 @@ class Analyzer implements AnalyzerInterface {
 		}
 
 		return $total_space;
+	}
+
+	/**
+	 * Clear all analyzer caches.
+	 *
+	 * Useful when database changes have been made and fresh data is needed.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @return bool True on success.
+	 */
+	public function clear_cache(): bool {
+		// Clear in-memory caches.
+		$this->database_size            = null;
+		$this->table_sizes              = null;
+		$this->revisions_count          = null;
+		$this->auto_drafts_count        = null;
+		$this->trashed_posts_count      = null;
+		$this->spam_comments_count      = null;
+		$this->trashed_comments_count   = null;
+		$this->expired_transients_count = null;
+		$this->orphaned_postmeta_count  = null;
+		$this->orphaned_commentmeta_count = null;
+		$this->orphaned_termmeta_count  = null;
+
+		// Clear persistent caches.
+		$this->cache->delete( CacheKeys::DB_ANALYZER_DATABASE_SIZE );
+		$this->cache->delete( CacheKeys::DB_ANALYZER_TABLE_SIZES );
+		$this->cache->delete( CacheKeys::DB_ANALYZER_TOTAL_OVERHEAD );
+
+		return true;
 	}
 }
