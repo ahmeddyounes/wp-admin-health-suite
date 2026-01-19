@@ -1,3 +1,6 @@
+[main 304c7b8] C03-07: implement
+ 11 files changed, 1446 insertions(+), 158 deletions(-)
+ create mode 100644 includes/Services/ObservabilityEventLogger.php
 
 husky - DEPRECATED
 
@@ -9,37 +12,25 @@ Please remove the following two lines from .husky/pre-commit:
 They WILL FAIL in v10.0.0
 
 [STARTED] Backing up original state...
-[COMPLETED] Backed up original state in git stash (aa31926)
+[COMPLETED] Backed up original state in git stash (eb18f39)
 [STARTED] Running tasks for staged files...
-[STARTED] package.json — 217 files
-[STARTED] *.{js,jsx} — 4 files
-[STARTED] *.{json,css,scss,md} — 99 files
-[STARTED] eslint --fix
+[STARTED] package.json — 11 files
+[STARTED] *.{js,jsx} — 0 files
+[STARTED] *.{json,css,scss,md} — 5 files
+[SKIPPED] *.{js,jsx} — no files
 [STARTED] prettier --write
 [COMPLETED] prettier --write
-[COMPLETED] *.{json,css,scss,md} — 99 files
-[FAILED] eslint --fix [FAILED]
-[FAILED] eslint --fix [FAILED]
+[COMPLETED] *.{json,css,scss,md} — 5 files
+[COMPLETED] package.json — 11 files
 [COMPLETED] Running tasks for staged files...
 [STARTED] Applying modifications from tasks...
-[SKIPPED] Skipped because of errors from tasks.
-[STARTED] Reverting to original state because of errors...
-[COMPLETED] Reverting to original state because of errors...
+[COMPLETED] Applying modifications from tasks...
 [STARTED] Cleaning up temporary files...
 [COMPLETED] Cleaning up temporary files...
+Running PHPCS on staged PHP files...
+.... 4 / 4 (100%)
 
-✖ eslint --fix:
 
-/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/assets/js/admin.js
-    7:1  warning  Missing JSDoc @param "window" type    jsdoc/require-param-type
-    8:1  warning  Missing JSDoc @param "$" type         jsdoc/require-param-type
-  291:1  warning  Missing JSDoc @param "message" type   jsdoc/require-param-type
-  292:1  warning  Missing JSDoc @param "duration" type  jsdoc/require-param-type
+Time: 380ms; Memory: 16MB
 
-/Users/ahmedyounis/Documents/Projects/wp-admin-health-suite/jest.setup.js
-   9:12  error  'jest' is not defined  no-undef
-  16:18  error  'jest' is not defined  no-undef
-
-✖ 6 problems (2 errors, 4 warnings)
-
-husky - pre-commit script failed (code 1)
+Pre-commit checks passed!
