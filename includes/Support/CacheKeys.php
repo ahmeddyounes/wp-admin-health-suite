@@ -120,6 +120,17 @@ class CacheKeys {
 	public const PERF_PLUGIN_PROFILE = 'perf_plugin_profile';
 
 	// =========================================================================
+	// Health Score Keys
+	// =========================================================================
+
+	/**
+	 * Cache key for overall health score.
+	 *
+	 * @var string
+	 */
+	public const HEALTH_SCORE = 'health_score';
+
+	// =========================================================================
 	// Media Keys
 	// =========================================================================
 
@@ -160,6 +171,7 @@ class CacheKeys {
 			'PERF_AUTOLOAD_ANALYSIS'      => self::PERF_AUTOLOAD_ANALYSIS,
 			'PERF_HEALTH_CHECK'           => self::PERF_HEALTH_CHECK,
 			'PERF_PLUGIN_PROFILE'         => self::PERF_PLUGIN_PROFILE,
+			'HEALTH_SCORE'                => self::HEALTH_SCORE,
 			'MEDIA_SCAN_RESULTS'          => self::MEDIA_SCAN_RESULTS,
 			'MEDIA_DUPLICATE_HASHES'      => self::MEDIA_DUPLICATE_HASHES,
 		);

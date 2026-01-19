@@ -7,8 +7,10 @@
 
 namespace WPAdminHealth;
 
+use WPAdminHealth\Contracts\CacheInterface;
 use WPAdminHealth\Contracts\ConnectionInterface;
 use WPAdminHealth\Contracts\SettingsInterface;
+use WPAdminHealth\Support\CacheKeys;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -26,22 +28,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - Transient bloat (15%)
  *
  * @since 1.0.0
+ * @since 1.6.1 Migrated to CacheInterface with centralized CacheKeys.
  */
 class HealthCalculator {
 
 	/**
-	 * Transient key for caching health score.
-	 *
-	 * @var string
-	 */
-	const CACHE_KEY = 'wpha_health_score';
-
-	/**
-	 * Default transient expiration time (1 hour).
+	 * Default cache expiration time (1 hour).
 	 *
 	 * @var int
 	 */
-	const CACHE_EXPIRATION = HOUR_IN_SECONDS;
+	const DEFAULT_CACHE_EXPIRATION = HOUR_IN_SECONDS;
 
 	/**
 	 * Factor weights for score calculation.
@@ -77,6 +73,14 @@ class HealthCalculator {
 	private ConnectionInterface $connection;
 
 	/**
+	 * Cache instance.
+	 *
+	 * @since 1.6.1
+	 * @var CacheInterface
+	 */
+	private CacheInterface $cache;
+
+	/**
 	 * Settings instance.
 	 *
 	 * @since 1.6.0
@@ -90,12 +94,15 @@ class HealthCalculator {
 	 *
 	 * @since 1.3.0
 	 * @since 1.6.0 Added SettingsInterface parameter to honor settings-driven behavior.
+	 * @since 1.6.1 Added CacheInterface parameter for abstracted caching.
 	 *
-	 * @param ConnectionInterface $connection Database connection.
-	 * @param SettingsInterface|null $settings Optional settings instance.
+	 * @param ConnectionInterface    $connection Database connection.
+	 * @param CacheInterface         $cache      Cache instance.
+	 * @param SettingsInterface|null $settings   Optional settings instance.
 	 */
-	public function __construct( ConnectionInterface $connection, ?SettingsInterface $settings = null ) {
+	public function __construct( ConnectionInterface $connection, CacheInterface $cache, ?SettingsInterface $settings = null ) {
 		$this->connection = $connection;
+		$this->cache      = $cache;
 		$this->settings   = $settings;
 	}
 
@@ -105,12 +112,13 @@ class HealthCalculator {
 	 * Honors the `health_score_cache_duration` setting (1-24 hours) when available.
 	 *
 	 * @since 1.6.0
+	 * @since 1.6.1 Changed constant name from CACHE_EXPIRATION to DEFAULT_CACHE_EXPIRATION.
 	 *
 	 * @return int Cache expiration in seconds.
 	 */
 	private function get_cache_expiration(): int {
 		if ( ! $this->settings instanceof SettingsInterface ) {
-			return self::CACHE_EXPIRATION;
+			return self::DEFAULT_CACHE_EXPIRATION;
 		}
 
 		$hours = absint( $this->settings->get_setting( 'health_score_cache_duration', 1 ) );
@@ -126,6 +134,7 @@ class HealthCalculator {
 	 * Results are cached based on the configured cache duration to prevent repeated heavy queries.
 	 *
 	 * @since 1.0.0
+	 * @since 1.6.1 Migrated from transients to CacheInterface.
 	 *
 	 * @param bool $force_refresh Whether to bypass cache and recalculate.
 	 * @return array {
@@ -149,8 +158,8 @@ class HealthCalculator {
 	public function calculate_overall_score( $force_refresh = false ) {
 		// Check cache first unless forcing refresh.
 		if ( ! $force_refresh ) {
-			$cached = get_transient( self::CACHE_KEY );
-			if ( false !== $cached && is_array( $cached ) ) {
+			$cached = $this->cache->get( CacheKeys::HEALTH_SCORE );
+			if ( null !== $cached && is_array( $cached ) ) {
 				return $cached;
 			}
 		}
@@ -181,7 +190,7 @@ class HealthCalculator {
 		);
 
 		// Cache the result.
-		set_transient( self::CACHE_KEY, $result, $this->get_cache_expiration() );
+		$this->cache->set( CacheKeys::HEALTH_SCORE, $result, $this->get_cache_expiration() );
 
 		return $result;
 	}
@@ -514,10 +523,11 @@ class HealthCalculator {
 	 * Clear the cached health score.
 	 *
 	 * @since 1.0.0
+	 * @since 1.6.1 Migrated from transients to CacheInterface.
 	 *
 	 * @return bool True on success, false on failure.
 	 */
 	public function clear_cache() {
-		return delete_transient( self::CACHE_KEY );
+		return $this->cache->delete( CacheKeys::HEALTH_SCORE );
 	}
 }

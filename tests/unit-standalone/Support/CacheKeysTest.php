@@ -67,6 +67,13 @@ class CacheKeysTest extends StandaloneTestCase {
 	}
 
 	/**
+	 * Test health score cache key constant is defined.
+	 */
+	public function test_health_score_key_defined(): void {
+		$this->assertEquals( 'health_score', CacheKeys::HEALTH_SCORE );
+	}
+
+	/**
 	 * Test all cache keys follow naming convention.
 	 */
 	public function test_cache_keys_naming_convention(): void {
@@ -80,9 +87,9 @@ class CacheKeysTest extends StandaloneTestCase {
 				"Key '{$key}' should follow snake_case convention"
 			);
 
-			// Keys should start with a domain prefix.
+			// Keys should start with a domain prefix (or be health_score).
 			$this->assertMatchesRegularExpression(
-				'/^(db_|perf_|media_)/',
+				'/^(db_|perf_|media_|health_)/',
 				$key,
 				"Key '{$key}' should start with a domain prefix"
 			);
@@ -131,6 +138,7 @@ class CacheKeysTest extends StandaloneTestCase {
 			'PERF_AUTOLOAD_ANALYSIS',
 			'PERF_HEALTH_CHECK',
 			'PERF_PLUGIN_PROFILE',
+			'HEALTH_SCORE',
 			'MEDIA_SCAN_RESULTS',
 			'MEDIA_DUPLICATE_HASHES',
 		);

@@ -65,6 +65,7 @@ class CoreServiceProvider extends ServiceProvider {
 			function ( $container ) {
 				return new HealthCalculator(
 					$container->get( ConnectionInterface::class ),
+					$container->get( CacheInterface::class ),
 					$container->get( SettingsInterface::class )
 				);
 			}
