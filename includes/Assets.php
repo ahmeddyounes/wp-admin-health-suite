@@ -242,6 +242,7 @@ class Assets {
 				'rest_namespace' => 'wpha/v1',
 				'screen_id'      => $screen_id,
 				'plugin_url'     => $this->plugin_url,
+				'debug'          => defined( 'WP_DEBUG' ) && WP_DEBUG,
 				'features'       => $this->get_feature_flags(),
 				'i18n'           => array(
 					'loading'       => __( 'Loading…', 'wp-admin-health-suite' ),

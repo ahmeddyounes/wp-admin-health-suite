@@ -29,7 +29,7 @@
 	window.WPAdminHealth = window.WPAdminHealth || {};
 
 	// ============================================================================
-	// API WRAPPER
+	// API WRAPPER (DEPRECATED - delegates to WPAdminHealth.api when available)
 	// ============================================================================
 
 	/**
@@ -48,7 +48,59 @@
 	}
 
 	/**
-	 * API wrapper for making REST API calls
+	 * Check if debug mode is enabled.
+	 *
+	 * @return {boolean} True if debug mode is enabled
+	 */
+	function isDebugMode() {
+		return (
+			typeof wpAdminHealthData !== 'undefined' && wpAdminHealthData.debug
+		);
+	}
+
+	/**
+	 * Track which deprecation warnings have been shown to avoid console spam.
+	 */
+	const deprecationWarningsShown = {};
+
+	/**
+	 * Show deprecation warning in debug mode only (once per method).
+	 *
+	 * @param {string} methodName - Name of the deprecated method
+	 */
+	function showDeprecationWarning(methodName) {
+		if (!isDebugMode()) {
+			return;
+		}
+
+		const warningKey = `API.${methodName}`;
+		if (deprecationWarningsShown[warningKey]) {
+			return;
+		}
+
+		deprecationWarningsShown[warningKey] = true;
+		console.warn(
+			`[WPAdminHealth] WPAdminHealth.API.${methodName}() is deprecated. ` +
+				`Use WPAdminHealth.api.${methodName}() instead. ` +
+				'See docs/developers/js-api.md for migration guide.'
+		);
+	}
+
+	/**
+	 * Get the canonical API client if available.
+	 *
+	 * @return {Object|null} The canonical api client or null
+	 */
+	function getCanonicalApi() {
+		return window.WPAdminHealth && window.WPAdminHealth.api;
+	}
+
+	/**
+	 * Legacy API wrapper for making REST API calls.
+	 *
+	 * @deprecated Use WPAdminHealth.api instead.
+	 *             This wrapper is kept for backward compatibility and delegates
+	 *             to the canonical WPAdminHealth.api when available.
 	 */
 	const API = {
 		/**
@@ -63,20 +115,31 @@
 		 * @return {string} Full API path
 		 */
 		buildPath(endpoint) {
-			// Remove leading slash if present
-			endpoint = endpoint.replace(/^\//, '');
-			return `/${this.namespace}/${endpoint}`;
+			showDeprecationWarning('buildPath');
+			const api = getCanonicalApi();
+			if (api && typeof api.buildPath === 'function') {
+				return api.buildPath(endpoint);
+			}
+			// Fallback implementation
+			const cleanEndpoint = endpoint.replace(/^\//, '');
+			return `/${this.namespace}/${cleanEndpoint}`;
 		},
 
 		/**
 		 * Make GET request
 		 *
+		 * @deprecated Use WPAdminHealth.api.get() instead.
 		 * @param {string} endpoint - API endpoint
 		 * @param {Object} params   - Query parameters
 		 * @return {Promise} API response promise
 		 */
 		get(endpoint, params = {}) {
-			return this.request(endpoint, {
+			showDeprecationWarning('get');
+			const api = getCanonicalApi();
+			if (api) {
+				return api.get(endpoint, { params });
+			}
+			return this._legacyRequest(endpoint, {
 				method: 'GET',
 				params,
 			});
@@ -85,12 +148,18 @@
 		/**
 		 * Make POST request
 		 *
+		 * @deprecated Use WPAdminHealth.api.post() instead.
 		 * @param {string} endpoint - API endpoint
 		 * @param {Object} data     - Request body data
 		 * @return {Promise} API response promise
 		 */
 		post(endpoint, data = {}) {
-			return this.request(endpoint, {
+			showDeprecationWarning('post');
+			const api = getCanonicalApi();
+			if (api) {
+				return api.post(endpoint, data);
+			}
+			return this._legacyRequest(endpoint, {
 				method: 'POST',
 				data,
 			});
@@ -99,12 +168,18 @@
 		/**
 		 * Make PUT request
 		 *
+		 * @deprecated Use WPAdminHealth.api.put() instead.
 		 * @param {string} endpoint - API endpoint
 		 * @param {Object} data     - Request body data
 		 * @return {Promise} API response promise
 		 */
 		put(endpoint, data = {}) {
-			return this.request(endpoint, {
+			showDeprecationWarning('put');
+			const api = getCanonicalApi();
+			if (api) {
+				return api.put(endpoint, data);
+			}
+			return this._legacyRequest(endpoint, {
 				method: 'PUT',
 				data,
 			});
@@ -113,26 +188,51 @@
 		/**
 		 * Make DELETE request
 		 *
+		 * @deprecated Use WPAdminHealth.api.delete() instead.
 		 * @param {string} endpoint - API endpoint
 		 * @param {Object} data     - Request body data
 		 * @return {Promise} API response promise
 		 */
 		delete(endpoint, data = {}) {
-			return this.request(endpoint, {
+			showDeprecationWarning('delete');
+			const api = getCanonicalApi();
+			if (api) {
+				return api.delete(endpoint, data);
+			}
+			return this._legacyRequest(endpoint, {
 				method: 'DELETE',
 				data,
 			});
 		},
 
 		/**
-		 * Generic request method with retry logic
+		 * Generic request method.
 		 *
+		 * @deprecated Use WPAdminHealth.api.request() instead.
+		 * @param {string} endpoint - API endpoint
+		 * @param {Object} options  - Request options
+		 * @param {number} retries  - Number of retries attempted (only used in legacy fallback)
+		 * @return {Promise} API response promise
+		 */
+		request(endpoint, options = {}, retries = 0) {
+			showDeprecationWarning('request');
+			const api = getCanonicalApi();
+			if (api) {
+				return api.request(endpoint, options);
+			}
+			return this._legacyRequest(endpoint, options, retries);
+		},
+
+		/**
+		 * Legacy request implementation (fallback when WPAdminHealth.api is not available).
+		 *
+		 * @private
 		 * @param {string} endpoint - API endpoint
 		 * @param {Object} options  - Request options
 		 * @param {number} retries  - Number of retries attempted
 		 * @return {Promise} API response promise
 		 */
-		request(endpoint, options = {}, retries = 0) {
+		_legacyRequest(endpoint, options = {}, retries = 0) {
 			if (!apiFetch) {
 				return Promise.reject(
 					new Error(
@@ -144,7 +244,7 @@
 				);
 			}
 
-			const path = this.buildPath(endpoint);
+			const path = this._buildPathInternal(endpoint);
 			const maxRetries = options.maxRetries || 2;
 
 			// Merge with default options
@@ -156,12 +256,16 @@
 
 			return apiFetch(requestOptions).catch((error) => {
 				// Handle retry for network errors or 5xx errors
-				if (retries < maxRetries && this.shouldRetry(error)) {
+				if (retries < maxRetries && this._shouldRetry(error)) {
 					const delay = Math.pow(2, retries) * 1000; // Exponential backoff
 					return new Promise((resolve) => {
 						setTimeout(() => {
 							resolve(
-								this.request(endpoint, options, retries + 1)
+								this._legacyRequest(
+									endpoint,
+									options,
+									retries + 1
+								)
 							);
 						}, delay);
 					});
@@ -174,16 +278,41 @@
 		},
 
 		/**
-		 * Check if error should trigger a retry
+		 * Internal path builder for legacy fallback.
 		 *
+		 * @private
+		 * @param {string} endpoint - API endpoint path
+		 * @return {string} Full API path
+		 */
+		_buildPathInternal(endpoint) {
+			const cleanEndpoint = endpoint.replace(/^\//, '');
+			return `/${this.namespace}/${cleanEndpoint}`;
+		},
+
+		/**
+		 * Check if error should trigger a retry.
+		 *
+		 * @private
 		 * @param {Error} error - Error object
 		 * @return {boolean} True if should retry
 		 */
-		shouldRetry(error) {
+		_shouldRetry(error) {
 			// Retry on network errors or server errors (5xx)
 			if (!error.response) return true;
 			const status = error.response?.status || 0;
 			return status >= 500 && status < 600;
+		},
+
+		/**
+		 * Check if error should trigger a retry.
+		 *
+		 * @deprecated This method is kept for backward compatibility.
+		 * @param {Error} error - Error object
+		 * @return {boolean} True if should retry
+		 */
+		shouldRetry(error) {
+			showDeprecationWarning('shouldRetry');
+			return this._shouldRetry(error);
 		},
 	};
 
