@@ -346,25 +346,33 @@ if ( ! function_exists( 'get_option' ) ) {
 
 if ( ! function_exists( 'update_option' ) ) {
 	/**
-	 * Update option stub - always succeeds.
+	 * Update option stub - stores in test options and always succeeds.
 	 *
 	 * @param string $option Option name.
 	 * @param mixed  $value  Option value.
 	 * @return bool Always true.
 	 */
 	function update_option( $option, $value ) {
+		// Store in test options for subsequent get_option calls.
+		if ( ! isset( $GLOBALS['wpha_test_options'] ) ) {
+			$GLOBALS['wpha_test_options'] = array();
+		}
+		$GLOBALS['wpha_test_options'][ $option ] = $value;
 		return true;
 	}
 }
 
 if ( ! function_exists( 'delete_option' ) ) {
 	/**
-	 * Delete option stub - always succeeds.
+	 * Delete option stub - removes from test options and always succeeds.
 	 *
 	 * @param string $option Option name.
 	 * @return bool Always true.
 	 */
 	function delete_option( $option ) {
+		if ( isset( $GLOBALS['wpha_test_options'] ) && is_array( $GLOBALS['wpha_test_options'] ) ) {
+			unset( $GLOBALS['wpha_test_options'][ $option ] );
+		}
 		return true;
 	}
 }

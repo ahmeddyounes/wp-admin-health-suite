@@ -34,25 +34,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Recommendations {
 
 	/**
-	 * Transient key for cached recommendations.
+	 * Base cache key for cached recommendations.
 	 *
 	 * @var string
 	 */
-	private $cache_key = 'wpha_ai_recommendations';
+	private const CACHE_KEY_BASE = 'wpha_ai_recommendations';
 
 	/**
-	 * Transient key for dismissed recommendations.
+	 * Base option key for dismissed recommendations.
 	 *
 	 * @var string
 	 */
-	private $dismissed_key = 'wpha_ai_dismissed_recommendations';
+	private const DISMISSED_KEY_BASE = 'wpha_ai_dismissed_recommendations';
 
 	/**
 	 * Cache expiration time (24 hours).
 	 *
 	 * @var int
 	 */
-	private $cache_expiration = DAY_IN_SECONDS;
+	private const CACHE_EXPIRATION = DAY_IN_SECONDS;
 
 	/**
 	 * Database analyzer instance.
@@ -158,18 +158,64 @@ class Recommendations {
 	}
 
 	/**
+	 * Get the cache key with multisite blog ID suffix.
+	 *
+	 * In multisite environments, each blog has its own recommendations
+	 * to ensure site-specific recommendations are properly isolated.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return string Cache key with optional blog ID suffix.
+	 */
+	private function get_cache_key(): string {
+		$key = self::CACHE_KEY_BASE;
+
+		if ( is_multisite() ) {
+			$key .= '_' . get_current_blog_id();
+		}
+
+		return $key;
+	}
+
+	/**
+	 * Get the dismissed option key with multisite blog ID suffix.
+	 *
+	 * In multisite environments, each blog has its own dismissed recommendations
+	 * to ensure site-specific dismissals are properly isolated.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return string Option key with optional blog ID suffix.
+	 */
+	private function get_dismissed_key(): string {
+		$key = self::DISMISSED_KEY_BASE;
+
+		if ( is_multisite() ) {
+			$key .= '_' . get_current_blog_id();
+		}
+
+		return $key;
+	}
+
+	/**
 	 * Generate recommendations based on all scan results.
 	 *
+	 * Uses CacheInterface for caching recommendations with multisite-aware keys.
+	 * Falls back to WordPress transients if CacheInterface is not available.
+	 *
 	 * @since 1.0.0
+	 * @since 1.4.0 Migrated to CacheInterface with multisite support.
 	 *
 	 * @param bool $force_refresh Force regeneration of recommendations.
 	 * @return array Array of recommendation objects.
 	 */
 	public function generate_recommendations( $force_refresh = false ) {
+		$cache_key = $this->get_cache_key();
+
 		// Check cache if not forcing refresh.
 		if ( ! $force_refresh ) {
-			$cached = get_transient( $this->cache_key );
-			if ( false !== $cached && is_array( $cached ) ) {
+			$cached = $this->get_from_cache( $cache_key );
+			if ( null !== $cached && is_array( $cached ) ) {
 				return $this->filter_dismissed( $cached );
 			}
 		}
@@ -189,9 +235,85 @@ class Recommendations {
 		$recommendations = $this->prioritize_issues( $recommendations );
 
 		// Cache the recommendations.
-		set_transient( $this->cache_key, $recommendations, $this->cache_expiration );
+		$this->set_to_cache( $cache_key, $recommendations, self::CACHE_EXPIRATION );
 
 		return $this->filter_dismissed( $recommendations );
+	}
+
+	/**
+	 * Get a value from the cache.
+	 *
+	 * Uses CacheInterface if available, falls back to WordPress transients.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param string $key Cache key.
+	 * @return mixed|null Cached value or null if not found.
+	 */
+	private function get_from_cache( string $key ) {
+		if ( null !== $this->cache ) {
+			$value = $this->cache->get( $key );
+			// CacheInterface returns null for missing keys (default).
+			return $value;
+		}
+
+		// Fallback to transients.
+		$value = get_transient( $key );
+		return false !== $value ? $value : null;
+	}
+
+	/**
+	 * Set a value in the cache.
+	 *
+	 * Uses CacheInterface if available, falls back to WordPress transients.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param string $key   Cache key.
+	 * @param mixed  $value Value to cache.
+	 * @param int    $ttl   Time to live in seconds.
+	 * @return bool True on success, false on failure.
+	 */
+	private function set_to_cache( string $key, $value, int $ttl = 0 ): bool {
+		if ( null !== $this->cache ) {
+			return $this->cache->set( $key, $value, $ttl );
+		}
+
+		// Fallback to transients.
+		return set_transient( $key, $value, $ttl );
+	}
+
+	/**
+	 * Delete a value from the cache.
+	 *
+	 * Uses CacheInterface if available, falls back to WordPress transients.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param string $key Cache key.
+	 * @return bool True on success, false on failure.
+	 */
+	private function delete_from_cache( string $key ): bool {
+		if ( null !== $this->cache ) {
+			return $this->cache->delete( $key );
+		}
+
+		// Fallback to transients.
+		return delete_transient( $key );
+	}
+
+	/**
+	 * Clear the recommendations cache.
+	 *
+	 * Clears the cached recommendations, forcing regeneration on next request.
+	 * Useful when underlying data has changed significantly.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return bool True on success, false on failure.
+	 */
+	public function clear_cache(): bool {
+		return $this->delete_from_cache( $this->get_cache_key() );
 	}
 
 	/**
@@ -294,13 +416,19 @@ class Recommendations {
 	/**
 	 * Dismiss a recommendation.
 	 *
+	 * Dismissed recommendations are stored in WordPress options (persistent)
+	 * rather than cache (temporary) to ensure dismissals persist across
+	 * cache clears.
+	 *
 	 * @since 1.0.0
+	 * @since 1.4.0 Added multisite support via dynamic option key.
 	 *
 	 * @param string $recommendation_id Recommendation ID to dismiss.
 	 * @return bool True on success, false on failure.
 	 */
 	public function dismiss_recommendation( $recommendation_id ) {
-		$dismissed = get_option( $this->dismissed_key, array() );
+		$dismissed_key = $this->get_dismissed_key();
+		$dismissed     = get_option( $dismissed_key, array() );
 
 		if ( ! is_array( $dismissed ) ) {
 			$dismissed = array();
@@ -311,28 +439,92 @@ class Recommendations {
 		}
 
 		$dismissed[] = $recommendation_id;
-		return update_option( $this->dismissed_key, $dismissed );
+		return update_option( $dismissed_key, $dismissed );
+	}
+
+	/**
+	 * Restore a dismissed recommendation.
+	 *
+	 * Removes a recommendation from the dismissed list, allowing it to
+	 * appear again in the recommendations list.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @param string $recommendation_id Recommendation ID to restore.
+	 * @return bool True on success, false on failure.
+	 */
+	public function restore_recommendation( string $recommendation_id ): bool {
+		$dismissed_key = $this->get_dismissed_key();
+		$dismissed     = get_option( $dismissed_key, array() );
+
+		if ( ! is_array( $dismissed ) ) {
+			return true; // Nothing to restore from.
+		}
+
+		$key = array_search( $recommendation_id, $dismissed, true );
+		if ( false === $key ) {
+			return true; // Not dismissed.
+		}
+
+		unset( $dismissed[ $key ] );
+		$dismissed = array_values( $dismissed ); // Re-index array.
+
+		return update_option( $dismissed_key, $dismissed );
+	}
+
+	/**
+	 * Get the list of dismissed recommendation IDs.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return array List of dismissed recommendation IDs.
+	 */
+	public function get_dismissed_ids(): array {
+		$dismissed = get_option( $this->get_dismissed_key(), array() );
+
+		if ( ! is_array( $dismissed ) ) {
+			return array();
+		}
+
+		return $dismissed;
+	}
+
+	/**
+	 * Clear all dismissed recommendations.
+	 *
+	 * @since 1.4.0
+	 *
+	 * @return bool True on success, false on failure.
+	 */
+	public function clear_dismissed(): bool {
+		return delete_option( $this->get_dismissed_key() );
 	}
 
 	/**
 	 * Filter out dismissed recommendations.
 	 *
+	 * @since 1.0.0
+	 * @since 1.4.0 Uses multisite-aware option key.
+	 *
 	 * @param array $recommendations Array of recommendations.
-	 * @return array Filtered recommendations.
+	 * @return array Filtered recommendations (re-indexed).
 	 */
 	private function filter_dismissed( $recommendations ) {
-		$dismissed = get_option( $this->dismissed_key, array() );
+		$dismissed = $this->get_dismissed_ids();
 
-		if ( ! is_array( $dismissed ) || empty( $dismissed ) ) {
+		if ( empty( $dismissed ) ) {
 			return $recommendations;
 		}
 
-		return array_filter(
+		$filtered = array_filter(
 			$recommendations,
 			function ( $recommendation ) use ( $dismissed ) {
 				return ! in_array( $recommendation['id'], $dismissed, true );
 			}
 		);
+
+		// Re-index the array to ensure clean JSON output.
+		return array_values( $filtered );
 	}
 
 	/**
