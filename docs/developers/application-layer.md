@@ -24,6 +24,8 @@ includes/Application/
 ├── Performance/        # Performance analysis use-cases
 │   ├── RunHealthCheck.php
 │   └── CollectMetrics.php
+├── Dashboard/          # Dashboard-related use-cases
+│   └── GetHealthScore.php
 └── AI/                 # AI-powered feature use-cases
     └── GenerateRecommendations.php
 ```
@@ -81,29 +83,35 @@ class ScheduledCleanupTask {
 
 ### Database Module
 
-| Class | Description |
-|-------|-------------|
-| `RunCleanup` | Orchestrates cleanup of revisions, drafts, trash, transients, and orphaned data |
-| `RunOptimization` | Orchestrates table optimization and defragmentation |
+| Class             | Description                                                                     |
+| ----------------- | ------------------------------------------------------------------------------- |
+| `RunCleanup`      | Orchestrates cleanup of revisions, drafts, trash, transients, and orphaned data |
+| `RunOptimization` | Orchestrates table optimization and defragmentation                             |
 
 ### Media Module
 
-| Class | Description |
-|-------|-------------|
-| `RunScan` | Orchestrates media library scanning for issues |
+| Class               | Description                                        |
+| ------------------- | -------------------------------------------------- |
+| `RunScan`           | Orchestrates media library scanning for issues     |
 | `ProcessDuplicates` | Orchestrates duplicate media detection and cleanup |
 
 ### Performance Module
 
-| Class | Description |
-|-------|-------------|
-| `RunHealthCheck` | Orchestrates full performance health check |
+| Class            | Description                                 |
+| ---------------- | ------------------------------------------- |
+| `RunHealthCheck` | Orchestrates full performance health check  |
 | `CollectMetrics` | Orchestrates performance metrics collection |
+
+### Dashboard Module
+
+| Class            | Description                                                                    |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `GetHealthScore` | Retrieves the current overall health score and related factors/recommendations |
 
 ### AI Module
 
-| Class | Description |
-|-------|-------------|
+| Class                     | Description                                       |
+| ------------------------- | ------------------------------------------------- |
 | `GenerateRecommendations` | Orchestrates AI-powered recommendation generation |
 
 ## Design Guidelines

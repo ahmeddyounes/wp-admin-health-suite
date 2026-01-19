@@ -17,6 +17,7 @@ use WPAdminHealth\Application\Media\ProcessDuplicates;
 use WPAdminHealth\Application\Performance\RunHealthCheck;
 use WPAdminHealth\Application\Performance\CollectMetrics;
 use WPAdminHealth\Application\AI\GenerateRecommendations;
+use WPAdminHealth\Application\Dashboard\GetHealthScore;
 use WPAdminHealth\Tests\StandaloneTestCase;
 
 /**
@@ -78,6 +79,13 @@ class ApplicationLayerTest extends StandaloneTestCase {
 		$use_case = new GenerateRecommendations( new \WPAdminHealth\AI\Recommendations() );
 
 		$this->assertInstanceOf( GenerateRecommendations::class, $use_case );
+	}
+
+	/**
+	 * Test that Dashboard\GetHealthScore class exists and can be loaded.
+	 */
+	public function test_get_health_score_class_exists(): void {
+		$this->assertTrue( class_exists( GetHealthScore::class ) );
 	}
 
 	/**

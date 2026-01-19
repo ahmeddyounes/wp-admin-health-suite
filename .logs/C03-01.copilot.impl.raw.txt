@@ -1,0 +1,45 @@
+I’ll read the C03-01 spec + handoff, then implement the required code changes and run lint/tests.
+
+I’m going to locate existing locking and DI/container patterns, then add a LockService contract + implementation and bind it in the existing providers.
+
+I’ll wire in a new LockService interface + implementation, then refactor existing GET_LOCK usage to use it and run the provided lint/tests.
+
+I’ll add a LockService contract + implementation, wire it into the existing ServicesServiceProvider, then refactor SchedulerRegistry to use it and run lint/tests.
+
+Implementing LockService contract + service, wiring it into the container, then switching existing scheduler/media locks to use it; after that I’ll run npm lint/tests.
+
+Cleaning unrelated changes, then I’ll refactor existing scheduler/media locks to use the new LockService abstraction and rerun lint/tests.
+
+I’m going to clean up the working tree so only the C03-01 lock abstraction changes remain.
+
+Restoring tracked repo state (including `.logs/`) so only the C03-01 changes remain.
+
+I’m going to implement the actual C03-01 spec (Application layer scaffolding), removing the unrelated untracked LockService files and adding the Application namespace + docs + tests, then run `npm run lint` and `npm test`.
+
+I’m going to align the Application scaffolding with the C03-01 spec (missing Dashboard index + test coverage), then rerun the requested JS lint/tests.
+
+I’ll add the missing Dashboard `index.php`, update the Application layer doc to include Dashboard, and extend the standalone ApplicationLayerTest to cover the Dashboard use-case; then rerun `npm run lint` and `npm test`.
+
+Status: DONE
+
+Summary of changes:
+- Completed C03-01 “Application layer scaffolding” by ensuring `WPAdminHealth\\Application\\*` structure is consistent (added missing `includes/Application/Dashboard/index.php`).
+- Updated `docs/developers/application-layer.md` to include the Dashboard module (`GetHealthScore`).
+- Updated standalone unit test `ApplicationLayerTest` to assert `GetHealthScore` autoloads.
+
+How to verify:
+- `npm run lint`
+- `npm test`
+- `php -d memory_limit=512M vendor/bin/phpunit --configuration phpunit-standalone.xml --filter=ApplicationLayerTest`
+
+Risks / follow-ups:
+- Full `composer test:standalone` exhausts memory in this environment even at 512MB (pre-existing); only the filtered ApplicationLayerTest is reliably runnable here.
+
+
+
+Total usage est:       1 Premium request
+Total duration (API):  17m 40.201s
+Total duration (wall): 22m 43.323s
+Total code changes:    0 lines added, 0 lines removed
+Usage by model:
+    gpt-5.2              1.6m input, 42.9k output, 1.5m cache read (Est. 1 Premium request)
