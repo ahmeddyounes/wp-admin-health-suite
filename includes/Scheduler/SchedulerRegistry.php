@@ -340,7 +340,46 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 		if ( 1 === (int) $result ) {
 			// Store lock info in transient for debugging/monitoring.
 			set_transient( $lock_key, $lock_value, self::LOCK_TIMEOUT );
+
+			/**
+			 * Fires when a task lock is successfully acquired.
+			 *
+			 * @since 1.8.0
+			 *
+			 * @hook wpha_lock_acquired
+			 *
+			 * @param string $lock_name Lock identifier (task ID hash).
+			 * @param array  $context   Context including method used.
+			 */
+			do_action(
+				'wpha_lock_acquired',
+				$task_id,
+				array( 'method' => 'mysql_advisory' )
+			);
+
 			return true;
+		}
+
+		// Lock is held by another process - fire contention event.
+		if ( 0 === (int) $result ) {
+			/**
+			 * Fires when lock contention is detected (lock held by another process).
+			 *
+			 * @since 1.8.0
+			 *
+			 * @hook wpha_lock_contention
+			 *
+			 * @param string $lock_name Lock identifier.
+			 * @param array  $context   Context including method.
+			 */
+			do_action(
+				'wpha_lock_contention',
+				$task_id,
+				array(
+					'attempts' => 1,
+					'method'   => 'mysql_advisory',
+				)
+			);
 		}
 
 		// If GET_LOCK is unavailable (NULL/error), fall back to an option-based lock.
@@ -351,6 +390,23 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 
 			if ( $acquired ) {
 				set_transient( $lock_key, $lock_value, self::LOCK_TIMEOUT );
+
+				/**
+				 * Fires when a task lock is successfully acquired.
+				 *
+				 * @since 1.8.0
+				 *
+				 * @hook wpha_lock_acquired
+				 *
+				 * @param string $lock_name Lock identifier (task ID).
+				 * @param array  $context   Context including method used.
+				 */
+				do_action(
+					'wpha_lock_acquired',
+					$task_id,
+					array( 'method' => 'option_fallback' )
+				);
+
 				return true;
 			}
 
@@ -359,14 +415,49 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 
 			// If the lock appears stale, attempt to recover.
 			if ( $started > 0 && ( time() - $started ) > self::LOCK_TIMEOUT ) {
+				$age = time() - $started;
+
+				/**
+				 * Fires when a stale lock is detected and being recovered.
+				 *
+				 * @since 1.8.0
+				 *
+				 * @hook wpha_lock_stale_recovery
+				 *
+				 * @param string $lock_name Lock identifier.
+				 * @param array  $context   Context including age of stale lock.
+				 */
+				do_action(
+					'wpha_lock_stale_recovery',
+					$task_id,
+					array( 'age' => $age )
+				);
+
 				delete_option( $lock_key );
 				$acquired = add_option( $lock_key, $lock_value, '', 'no' );
 
 				if ( $acquired ) {
 					set_transient( $lock_key, $lock_value, self::LOCK_TIMEOUT );
+
+					do_action(
+						'wpha_lock_acquired',
+						$task_id,
+						array( 'method' => 'stale_recovery' )
+					);
+
 					return true;
 				}
 			}
+
+			// Lock contention via option fallback.
+			do_action(
+				'wpha_lock_contention',
+				$task_id,
+				array(
+					'attempts' => 1,
+					'method'   => 'option_fallback',
+				)
+			);
 		}
 
 		return false;
@@ -384,6 +475,13 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 	private function release_lock( string $task_id ): bool {
 		$lock_name = 'wpha_task_' . md5( $task_id );
 		$lock_key  = self::LOCK_PREFIX . md5( $task_id );
+
+		// Get lock info for held_time calculation before releasing.
+		$lock_info = get_transient( $lock_key );
+		$held_time = null;
+		if ( is_array( $lock_info ) && isset( $lock_info['started_at'] ) ) {
+			$held_time = time() - (int) $lock_info['started_at'];
+		}
 
 		// Release MySQL advisory lock.
 		if ( $this->connection ) {
@@ -404,6 +502,22 @@ class SchedulerRegistry implements SchedulerRegistryInterface {
 
 		// Clean up option-based lock fallback (if used).
 		delete_option( $lock_key );
+
+		/**
+		 * Fires when a task lock is released.
+		 *
+		 * @since 1.8.0
+		 *
+		 * @hook wpha_lock_released
+		 *
+		 * @param string $lock_name Lock identifier (task ID).
+		 * @param array  $context   Context including held_time.
+		 */
+		do_action(
+			'wpha_lock_released',
+			$task_id,
+			array( 'held_time' => $held_time )
+		);
 
 		return 1 === (int) $result;
 	}

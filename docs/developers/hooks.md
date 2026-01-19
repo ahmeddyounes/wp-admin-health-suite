@@ -11,6 +11,8 @@ WP Admin Health Suite provides a comprehensive set of hooks and filters to exten
 - [Settings Hooks](#settings-hooks)
 - [Integration Hooks](#integration-hooks)
 - [Core & Lifecycle Hooks](#core--lifecycle-hooks)
+- [Observability Hooks](#observability-hooks)
+- [Diagnosing Lock Contention & Rate Limiting](#diagnosing-lock-contention--rate-limiting)
 - [Common Customization Examples](#common-customization-examples)
 
 ---
@@ -41,18 +43,18 @@ Object containing available hook name constants.
 
 **Available Hooks:**
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `READY` | `'ready'` | Plugin is ready |
-| `PAGE_INIT` | `'pageInit'` | Page-specific initialization |
-| `DASHBOARD_INIT` | `'dashboardInit'` | Dashboard page loaded |
-| `DASHBOARD_REFRESH` | `'dashboardRefresh'` | Dashboard data refreshed |
-| `DATABASE_CLEANUP_START` | `'databaseCleanupStart'` | Database cleanup started |
-| `DATABASE_CLEANUP_COMPLETE` | `'databaseCleanupComplete'` | Database cleanup finished |
-| `MEDIA_SCAN_START` | `'mediaScanStart'` | Media scan started |
-| `MEDIA_SCAN_COMPLETE` | `'mediaScanComplete'` | Media scan finished |
-| `PERFORMANCE_CHECK_START` | `'performanceCheckStart'` | Performance check started |
-| `PERFORMANCE_CHECK_COMPLETE` | `'performanceCheckComplete'` | Performance check finished |
+| Constant                     | Value                        | Description                  |
+| ---------------------------- | ---------------------------- | ---------------------------- |
+| `READY`                      | `'ready'`                    | Plugin is ready              |
+| `PAGE_INIT`                  | `'pageInit'`                 | Page-specific initialization |
+| `DASHBOARD_INIT`             | `'dashboardInit'`            | Dashboard page loaded        |
+| `DASHBOARD_REFRESH`          | `'dashboardRefresh'`         | Dashboard data refreshed     |
+| `DATABASE_CLEANUP_START`     | `'databaseCleanupStart'`     | Database cleanup started     |
+| `DATABASE_CLEANUP_COMPLETE`  | `'databaseCleanupComplete'`  | Database cleanup finished    |
+| `MEDIA_SCAN_START`           | `'mediaScanStart'`           | Media scan started           |
+| `MEDIA_SCAN_COMPLETE`        | `'mediaScanComplete'`        | Media scan finished          |
+| `PERFORMANCE_CHECK_START`    | `'performanceCheckStart'`    | Performance check started    |
+| `PERFORMANCE_CHECK_COMPLETE` | `'performanceCheckComplete'` | Performance check finished   |
 
 ---
 
@@ -64,9 +66,9 @@ Register a custom widget to be rendered in a specific zone.
 
 - `zone` (string) - Zone identifier where the widget will be rendered
 - `config` (object) - Widget configuration:
-  - `id` (string, required) - Unique widget identifier
-  - `render` (function, required) - Render function that receives the container element
-  - `priority` (number, optional) - Render priority (lower = earlier, default: 10)
+    - `id` (string, required) - Unique widget identifier
+    - `render` (function, required) - Render function that receives the container element
+    - `priority` (number, optional) - Render priority (lower = earlier, default: 10)
 
 **Available Zones:**
 
@@ -78,23 +80,23 @@ Register a custom widget to be rendered in a specific zone.
 ```javascript
 // Register a simple DOM widget
 WPAdminHealth.extensions.registerWidget('dashboard-bottom', {
-    id: 'my-custom-widget',
-    render: (container) => {
-        container.innerHTML = `
+	id: 'my-custom-widget',
+	render: (container) => {
+		container.innerHTML = `
             <div class="wpha-card my-widget">
                 <h3>Custom Widget</h3>
                 <p>This is my custom extension widget.</p>
             </div>
         `;
-    },
-    priority: 20
+	},
+	priority: 20,
 });
 
 // Register a widget that returns a React element (if you're using React)
 WPAdminHealth.extensions.registerWidget('dashboard-top', {
-    id: 'react-widget',
-    render: () => React.createElement('div', null, 'React Widget'),
-    priority: 5
+	id: 'react-widget',
+	render: () => React.createElement('div', null, 'React Widget'),
+	priority: 5,
 });
 ```
 
@@ -112,7 +114,10 @@ Remove a previously registered widget.
 **Example:**
 
 ```javascript
-WPAdminHealth.extensions.unregisterWidget('dashboard-bottom', 'my-custom-widget');
+WPAdminHealth.extensions.unregisterWidget(
+	'dashboard-bottom',
+	'my-custom-widget'
+);
 ```
 
 ---
@@ -133,10 +138,13 @@ Add a filter callback to modify data before it's used.
 
 ```javascript
 // Modify dashboard data before display
-const removeFilter = WPAdminHealth.extensions.addFilter('dashboardData', (data) => {
-    data.customMetric = calculateCustomMetric();
-    return data;
-});
+const removeFilter = WPAdminHealth.extensions.addFilter(
+	'dashboardData',
+	(data) => {
+		data.customMetric = calculateCustomMetric();
+		return data;
+	}
+);
 
 // Later, to remove the filter:
 removeFilter();
@@ -160,16 +168,16 @@ Subscribe to a hook/event.
 ```javascript
 // React to dashboard initialization
 const unsubscribe = WPAdminHealth.extensions.on('dashboardInit', (data) => {
-    console.log('Dashboard is ready!', data);
-    initMyExtension();
+	console.log('Dashboard is ready!', data);
+	initMyExtension();
 });
 
 // Using hook constants
 WPAdminHealth.extensions.on(
-    WPAdminHealth.extensions.hooks.DATABASE_CLEANUP_COMPLETE,
-    (result) => {
-        console.log('Cleanup completed:', result);
-    }
+	WPAdminHealth.extensions.hooks.DATABASE_CLEANUP_COMPLETE,
+	(result) => {
+		console.log('Cleanup completed:', result);
+	}
 );
 ```
 
@@ -189,7 +197,7 @@ Subscribe to a hook/event for one-time execution only.
 ```javascript
 // Run only once when the dashboard initializes
 WPAdminHealth.extensions.once('dashboardInit', () => {
-    showWelcomeMessage();
+	showWelcomeMessage();
 });
 ```
 
@@ -200,16 +208,16 @@ WPAdminHealth.extensions.once('dashboardInit', () => {
 Here's a complete example of creating an extension that adds a custom widget and responds to events:
 
 ```javascript
-(function() {
-    'use strict';
+(function () {
+	'use strict';
 
-    // Wait for the plugin to be ready
-    WPAdminHealth.extensions.on('ready', function() {
-        // Register our custom widget
-        WPAdminHealth.extensions.registerWidget('dashboard-bottom', {
-            id: 'my-analytics-widget',
-            render: function(container) {
-                container.innerHTML = `
+	// Wait for the plugin to be ready
+	WPAdminHealth.extensions.on('ready', function () {
+		// Register our custom widget
+		WPAdminHealth.extensions.registerWidget('dashboard-bottom', {
+			id: 'my-analytics-widget',
+			render: function (container) {
+				container.innerHTML = `
                     <div class="wpha-card">
                         <div class="wpha-card-header">
                             <h3>My Analytics</h3>
@@ -220,39 +228,44 @@ Here's a complete example of creating an extension that adds a custom widget and
                     </div>
                 `;
 
-                // Fetch and display data
-                loadAnalyticsData();
-            },
-            priority: 50
-        });
+				// Fetch and display data
+				loadAnalyticsData();
+			},
+			priority: 50,
+		});
 
-        // Listen for cleanup events
-        WPAdminHealth.extensions.on('databaseCleanupComplete', function(result) {
-            updateAnalyticsAfterCleanup(result);
-        });
-    });
+		// Listen for cleanup events
+		WPAdminHealth.extensions.on(
+			'databaseCleanupComplete',
+			function (result) {
+				updateAnalyticsAfterCleanup(result);
+			}
+		);
+	});
 
-    function loadAnalyticsData() {
-        // Use the API client if available
-        if (WPAdminHealth.api) {
-            WPAdminHealth.api.get('my-extension/analytics')
-                .then(function(data) {
-                    document.getElementById('my-analytics-content').innerHTML =
-                        '<p>Total optimizations: ' + data.total + '</p>';
-                })
-                .catch(function(error) {
-                    document.getElementById('my-analytics-content').innerHTML =
-                        '<p>Failed to load analytics.</p>';
-                });
-        }
-    }
+	function loadAnalyticsData() {
+		// Use the API client if available
+		if (WPAdminHealth.api) {
+			WPAdminHealth.api
+				.get('my-extension/analytics')
+				.then(function (data) {
+					document.getElementById('my-analytics-content').innerHTML =
+						'<p>Total optimizations: ' + data.total + '</p>';
+				})
+				.catch(function (error) {
+					document.getElementById('my-analytics-content').innerHTML =
+						'<p>Failed to load analytics.</p>';
+				});
+		}
+	}
 
-    function updateAnalyticsAfterCleanup(result) {
-        var content = document.getElementById('my-analytics-content');
-        if (content) {
-            content.innerHTML += '<p>Last cleanup freed: ' + result.bytes_freed + ' bytes</p>';
-        }
-    }
+	function updateAnalyticsAfterCleanup(result) {
+		var content = document.getElementById('my-analytics-content');
+		if (content) {
+			content.innerHTML +=
+				'<p>Last cleanup freed: ' + result.bytes_freed + ' bytes</p>';
+		}
+	}
 })();
 ```
 
@@ -263,6 +276,7 @@ Here's a complete example of creating an extension that adds a custom widget and
 If you were previously using `window.WPAdminHealthComponents` to access React components, you should migrate to the Extension API:
 
 **Before (deprecated):**
+
 ```javascript
 // Old approach - no longer works
 const { MetricCard, React, createRoot } = window.WPAdminHealthComponents;
@@ -271,17 +285,18 @@ root.render(React.createElement(MetricCard, { title: 'Custom' }));
 ```
 
 **After (recommended):**
+
 ```javascript
 // New approach - use the Extension API
 WPAdminHealth.extensions.registerWidget('dashboard-bottom', {
-    id: 'my-custom-metric',
-    render: (container) => {
-        // Either manipulate DOM directly
-        container.innerHTML = '<div class="wpha-metric-card">...</div>';
+	id: 'my-custom-metric',
+	render: (container) => {
+		// Either manipulate DOM directly
+		container.innerHTML = '<div class="wpha-metric-card">...</div>';
 
-        // Or return your own React element if you bundle React
-        // return React.createElement(MyCustomComponent, props);
-    }
+		// Or return your own React element if you bundle React
+		// return React.createElement(MyCustomComponent, props);
+	},
 });
 ```
 
@@ -1043,6 +1058,7 @@ Fires after admin initialization is complete. This hook fires after the admin me
 **Parameters:** None
 
 **Note:** As of version 1.4.0, the admin system has been refactored into separate services:
+
 - `MenuRegistrar` - handles WordPress admin menu registration
 - `PageRenderer` - handles template rendering
 - `SettingsViewModel` - provides settings data to templates
@@ -1057,6 +1073,470 @@ add_action( 'wpha_admin_init', 'my_admin_customizations' );
 function my_admin_customizations() {
     // Add custom admin functionality after WPHA admin is ready
     add_action( 'admin_notices', 'my_custom_admin_notice' );
+}
+```
+
+---
+
+## Observability Hooks
+
+The observability hooks provide insight into lock contention and rate-limiting events. These hooks are essential for diagnosing performance issues in high-concurrency environments.
+
+> **Note:** Events are only logged when debug mode is enabled (via settings, `WPHA_DEBUG` constant, or `WP_DEBUG` with `WP_DEBUG_LOG`). This prevents performance overhead in production while enabling detailed diagnostics during troubleshooting.
+
+### `wpha_lock_acquired`
+
+Fires when a lock is successfully acquired for task execution or rate limiting.
+
+**Type:** Action
+**Location:** `includes/Scheduler/SchedulerRegistry.php`, `includes/REST/RestController.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$lock_name` (string) - Lock identifier (task ID or lock key)
+- `$context` (array) - Context including:
+    - `method` (string) - Lock acquisition method (`mysql_advisory`, `option_fallback`, `stale_recovery`)
+
+**Example:**
+
+```php
+add_action( 'wpha_lock_acquired', 'monitor_lock_acquisition', 10, 2 );
+
+function monitor_lock_acquisition( $lock_name, $context ) {
+    // Track lock acquisition for monitoring
+    if ( $context['method'] === 'stale_recovery' ) {
+        error_log( sprintf( 'Lock %s acquired via stale recovery', $lock_name ) );
+    }
+}
+```
+
+---
+
+### `wpha_lock_contention`
+
+Fires when lock contention is detected (another process holds the lock).
+
+**Type:** Action
+**Location:** `includes/Scheduler/SchedulerRegistry.php`, `includes/REST/RestController.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$lock_name` (string) - Lock identifier
+- `$context` (array) - Context including:
+    - `attempts` (int) - Number of lock acquisition attempts
+    - `method` (string) - Lock method being used (`mysql_advisory`, `option_fallback`, `rate_limit_transient`)
+
+**Example:**
+
+```php
+add_action( 'wpha_lock_contention', 'alert_on_contention', 10, 2 );
+
+function alert_on_contention( $lock_name, $context ) {
+    if ( $context['attempts'] > 3 ) {
+        // High contention detected - consider increasing lock timeout
+        // or reviewing task scheduling configuration
+        error_log( sprintf(
+            'High lock contention on %s (%d attempts, method: %s)',
+            $lock_name,
+            $context['attempts'],
+            $context['method']
+        ) );
+    }
+}
+```
+
+---
+
+### `wpha_lock_released`
+
+Fires when a lock is released after task completion.
+
+**Type:** Action
+**Location:** `includes/Scheduler/SchedulerRegistry.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$lock_name` (string) - Lock identifier (task ID)
+- `$context` (array) - Context including:
+    - `held_time` (int|null) - Duration in seconds the lock was held
+
+**Example:**
+
+```php
+add_action( 'wpha_lock_released', 'track_lock_duration', 10, 2 );
+
+function track_lock_duration( $lock_name, $context ) {
+    if ( isset( $context['held_time'] ) && $context['held_time'] > 60 ) {
+        // Task held lock for over a minute - may need optimization
+        error_log( sprintf(
+            'Task %s held lock for %d seconds',
+            $lock_name,
+            $context['held_time']
+        ) );
+    }
+}
+```
+
+---
+
+### `wpha_lock_timeout`
+
+Fires when all lock acquisition attempts are exhausted.
+
+**Type:** Action
+**Location:** `includes/REST/RestController.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$lock_name` (string) - Lock identifier
+- `$context` (array) - Context including:
+    - `max_attempts` (int) - Maximum number of attempts made
+
+**Example:**
+
+```php
+add_action( 'wpha_lock_timeout', 'handle_lock_timeout', 10, 2 );
+
+function handle_lock_timeout( $lock_name, $context ) {
+    // Log timeout for investigation
+    error_log( sprintf(
+        'Lock timeout on %s after %d attempts',
+        $lock_name,
+        $context['max_attempts']
+    ) );
+
+    // Optionally notify admin
+    if ( function_exists( 'wp_mail' ) ) {
+        wp_mail(
+            get_option( 'admin_email' ),
+            'WPHA Lock Timeout',
+            sprintf( 'Lock %s timed out after %d attempts', $lock_name, $context['max_attempts'] )
+        );
+    }
+}
+```
+
+---
+
+### `wpha_lock_stale_recovery`
+
+Fires when a stale lock is detected and being recovered.
+
+**Type:** Action
+**Location:** `includes/Scheduler/SchedulerRegistry.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$lock_name` (string) - Lock identifier
+- `$context` (array) - Context including:
+    - `age` (int) - Age of the stale lock in seconds
+
+**Example:**
+
+```php
+add_action( 'wpha_lock_stale_recovery', 'log_stale_lock', 10, 2 );
+
+function log_stale_lock( $lock_name, $context ) {
+    // Stale locks indicate interrupted processes
+    error_log( sprintf(
+        'Recovering stale lock for %s (age: %d seconds)',
+        $lock_name,
+        $context['age']
+    ) );
+}
+```
+
+---
+
+### `wpha_rate_limit_hit`
+
+Fires when a rate limit is incremented. Only fires when approaching the limit (80%+) to minimize overhead.
+
+**Type:** Action
+**Location:** `includes/REST/RestController.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$user_id` (int) - Current user ID
+- `$count` (int) - Current request count in the window
+- `$limit` (int) - Rate limit threshold
+
+**Example:**
+
+```php
+add_action( 'wpha_rate_limit_hit', 'warn_approaching_limit', 10, 3 );
+
+function warn_approaching_limit( $user_id, $count, $limit ) {
+    // Only fires when count >= 80% of limit
+    $percentage = ( $count / $limit ) * 100;
+    error_log( sprintf(
+        'User %d at %.1f%% of rate limit (%d/%d)',
+        $user_id,
+        $percentage,
+        $count,
+        $limit
+    ) );
+}
+```
+
+---
+
+### `wpha_rate_limit_exceeded`
+
+Fires when a user exceeds their rate limit and the request is rejected.
+
+**Type:** Action
+**Location:** `includes/REST/RestController.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$user_id` (int) - Current user ID
+- `$count` (int) - Request count that exceeded the limit
+- `$limit` (int) - Rate limit threshold
+
+**Example:**
+
+```php
+add_action( 'wpha_rate_limit_exceeded', 'log_rate_limit_violation', 10, 3 );
+
+function log_rate_limit_violation( $user_id, $count, $limit ) {
+    $user = get_userdata( $user_id );
+    error_log( sprintf(
+        'Rate limit exceeded for user %s (ID: %d) - %d requests (limit: %d)',
+        $user ? $user->user_login : 'unknown',
+        $user_id,
+        $count,
+        $limit
+    ) );
+}
+```
+
+---
+
+### `wpha_rate_limit_unavailable`
+
+Fires when the rate limiter is unavailable (lock acquisition failed).
+
+**Type:** Action
+**Location:** `includes/REST/RestController.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$user_id` (int) - Current user ID
+- `$context` (array) - Context including:
+    - `reason` (string) - Reason for unavailability (e.g., `lock_failure`)
+
+**Example:**
+
+```php
+add_action( 'wpha_rate_limit_unavailable', 'handle_rate_limiter_failure', 10, 2 );
+
+function handle_rate_limiter_failure( $user_id, $context ) {
+    // This indicates potential database or concurrency issues
+    error_log( sprintf(
+        'Rate limiter unavailable for user %d: %s',
+        $user_id,
+        $context['reason']
+    ) );
+}
+```
+
+---
+
+### `wpha_observability_event`
+
+Generic hook fired for all observability events. Use this for centralized logging or external monitoring integration.
+
+**Type:** Action
+**Location:** `includes/Services/ObservabilityEventLogger.php`
+**Since:** 1.8.0
+
+**Parameters:**
+
+- `$event_type` (string) - Event type identifier (e.g., `lock_contention`, `rate_limit_exceeded`)
+- `$level` (string) - Log level (`debug`, `info`, `warning`, `error`)
+- `$data` (array) - Sanitized event data (never contains sensitive information)
+
+**Example:**
+
+```php
+add_action( 'wpha_observability_event', 'send_to_monitoring', 10, 3 );
+
+function send_to_monitoring( $event_type, $level, $data ) {
+    // Send to external monitoring service
+    wp_remote_post( 'https://monitoring.example.com/api/events', array(
+        'body' => wp_json_encode( array(
+            'source' => 'wp-admin-health-suite',
+            'event'  => $event_type,
+            'level'  => $level,
+            'data'   => $data,
+            'time'   => gmdate( 'c' ),
+        ) ),
+        'headers' => array( 'Content-Type' => 'application/json' ),
+    ) );
+}
+```
+
+---
+
+## Diagnosing Lock Contention & Rate Limiting
+
+This section provides guidance on diagnosing and resolving lock contention and rate limiting issues.
+
+### Enabling Observability Logging
+
+Observability events are only logged when debug mode is enabled. Enable logging using one of these methods:
+
+1. **Via Settings:** Enable "Debug Mode" in the plugin settings.
+
+2. **Via Constant:** Add to `wp-config.php`:
+
+    ```php
+    define( 'WPHA_DEBUG', true );
+    ```
+
+3. **Via WP_DEBUG:** Enable WordPress debug logging:
+    ```php
+    define( 'WP_DEBUG', true );
+    define( 'WP_DEBUG_LOG', true );
+    ```
+
+### Reading the Logs
+
+Events are logged to the WordPress debug log (typically `wp-content/debug.log`). Look for entries with the prefix `[WP Admin Health]`:
+
+```
+[WP Admin Health] [WARNING] lock_contention: {"lock_name":"database_cleanup","attempts":3,"method":"mysql_advisory"}
+[WP Admin Health] [WARNING] rate_limit_exceeded: {"user_id":1,"count":61,"limit":60}
+```
+
+### Common Issues and Solutions
+
+#### High Lock Contention
+
+**Symptoms:**
+
+- Multiple `wpha_lock_contention` events in the log
+- Tasks reporting "Task is already running" errors
+- Stale lock recovery events
+
+**Causes:**
+
+1. Tasks running longer than expected
+2. Overlapping scheduled task execution times
+3. Manual task triggers during scheduled runs
+
+**Solutions:**
+
+1. **Increase time budgets:** Adjust the task's `max_execution_time` setting.
+2. **Stagger schedules:** Ensure tasks don't overlap by spacing their execution times.
+3. **Review task scope:** Break large tasks into smaller chunks.
+4. **Check for slow queries:** Use the performance insights to identify bottlenecks.
+
+#### Stale Locks
+
+**Symptoms:**
+
+- `wpha_lock_stale_recovery` events with high `age` values
+- Tasks not completing successfully
+
+**Causes:**
+
+1. PHP fatal errors during task execution
+2. Server timeouts or restarts
+3. Memory limit exhaustion
+
+**Solutions:**
+
+1. **Check error logs:** Look for PHP fatal errors around the time of the stale lock.
+2. **Increase memory limits:** Adjust `WP_MEMORY_LIMIT` if memory is the issue.
+3. **Review task complexity:** Simplify tasks that consistently fail.
+
+#### Rate Limiting Issues
+
+**Symptoms:**
+
+- `wpha_rate_limit_exceeded` events
+- HTTP 429 responses from the REST API
+- `wpha_rate_limit_unavailable` events
+
+**Causes:**
+
+1. Automated scripts making too many requests
+2. Multiple browser tabs open
+3. Third-party integrations polling the API
+4. Rate limit set too low for legitimate usage
+
+**Solutions:**
+
+1. **Adjust rate limit:** Increase the rate limit in settings if legitimate.
+2. **Optimize client code:** Batch API requests where possible.
+3. **Use caching:** Cache API responses to reduce request frequency.
+4. **Review integrations:** Identify third-party tools making excessive requests.
+
+### Monitoring Best Practices
+
+1. **Set up alerts:** Use the `wpha_observability_event` hook to send events to your monitoring system.
+
+2. **Track patterns:** Look for recurring contention at specific times.
+
+3. **Baseline metrics:** Establish normal behavior before investigating anomalies.
+
+4. **Review periodically:** Check logs after major site changes or traffic spikes.
+
+### Example Monitoring Setup
+
+```php
+/**
+ * Custom monitoring integration for observability events
+ */
+add_action( 'wpha_observability_event', 'custom_monitoring_handler', 10, 3 );
+
+function custom_monitoring_handler( $event_type, $level, $data ) {
+    // Only alert on warnings and errors
+    if ( ! in_array( $level, array( 'warning', 'error' ), true ) ) {
+        return;
+    }
+
+    // Track metrics (example using custom options)
+    $metrics_key = 'wpha_observability_metrics';
+    $metrics = get_option( $metrics_key, array() );
+
+    $today = gmdate( 'Y-m-d' );
+    if ( ! isset( $metrics[ $today ] ) ) {
+        $metrics[ $today ] = array();
+    }
+    if ( ! isset( $metrics[ $today ][ $event_type ] ) ) {
+        $metrics[ $today ][ $event_type ] = 0;
+    }
+    $metrics[ $today ][ $event_type ]++;
+
+    // Keep only last 7 days
+    $metrics = array_slice( $metrics, -7, 7, true );
+    update_option( $metrics_key, $metrics );
+
+    // Alert if threshold exceeded
+    if ( $metrics[ $today ][ $event_type ] > 100 ) {
+        // Send alert to admin
+        wp_mail(
+            get_option( 'admin_email' ),
+            sprintf( 'WPHA Alert: High %s count', $event_type ),
+            sprintf(
+                "Event type: %s\nCount today: %d\nLatest data: %s",
+                $event_type,
+                $metrics[ $today ][ $event_type ],
+                wp_json_encode( $data )
+            )
+        );
+    }
 }
 ```
 
@@ -1388,7 +1868,8 @@ For questions about extending WP Admin Health Suite:
 **Plugin Version Compatibility:** 1.0.0+
 
 **Version Notes:**
+
 - **1.3.0:** Deprecated `wpha_rest_api_init`, `wpha_register_rest_routes`, and `wpha_database_init` hooks
 - **1.4.0:** Admin system refactored - `wpha_admin_init` now fires from `BootstrapServiceProvider`
 - **1.5.0:** Added `SettingsViewModel` for template data injection
-- **1.8.0:** Added task observability hooks (`wpha_task_started`, `wpha_task_completed`, `wpha_task_interrupted`, `wpha_task_failed`, `wpha_activity_log_pruned`)
+- **1.8.0:** Added task observability hooks (`wpha_task_started`, `wpha_task_completed`, `wpha_task_interrupted`, `wpha_task_failed`, `wpha_activity_log_pruned`) and lock/rate-limit observability hooks (`wpha_lock_acquired`, `wpha_lock_contention`, `wpha_lock_released`, `wpha_lock_timeout`, `wpha_lock_stale_recovery`, `wpha_rate_limit_hit`, `wpha_rate_limit_exceeded`, `wpha_rate_limit_unavailable`, `wpha_observability_event`)

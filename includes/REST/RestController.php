@@ -418,6 +418,7 @@ class RestController extends WP_REST_Controller {
 	 */
 	private function check_rate_limit_with_cache( string $cache_key, int $rate_limit ) {
 		$cache_group = 'wpha_rate_limits';
+		$user_id     = get_current_user_id();
 
 		// Try to increment atomically. Returns false if key doesn't exist.
 		$count = wp_cache_incr( $cache_key, 1, $cache_group );
@@ -428,7 +429,23 @@ class RestController extends WP_REST_Controller {
 			return true;
 		}
 
+		// Fire observability event for rate limit tracking.
+		$this->fire_rate_limit_hit_event( $user_id, $count, $rate_limit );
+
 		if ( $count > $rate_limit ) {
+			/**
+			 * Fires when rate limit is exceeded.
+			 *
+			 * @since 1.8.0
+			 *
+			 * @hook wpha_rate_limit_exceeded
+			 *
+			 * @param int $user_id Current user ID.
+			 * @param int $count   Current request count.
+			 * @param int $limit   Rate limit threshold.
+			 */
+			do_action( 'wpha_rate_limit_exceeded', $user_id, $count, $rate_limit );
+
 			return new WP_Error(
 				'rest_rate_limit_exceeded',
 				sprintf(
@@ -470,10 +487,64 @@ class RestController extends WP_REST_Controller {
 			if ( ! $lock_acquired ) {
 				usleep( 50000 ); // Wait 50ms before retry.
 				$attempts++;
+
+				// Fire lock contention event when retrying.
+				if ( $attempts > 1 ) {
+					/**
+					 * Fires when lock contention is detected during rate limiting.
+					 *
+					 * @since 1.8.0
+					 *
+					 * @hook wpha_lock_contention
+					 *
+					 * @param string $lock_name Lock identifier.
+					 * @param array  $context   Context including attempts and method.
+					 */
+					do_action(
+						'wpha_lock_contention',
+						$lock_key,
+						array(
+							'attempts' => $attempts,
+							'method'   => 'rate_limit_transient',
+						)
+					);
+				}
 			}
 		}
 
 		if ( ! $lock_acquired ) {
+			/**
+			 * Fires when rate limiter lock times out.
+			 *
+			 * @since 1.8.0
+			 *
+			 * @hook wpha_lock_timeout
+			 *
+			 * @param string $lock_name Lock identifier.
+			 * @param array  $context   Context including max attempts.
+			 */
+			do_action(
+				'wpha_lock_timeout',
+				$lock_key,
+				array( 'max_attempts' => $max_attempts )
+			);
+
+			/**
+			 * Fires when rate limiter is unavailable due to lock failure.
+			 *
+			 * @since 1.8.0
+			 *
+			 * @hook wpha_rate_limit_unavailable
+			 *
+			 * @param int   $user_id Current user ID.
+			 * @param array $context Context including reason.
+			 */
+			do_action(
+				'wpha_rate_limit_unavailable',
+				$user_id,
+				array( 'reason' => 'lock_failure' )
+			);
+
 			// Security: Fail closed - deny request when rate limiter is unavailable.
 			// This prevents attackers from bypassing rate limits via lock flooding.
 			return new WP_Error(
@@ -491,7 +562,25 @@ class RestController extends WP_REST_Controller {
 				return true;
 			}
 
+			$new_count = $requests + 1;
+
+			// Fire observability event for rate limit tracking.
+			$this->fire_rate_limit_hit_event( $user_id, $new_count, $rate_limit );
+
 			if ( $requests >= $rate_limit ) {
+				/**
+				 * Fires when rate limit is exceeded.
+				 *
+				 * @since 1.8.0
+				 *
+				 * @hook wpha_rate_limit_exceeded
+				 *
+				 * @param int $user_id Current user ID.
+				 * @param int $count   Current request count.
+				 * @param int $limit   Rate limit threshold.
+				 */
+				do_action( 'wpha_rate_limit_exceeded', $user_id, $new_count, $rate_limit );
+
 				return new WP_Error(
 					'rest_rate_limit_exceeded',
 					sprintf(
@@ -503,7 +592,7 @@ class RestController extends WP_REST_Controller {
 				);
 			}
 
-			set_transient( $cache_key, $requests + 1, MINUTE_IN_SECONDS );
+			set_transient( $cache_key, $new_count, MINUTE_IN_SECONDS );
 			return true;
 		} finally {
 			// Always release lock.
@@ -558,6 +647,36 @@ class RestController extends WP_REST_Controller {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Fire rate limit hit observability event.
+	 *
+	 * Only fires the event when approaching the limit (80% threshold)
+	 * to avoid excessive logging on every request.
+	 *
+	 * @since 1.8.0
+	 *
+	 * @param int $user_id    Current user ID.
+	 * @param int $count      Current request count.
+	 * @param int $rate_limit Rate limit threshold.
+	 * @return void
+	 */
+	private function fire_rate_limit_hit_event( int $user_id, int $count, int $rate_limit ): void {
+		/**
+		 * Fires when rate limit is incremented.
+		 *
+		 * Only fires when approaching the limit (80%+) to minimize overhead.
+		 *
+		 * @since 1.8.0
+		 *
+		 * @hook wpha_rate_limit_hit
+		 *
+		 * @param int $user_id Current user ID.
+		 * @param int $count   Current request count.
+		 * @param int $limit   Rate limit threshold.
+		 */
+		do_action( 'wpha_rate_limit_hit', $user_id, $count, $rate_limit );
 	}
 
 	/**

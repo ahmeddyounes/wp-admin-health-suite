@@ -18,6 +18,7 @@ use WPAdminHealth\Contracts\SettingsInterface;
 use WPAdminHealth\Services\ConfigurationService;
 use WPAdminHealth\Services\ActivityLogger;
 use WPAdminHealth\Services\TableChecker;
+use WPAdminHealth\Services\ObservabilityEventLogger;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -43,9 +44,11 @@ class ServicesServiceProvider extends ServiceProvider {
 		ConfigurationInterface::class,
 		ActivityLoggerInterface::class,
 		TableCheckerInterface::class,
+		ObservabilityEventLogger::class,
 		'config',
 		'activity_logger',
 		'table_checker',
+		'observability_logger',
 	);
 
 	/**
@@ -83,12 +86,26 @@ class ServicesServiceProvider extends ServiceProvider {
 			}
 		);
 		$this->container->alias( 'table_checker', TableCheckerInterface::class );
+
+		// Register Observability Event Logger as singleton.
+		$this->container->singleton(
+			ObservabilityEventLogger::class,
+			function ( $container ) {
+				$settings = $container->has( SettingsInterface::class )
+					? $container->get( SettingsInterface::class )
+					: null;
+				return new ObservabilityEventLogger( $settings );
+			}
+		);
+		$this->container->alias( 'observability_logger', ObservabilityEventLogger::class );
 	}
 
 	/**
 	 * {@inheritdoc}
 	 */
 	public function boot(): void {
-		// Foundation services don't need bootstrapping.
+		// Register observability event logger hooks.
+		$observability_logger = $this->container->get( ObservabilityEventLogger::class );
+		$observability_logger->register();
 	}
 }
